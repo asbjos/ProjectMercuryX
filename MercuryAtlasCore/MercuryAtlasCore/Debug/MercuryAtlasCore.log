@@ -1,0 +1,18 @@
+﻿  Mercury_AtlasCore.cpp
+C:\Orbiter2016\Orbitersdk\include\OrbiterAPI.h(7227,46): error C2440: 'return': cannot convert from 'const char [12]' to 'char *'
+C:\Orbiter2016\Orbitersdk\include\OrbiterAPI.h(7227,38): message : Conversion from string literal loses const qualifier (see /Zc:strictStrings)
+C:\Orbiter2016\Orbitersdk\samples\Experiments\ShuttlePBforReal\ShuttlePBforReal\MercuryAtlasCore\MercuryAtlasCore\Mercury_AtlasCore.cpp(63,5): error C2664: 'bool oapiReadItem_float(FILEHANDLE,char *,double &)': cannot convert argument 2 from 'const char [17]' to 'char *'
+C:\Orbiter2016\Orbitersdk\samples\Experiments\ShuttlePBforReal\ShuttlePBforReal\MercuryAtlasCore\MercuryAtlasCore\Mercury_AtlasCore.cpp(63,31): message : Conversion from string literal loses const qualifier (see /Zc:strictStrings)
+C:\Orbiter2016\Orbitersdk\include\OrbiterAPI.h(6070,15): message : see declaration of 'oapiReadItem_float'
+C:\Orbiter2016\Orbitersdk\samples\Experiments\ShuttlePBforReal\ShuttlePBforReal\MercuryAtlasCore\MercuryAtlasCore\Mercury_AtlasCore.cpp(66,48): error C2664: 'void oapiWriteLog(char *)': cannot convert argument 1 from 'const char [31]' to 'char *'
+C:\Orbiter2016\Orbitersdk\samples\Experiments\ShuttlePBforReal\ShuttlePBforReal\MercuryAtlasCore\MercuryAtlasCore\Mercury_AtlasCore.cpp(66,16): message : Conversion from string literal loses const qualifier (see /Zc:strictStrings)
+C:\Orbiter2016\Orbitersdk\include\OrbiterAPI.h(5990,15): message : see declaration of 'oapiWriteLog'
+C:\Orbiter2016\Orbitersdk\samples\Experiments\ShuttlePBforReal\ShuttlePBforReal\MercuryAtlasCore\MercuryAtlasCore\Mercury_AtlasCore.cpp(170,60): error C2664: 'void oapiWriteLog(char *)': cannot convert argument 1 from 'const char [41]' to 'char *'
+C:\Orbiter2016\Orbitersdk\samples\Experiments\ShuttlePBforReal\ShuttlePBforReal\MercuryAtlasCore\MercuryAtlasCore\Mercury_AtlasCore.cpp(170,18): message : Conversion from string literal loses const qualifier (see /Zc:strictStrings)
+C:\Orbiter2016\Orbitersdk\include\OrbiterAPI.h(5990,15): message : see declaration of 'oapiWriteLog'
+C:\Orbiter2016\Orbitersdk\samples\Experiments\ShuttlePBforReal\ShuttlePBforReal\MercuryAtlasCore\MercuryAtlasCore\Mercury_AtlasCore.cpp(176,46): error C2664: 'void oapiWriteLog(char *)': cannot convert argument 1 from 'const char [27]' to 'char *'
+C:\Orbiter2016\Orbitersdk\samples\Experiments\ShuttlePBforReal\ShuttlePBforReal\MercuryAtlasCore\MercuryAtlasCore\Mercury_AtlasCore.cpp(176,18): message : Conversion from string literal loses const qualifier (see /Zc:strictStrings)
+C:\Orbiter2016\Orbitersdk\include\OrbiterAPI.h(5990,15): message : see declaration of 'oapiWriteLog'
+C:\Orbiter2016\Orbitersdk\samples\Experiments\ShuttlePBforReal\ShuttlePBforReal\MercuryAtlasCore\MercuryAtlasCore\Mercury_AtlasCore.cpp(182,43): error C2664: 'void oapiWriteLog(char *)': cannot convert argument 1 from 'const char [25]' to 'char *'
+C:\Orbiter2016\Orbitersdk\samples\Experiments\ShuttlePBforReal\ShuttlePBforReal\MercuryAtlasCore\MercuryAtlasCore\Mercury_AtlasCore.cpp(182,17): message : Conversion from string literal loses const qualifier (see /Zc:strictStrings)
+C:\Orbiter2016\Orbitersdk\include\OrbiterAPI.h(5990,15): message : see declaration of 'oapiWriteLog'
