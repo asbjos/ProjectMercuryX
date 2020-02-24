@@ -30,3 +30,11 @@
 *.exe
 *.out
 *.app
+
+# Other unnecessary stuff:
+*.suo
+*.db
+*.log
+*.tlog
+*.pdb
+*.ipch
