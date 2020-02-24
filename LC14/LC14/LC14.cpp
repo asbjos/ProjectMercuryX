@@ -263,9 +263,15 @@ void MercuryLC14::clbkPreStep(double simt, double simdt, double mjd)
 				oapiWriteLog("Failed to release.");
 		}
 
-		if (distance > 50.0) // start decreasing level
+		double fadeHeight = 50.0;
+		double cutoffHeight = 100.0;
+		if (distance > fadeHeight && distance < cutoffHeight) // start decreasing level
 		{
-			exhaustLevel -= 1 - distance / (100.0 - 50.0); // half level at 100 m, 0 level at 100
+			exhaustLevel = pow(1.0 - fadeHeight / (fadeHeight - cutoffHeight) + distance / (fadeHeight - cutoffHeight), 2.0); // increasing with square of distance for more realistic decrase
+		}
+		else if (distance > cutoffHeight)
+		{
+			exhaustLevel = 0.0;
 		}
 	}
 	else

@@ -169,8 +169,6 @@ void MercuryAbort::clbkSetClassCaps(FILEHANDLE cfg)
 
 void MercuryAbort::clbkPostCreation()
 {
-	// oapiWriteLogV("Escape fuel %.3f, jettison fuel %.3f", GetPropellantMass(escape_tank) / GetPropellantMaxMass(escape_tank), GetPropellantMass(main_tank) / GetPropellantMaxMass(main_tank));
-
 	if (GetPropellantMass(escape_tank) == 0.0)
 	{
 		oapiWriteLog("Firing tower jett (we have aborted)");

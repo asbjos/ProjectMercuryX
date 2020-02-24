@@ -266,8 +266,6 @@ void Mercury_AtlasCore::clbkPostStep(double simt, double simdt, double mjd)
 		char* name = GetName(); // Our full name
 		char parentName[256];
 		sprintf(parentName, "%.*s", strlen(name) - 11, name); // " Atlas core" has length 11
-		oapiWriteLog(name); // debug
-		oapiWriteLog(parentName); // debug
 
 		double MERCURY_LENGTH_CAPSULE = 2.3042;
 		double MERCURY_LENGTH_ABORT = 5.1604;
@@ -284,7 +282,6 @@ void Mercury_AtlasCore::clbkPostStep(double simt, double simdt, double mjd)
 			else
 			{
 				oapiWriteLog("No abort. Regular staging.");
-				oapiWriteLogV("Size is: %.2f", oapiGetSize(parent)); // debug
 			}
 		}
 		else

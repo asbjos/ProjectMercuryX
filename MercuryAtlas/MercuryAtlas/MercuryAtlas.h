@@ -175,8 +175,8 @@ const double aimPitchover[12] = { 0.0, 0.98, 0.76, 0.64, 0.72, 0.72, 0.50, 0.280
 const double retroTimes[31] = { 17 * 60 + 50, 32 * 60 + 12, 50 * 60 + 24, 1 * 3600 + 15 * 60 + 42, 1 * 3600 + 28 * 60 + 50, 1 * 3600 + 36 * 60 + 38, 1 * 3600 + 50 * 60, 2 * 3600 + 5 * 60 + 59, 2 * 3600 + 38 * 60 + 31, 2 * 3600 + 48 * 60 + 59, 3 * 3600 + 39, 3 * 3600 + 11 * 60 + 26, 3 * 3600 + 22 * 60 + 32, 3 * 3600 + 40 * 60 + 18, 4 * 3600 + 12 * 60 + 32, 4 * 3600 + 22 * 60 + 12, 4 * 3600 + 32 * 60 + 37, 5 * 3600 + 44 * 60 + 5,	7 * 3600 + 18 * 60 + 10, 8 * 3600 + 51 * 60 + 28, 10 * 3600 + 23 * 60 + 37, 11 * 3600 + 56 * 60 + 24, 13 * 3600 + 19 * 60 + 20, 23 * 3600 + 31 * 60 + 3, 26 * 3600 + 14 * 60 + 48, 26 * 3600 + 34 * 60 + 48, 26 * 3600 + 58 * 60 + 50, 27 * 3600 + 43 * 60 + 48, 28 * 3600 + 31 * 60 + 24, 30 * 3600 + 53 * 60 + 1, 33 * 3600 + 59 * 60 + 24 };
 const char retroNames[][256] = { "1Bravo",	"1Charlie",		"1Delta",	"1Echo",				"Foxtrot",					"2Alpha",				"2Bravo",			"2Charlie",				"2Delta",					"2Echo",				"Golf",			"3Alpha",				"3Bravo",				"3Charlie",				"3Delta",					"3Echo",				"Hotel",				"4-2",					"5-1",					"6-1",					"7-1",						"8-1",					"9-1",						"16-1",					"17Bravo",					"18-1",					"18Alpha",					"18-2",					"19Bravo",					"20-1",					"22-1" };
 
-//const double METp[47] = { 0.00 , 15.0 , 18.0 , 21.0 , 24.0 , 27.0 , 30.0 , 33.0 , 36.0 , 39.0 , 42.0 , 45.0 , 48.0 , 51.0 , 54.0 , 57.0 , 60.0 , 63.0 , 66.0 , 69.0 , 72.0 , 75.0 , 78.0 , 81.0 , 84.0 , 87.0 , 90.0 , 93.0 , 96.0 , 99.0 , 102.0 , 105.0 , 108.0 , 111.0 , 114.0 , 117.0 , 120.0 , 123.0 , 126.0 , 129.0 , 132.0 , 135.0 , 138.0 , 141.0 , 144.0 , 147.0, 150.0 };
-//const double pitchP[47] = { 90.00 , 90.00 , 87.35 , 83.82 , 80.67 , 77.77 , 75.25 , 72.98 , 70.84 , 69.20 , 67.31 , 65.42 , 63.53 , 61.64 , 59.75 , 57.98 , 56.09 , 54.20 , 52.18 , 50.04 , 47.90 , 45.88 , 43.74 , 41.72 , 39.83 , 38.07 , 36.30 , 34.66 , 33.28 , 32.01 , 31.01 , 30.00 , 29.24 , 28.36 , 27.73 , 26.85 , 26.22 , 25.59 , 25.08 , 24.58 , 24.20 , 23.82 , 19.03 , 13.11 , 7.18 , 1.26 , -4.29 };
+const double METp[47] = { 0.00 , 15.0 , 18.0 , 21.0 , 24.0 , 27.0 , 30.0 , 33.0 , 36.0 , 39.0 , 42.0 , 45.0 , 48.0 , 51.0 , 54.0 , 57.0 , 60.0 , 63.0 , 66.0 , 69.0 , 72.0 , 75.0 , 78.0 , 81.0 , 84.0 , 87.0 , 90.0 , 93.0 , 96.0 , 99.0 , 102.0 , 105.0 , 108.0 , 111.0 , 114.0 , 117.0 , 120.0 , 123.0 , 126.0 , 129.0 , 132.0 , 135.0 , 138.0 , 141.0 , 144.0 , 147.0, 150.0 };
+const double pitchP[47] = { 90.00 , 90.00 , 87.35 , 83.82 , 80.67 , 77.77 , 75.25 , 72.98 , 70.84 , 69.20 , 67.31 , 65.42 , 63.53 , 61.64 , 59.75 , 57.98 , 56.09 , 54.20 , 52.18 , 50.04 , 47.90 , 45.88 , 43.74 , 41.72 , 39.83 , 38.07 , 36.30 , 34.66 , 33.28 , 32.01 , 31.01 , 30.00 , 29.24 , 28.36 , 27.73 , 26.85 , 26.22 , 25.59 , 25.08 , 24.58 , 24.20 , 23.82 , 19.03 , 13.11 , 7.18 , 1.26 , -4.29 };
 
 class ProjectMercury : public VESSEL4 {
 public:
@@ -191,10 +191,12 @@ public:
 	void clbkLoadStateEx(FILEHANDLE scn, void* status);
 	void clbkSaveState(FILEHANDLE scn);
 
-	bool SetTargetBaseIdx(char *rstr);
+	bool SetTargetBaseIdx(char *rstr, bool launch);
+	bool SetNumberOfOrbits(char* rstr);
 
 	void AtlasAutopilot(double simt, double simdt);
 	double OrbitalFrameSlipAngle(VECTOR3 pos, VECTOR3 vel);
+	double OrbitalFrameSlipAngle2(VECTOR3 pos, VECTOR3 vel);
 	double AtlasPitchControl(void);
 	double AtlasTargetCutOffAzimuth(double simt, double ri, double longI, double latI, bool realData);
 	double EccentricAnomaly(double ecc, double TrA);
@@ -315,9 +317,12 @@ private:
 	double targetApogee = 0.0;
 	double targetPerigee = 161.05e3;
 	double targetInclination = 32.55;
+	double holdDownTime = 3.0;
+	double becoTime = 128.6;
 	bool inclinationTarget = false;
 
 	MESHHANDLE atlas,
+		atlasIce, atlasIce2, atlasIce3,
 		atlasBooster,
 		atlasAdapter,
 		capsule,
@@ -343,6 +348,7 @@ private:
 		landingbag; // mesh handles
 
 	UINT Atlas; // rocket mesh
+	UINT AtlasIce, AtlasIce2, AtlasIce3;
 	UINT AtlasBooster;
 	UINT AtlasAdapter;
 	UINT Capsule; // capsule mesh
@@ -465,7 +471,7 @@ private:
 	bool passedBase = false;
 	double oldAngle;
 	bool launchTargetPosition = true;
-	double lowGLat, lowGLong, lowGInc;
+	double lowGLat, lowGLong, lowGHeading;
 
 	double entryAng, entryAngleToBase;
 	VECTOR3 entryLoc, entryVel;
@@ -498,6 +504,7 @@ private:
 	double historyLaunchLong;
 	double historyLandLat;
 	double historyLandLong;
+	double historyLaunchHeading = 105.0;
 	double historyWeightlessTime = 0.0;
 	OBJHANDLE historyReference;
 
@@ -508,6 +515,7 @@ private:
 	enum landingbagstate { L_CLOSED, L_DEPLOYED, L_OPENING, L_OPENED } LandingBagStatus;
 	enum rcsstate { MANUAL, AUTOHIGH, AUTOLOW } RcsStatus;
 	enum autopilotstate { AUTOLAUNCH, POSIGRADEDAMP, TURNAROUND, PITCHHOLD, REENTRYATT, LOWG } AutopilotStatus;
+	enum icemesh { ICE0, ICE1, ICE2, ICE3 } AtlasIceStatus;
 
 	bool PMIcheck = false;
 	double PMItime = 0.0;

@@ -180,7 +180,6 @@ bool ProjectMercury::SetPitchAuto(double targetPitch, bool highThrust)
 
 	int autoMode;
 
-
 	if (abs(pitch) > 0.5 * RAD)
 	{
 		if (abs(pitch) > 10.0 * RAD)
@@ -482,112 +481,6 @@ bool ProjectMercury::SetRollAuto(bool highThrust)
 	}
 	return false;
 }
-
-//void ProjectMercury::TurnAroundAuto(double simt, double simdt) // not used currently (I believe?)
-//{
-//	VECTOR3 angVel;
-//	GetAngularVel(angVel);
-//	double yaw = GetSlipAngle();
-//	double autoVel = 0.0;
-//
-//	int autoMode;
-//
-//	if (abs(yaw) < 179.5 * RAD)
-//	{
-//		if (abs(yaw) < 170.0 * RAD)
-//		{
-//			autoVel = -10.0 * RAD;
-//		}
-//		else if (abs(yaw) < 175.0 * RAD)
-//		{
-//			autoVel = -5.0 * RAD;
-//		}
-//		else
-//		{
-//			autoVel = -0.5 * RAD;
-//		}
-//
-//		SetThrusterLevel(thruster_auto_py_1lb[2], 0.0); // RIGHT
-//		SetThrusterLevel(thruster_auto_py_1lb[3], 0.0); // LEFT
-//
-//		if (angVel.y > 0.0)
-//		{
-//			SetThrusterLevel(thruster_auto_py[2], 1.0);
-//			SetThrusterLevel(thruster_auto_py[3], 0.0);
-//			autoMode = 11;
-//		}
-//		else if (angVel.y < 0.0 && angVel.y > 0.90 * autoVel) // 0.95 factor to not get oscillation about autoVel
-//		{
-//			SetThrusterLevel(thruster_auto_py[2], 1.0);
-//			SetThrusterLevel(thruster_auto_py[3], 0.0);
-//			autoMode = 12;
-//		}
-//		else if (angVel.y < 0.0 && angVel.y < autoVel)
-//		{
-//			SetThrusterLevel(thruster_auto_py[2], 0.0);
-//			SetThrusterLevel(thruster_auto_py[3], 1.0);
-//			autoMode = 13;
-//		}
-//		else // coast
-//		{
-//			SetThrusterLevel(thruster_auto_py[2], 0.0);
-//			SetThrusterLevel(thruster_auto_py[3], 0.0);
-//			autoMode = 14;
-//		}
-//
-//		// eliminate x and z components too
-//		/*if (angVel.x > 0.009)
-//			SetThrusterLevel(thruster_auto_py[1], 1.0);
-//		else
-//			SetThrusterLevel(thruster_auto_py[1], 0.0);
-//
-//		if (angVel.x < -0.009)
-//			SetThrusterLevel(thruster_auto_py[0], 1.0);
-//		else
-//			SetThrusterLevel(thruster_auto_py[0], 0.0);
-//
-//		if (angVel.z > 0.009)
-//			SetThrusterLevel(thruster_auto_roll[0], 1.0);
-//		else
-//			SetThrusterLevel(thruster_auto_roll[0], 0.0);
-//
-//		if (angVel.z < -0.009)
-//			SetThrusterLevel(thruster_auto_roll[1], 1.0);
-//		else
-//			SetThrusterLevel(thruster_auto_roll[1], 0.0);*/
-//	}
-//	else
-//	{
-//		SetThrusterLevel(thruster_auto_py[0], 0.0);
-//		SetThrusterLevel(thruster_auto_py[1], 0.0);
-//		SetThrusterLevel(thruster_auto_py[2], 0.0);
-//		SetThrusterLevel(thruster_auto_py[3], 0.0);
-//		SetThrusterLevel(thruster_auto_roll[0], 0.0);
-//		SetThrusterLevel(thruster_auto_roll[1], 0.0);
-//
-//		if (angVel.y > 0.002)
-//		{
-//			SetThrusterLevel(thruster_auto_py_1lb[2], 1.0); // RIGHT
-//			SetThrusterLevel(thruster_auto_py_1lb[3], 0.0); // LEFT
-//			autoMode = 21;
-//		}
-//		else if (angVel.y < -0.002)
-//		{
-//			SetThrusterLevel(thruster_auto_py_1lb[2], 0.0); // RIGHT
-//			SetThrusterLevel(thruster_auto_py_1lb[3], 1.0); // LEFT
-//			autoMode = 22;
-//		}
-//		else
-//		{
-//			SetThrusterLevel(thruster_auto_py_1lb[2], 0.0); // RIGHT
-//			SetThrusterLevel(thruster_auto_py_1lb[3], 0.0); // LEFT
-//			autoMode = 23;
-//
-//			AutopilotStatus = PITCHHOLD;
-//		}
-//	}
-//	sprintf(oapiDebugString(), "auto Turnaround, yaw: %.2f. Mode %i. AngVel.y: %.4f (%.4f rad)", yaw * DEG, autoMode, angVel.y * DEG, angVel.y);
-//}
 
 void ProjectMercury::ReentryAttitudeAuto(double simt, double simdt)
 {
@@ -1871,10 +1764,16 @@ inline void ProjectMercury::CapsuleAutopilotControl(double simt, double simdt)
 				GetEquPos(lowGLong, lowGLat, radius);
 
 				entryAngleToBase = oapiOrthodome(lowGLong, lowGLat, missionLandLong * RAD, missionLandLat * RAD);
-				ELEMENTS el;
-				ORBITPARAM prm;
-				GetElements(GetSurfaceRef(), el, &prm, 0.0, FRAME_EQU);
-				lowGInc = el.i * DEG;
+
+				double heading;
+				oapiGetHeading(GetHandle(), &heading);
+				VECTOR3 pos, vel;
+				GetRelativePos(GetSurfaceRef(), pos);
+				GetRelativeVel(GetSurfaceRef(), vel);
+				double slip = OrbitalFrameSlipAngle2(pos, vel);
+				lowGHeading = heading - slip;
+				if (lowGHeading < 0.0) lowGHeading += PI2;
+				else if (lowGHeading > PI2) lowGHeading -= PI2;
 
 				char cbuf[256];
 				sprintf(cbuf, "0.05 G trigger at T+%.0f. Entry angle: %.3f deg. Entry velocity %.2f m/s. Altitude %.0f m. Angle to target base %.3f deg", simt - launchTime, entryAng, length(entryVel), length(entryLoc) - oapiGetSize(GetSurfaceRef()), entryAngleToBase * DEG);
@@ -1961,7 +1860,7 @@ inline void ProjectMercury::FlightReentryAbortControl(double simt, double simdt,
 		// Debug
 		std::ofstream outfile;
 		outfile.open("C:\\Orbiter2016\\MercuryEntryLog.txt", std::ios_base::app); // app = append
-		outfile << entryAng << " , " << length(entryVel) << " , " << (length(entryLoc) - oapiGetSize(GetSurfaceRef())) << " , " << (entryAngleToBase * DEG) << " , " << (angleCovered * DEG) << " , " << (lowGLat * DEG) << " , " << lowGInc << "\n";
+		outfile << entryAng << " , " << length(entryVel) << " , " << (length(entryLoc) - oapiGetSize(GetSurfaceRef())) << " , " << (entryAngleToBase * DEG) << " , " << (angleCovered * DEG) << " , " << (lowGLat * DEG) << " , " << (lowGHeading * DEG) << "\n";
 
 		separateDrogueCoverAction = true;
 		DeployDrogue();
@@ -1992,11 +1891,13 @@ inline void ProjectMercury::FlightReentryAbortControl(double simt, double simdt,
 	if (currentSpaceSpeed > historyMaxSpaceSpeed)
 		historyMaxSpaceSpeed = currentSpaceSpeed;
 
-	if (VesselStatus == LAUNCH && GroundContact())
+	if (VesselStatus == LAUNCH && GroundContact() && GetAttachmentStatus(padAttach) == NULL)
 	{
 		historyLaunchLong = longit;
 		historyLaunchLat = latit;
 		historyReference = GetSurfaceRef();
+		oapiGetHeading(GetHandle(), &historyLaunchHeading);
+		historyLaunchHeading *= DEG;
 	}
 
 	if (VesselStatus == REENTRYNODROGUE && GroundContact() && historyLandLong == 0.0)

@@ -31,6 +31,9 @@ ProjectMercury::ProjectMercury(OBJHANDLE hVessel, int flightmodel)
 	// capsule is defined in loadstate
 	atlasAdapter = oapiLoadMeshGlobal("ProjectMercury\\merc_atl_adapt");
 	atlas = oapiLoadMeshGlobal("ProjectMercury\\merc_atl_main");
+	atlasIce = oapiLoadMeshGlobal("ProjectMercury\\merc_atl_main_ice");
+	atlasIce2 = oapiLoadMeshGlobal("ProjectMercury\\merc_atl_main_ice2");
+	atlasIce3 = oapiLoadMeshGlobal("ProjectMercury\\merc_atl_main_ice3");
 	atlasBooster = oapiLoadMeshGlobal("ProjectMercury\\merc_atl_boost");
 	
 	MercuryGenericConstructor();
@@ -161,7 +164,8 @@ void ProjectMercury::clbkSetClassCaps(FILEHANDLE cfg)
 	//DefineRudderAnimations();
 
 	// associate a mesh for the visual
-	Atlas = AddMesh(atlas, &ATLAS_CORE_OFFSET);
+	AtlasIce = AddMesh(atlasIce, &ATLAS_CORE_OFFSET);
+	AtlasIceStatus = ICE3;
 	AtlasBooster = AddMesh(atlasBooster, &ATLAS_BOOSTER_OFFSET);
 	AtlasAdapter = AddMesh(atlasAdapter, &ATLAS_ADAPTER_OFFSET);
 	// capsule defined in LoadState
@@ -218,6 +222,9 @@ void ProjectMercury::clbkPostCreation()
 		DelThruster(th_vernier[1]);
 		DelPropellantResource(atlas_propellant);
 		DelMesh(Atlas);
+		DelMesh(AtlasIce);
+		DelMesh(AtlasIce2);
+		DelMesh(AtlasIce3);
 		DelMesh(AtlasAdapter);
 		DelMesh(AtlasBooster);
 		DelMesh(Adaptcover1);
@@ -250,6 +257,9 @@ void ProjectMercury::clbkPostCreation()
 		DelPropellantResource(retro_propellant[1]);
 		DelPropellantResource(retro_propellant[2]);
 		DelMesh(Atlas);
+		DelMesh(AtlasIce);
+		DelMesh(AtlasIce2);
+		DelMesh(AtlasIce3);
 		DelMesh(AtlasAdapter);
 		DelMesh(AtlasBooster);
 		DelMesh(Adaptcover1);
@@ -286,6 +296,9 @@ void ProjectMercury::clbkPostCreation()
 		DelPropellantResource(escape_tank);
 		DelMesh(Tower);
 		DelMesh(Atlas);
+		DelMesh(AtlasIce);
+		DelMesh(AtlasIce2);
+		DelMesh(AtlasIce3);
 		DelMesh(AtlasAdapter);
 		DelMesh(AtlasBooster);
 		DelMesh(Adaptcover1);
@@ -324,6 +337,9 @@ void ProjectMercury::clbkPostCreation()
 
 		DelMesh(Tower);
 		DelMesh(Atlas);
+		DelMesh(AtlasIce);
+		DelMesh(AtlasIce2);
+		DelMesh(AtlasIce3);
 		DelMesh(AtlasAdapter);
 		DelMesh(AtlasBooster);
 		DelMesh(Adaptcover1);
@@ -366,6 +382,9 @@ void ProjectMercury::clbkPostCreation()
 
 		DelMesh(Tower);
 		DelMesh(Atlas);
+		DelMesh(AtlasIce);
+		DelMesh(AtlasIce2);
+		DelMesh(AtlasIce3);
 		DelMesh(AtlasAdapter);
 		DelMesh(AtlasBooster);
 		DelMesh(Adaptcover1);
@@ -461,7 +480,7 @@ void ProjectMercury::clbkPreStep(double simt, double simdt, double mjd)
 		{
 			oapiSetTimeAcceleration(1.0);
 			autoPilot = true;
-			launchTime = oapiGetSimTime() + 3.0;
+			launchTime = oapiGetSimTime() + holdDownTime;
 			integratedSpeed = 0.0;
 		}
 
@@ -701,6 +720,35 @@ void ProjectMercury::clbkPostStep(double simt, double simdt, double mjd)
 		contrail2Active = true;
 	}
 
+	// De-icing of mesh
+	if (VesselStatus == LAUNCH || VesselStatus == LAUNCHCORE || VesselStatus == TOWERSEP || VesselStatus == LAUNCHCORETOWERSEP)
+	{
+		if (GetAtmDensity() < 1e-6 && AtlasIceStatus == ICE1)
+		{
+			DelMesh(AtlasIce);
+			DelMesh(AtlasIce2);
+			DelMesh(AtlasIce3);
+			Atlas = AddMesh(atlas, &ATLAS_CORE_OFFSET);
+			AtlasIceStatus = ICE0;
+		}
+		else if (GetAtmDensity() < 1e-4 && AtlasIceStatus == ICE2)
+		{
+			DelMesh(Atlas);
+			DelMesh(AtlasIce);
+			DelMesh(AtlasIce2);
+			AtlasIce3 = AddMesh(atlasIce3, &ATLAS_CORE_OFFSET);
+			AtlasIceStatus = ICE1;
+		}
+		else if (GetAtmDensity() < 1e-2 && AtlasIceStatus == ICE3)
+		{
+			DelMesh(Atlas);
+			DelMesh(AtlasIce);
+			DelMesh(AtlasIce3);
+			AtlasIce2 = AddMesh(atlasIce2, &ATLAS_CORE_OFFSET);
+			AtlasIceStatus = ICE2;
+		}
+	}
+
 	// Autopilot-stuff
 	if (autoPilot && (VesselStatus == LAUNCH || VesselStatus == LAUNCHCORE || VesselStatus == TOWERSEP || VesselStatus == LAUNCHCORETOWERSEP))
 	{
@@ -806,6 +854,8 @@ void ProjectMercury::clbkPostStep(double simt, double simdt, double mjd)
 int ProjectMercury::clbkConsumeBufferedKey(DWORD key, bool down, char* kstate)
 {
 	bool TargetBaseInput(void* id, char* str, void* data);
+	bool TargetBaseInputLaunch(void* id, char* str, void* data);
+	bool NumOrbitsInput(void* id, char* str, void* data);
 
 	if (!down) return 0; // only process keydown events
 
@@ -920,7 +970,7 @@ int ProjectMercury::clbkConsumeBufferedKey(DWORD key, bool down, char* kstate)
 
 				if (GroundContact() && GetAttachmentStatus(padAttach) != NULL)
 				{
-					launchTime = oapiGetSimTime() + 3.0;
+					launchTime = oapiGetSimTime() + holdDownTime;
 				}
 				else if (GroundContact())
 				{
@@ -943,7 +993,7 @@ int ProjectMercury::clbkConsumeBufferedKey(DWORD key, bool down, char* kstate)
 				oapiSetTimeAcceleration(1.0);
 				autoPilot = true;
 				SetThrusterGroupLevel(THGROUP_MAIN, 1.0);
-				launchTime = oapiGetSimTime() + 3.0;
+				launchTime = oapiGetSimTime() + holdDownTime;
 				integratedSpeed = 0.0;
 			}
 			else if (VesselStatus == LAUNCHCORETOWERSEP) // allow autopilot from a manual launch
@@ -1050,7 +1100,21 @@ int ProjectMercury::clbkConsumeBufferedKey(DWORD key, bool down, char* kstate)
 
 			return 1;
 		case OAPI_KEY_B: // set base index when in FLIGHT
-			oapiOpenInputBox("Set target base / coordinate", TargetBaseInput, 0, 20, (void*)this);
+			if (VesselStatus == LAUNCH || VesselStatus == LAUNCHCORE || VesselStatus == TOWERSEP || VesselStatus == LAUNCHCORETOWERSEP)
+			{
+				oapiOpenInputBox("Set target base / coordinate / inclination", TargetBaseInputLaunch, 0, 20, (void*)this);
+			}
+			else
+			{
+				oapiOpenInputBox("Set target base / coordinate", TargetBaseInput, 0, 20, (void*)this);
+			}
+
+			return 1;
+		case OAPI_KEY_N: // set number of orbits for launch target
+			if (VesselStatus == LAUNCH)
+			{
+				oapiOpenInputBox("Set number of orbits for mission", NumOrbitsInput, 0, 20, (void*)this);
+			}
 
 			return 1;
 		}
@@ -1060,7 +1124,17 @@ int ProjectMercury::clbkConsumeBufferedKey(DWORD key, bool down, char* kstate)
 
 bool TargetBaseInput(void* id, char* str, void* data)
 {
-	return ((ProjectMercury*)data)->SetTargetBaseIdx(str);
+	return ((ProjectMercury*)data)->SetTargetBaseIdx(str, false);
+}
+
+bool TargetBaseInputLaunch(void* id, char* str, void* data)
+{
+	return ((ProjectMercury*)data)->SetTargetBaseIdx(str, true);
+}
+
+bool NumOrbitsInput(void* id, char* str, void* data)
+{
+	return ((ProjectMercury*)data)->SetNumberOfOrbits(str);
 }
 
 bool ProjectMercury::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketchpad* skp)
@@ -1515,7 +1589,7 @@ bool ProjectMercury::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketch
 
 			double targetPitchRate = AtlasPitchControl();
 			if (VesselStatus == LAUNCHCORETOWERSEP)
-				sprintf(cbuf, "Pitch rate: %.2f\u00B0/s (target: %.2f\u00B0/s)", angVel.x * DEG, targetPitchRate * DEG);
+				sprintf(cbuf, "Pitch rate: %.2f\u00B0/s (targ.: %.2f\u00B0/s)", angVel.x * DEG, targetPitchRate * DEG);
 			else
 				sprintf(cbuf, "Pitch rate: %.2f\u00B0/s", angVel.x * DEG);
 
@@ -1529,6 +1603,33 @@ bool ProjectMercury::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketch
 			sprintf(cbuf, "Roll rate: %.2f\u00B0/s", angVel.z* DEG);
 			skp->Text(secondColumnHUDx* TextX0, yIndex* LineSpacing + TextY0, cbuf, strlen(cbuf));
 			yIndex += 1;
+
+			double longi, lati, radi;
+			GetEquPos(longi, lati, radi);
+			radi = oapiGetSize(GetSurfaceRef());
+			if (launchTargetPosition)
+			{
+				sprintf(cbuf, "Lat: %.2f\u00B0, long: %.2f\u00B0 (%i)", missionLandLat, missionLandLong, missionOrbitNumber);
+				skp->Text(secondColumnHUDx* TextX0, yIndex* LineSpacing + TextY0, cbuf, strlen(cbuf));
+				yIndex += 1;
+
+				sprintf(cbuf, "Target heading: %.1f\u00B0", AtlasTargetCutOffAzimuth(simt, radi + targetPerigee, longi * DEG, lati * DEG, false));
+				skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
+				yIndex += 1;
+			}
+			else
+			{
+				sprintf(cbuf, "Inc: %.2f\u00B0", targetInclination);
+				skp->Text(secondColumnHUDx* TextX0, yIndex* LineSpacing + TextY0, cbuf, strlen(cbuf));
+				yIndex += 1;
+
+				double targetAzimuth = asin(cos(targetInclination * RAD) / cos(lati)) * DEG;
+				if (targetInclination < 0.0)
+					targetAzimuth = 180.0 - targetAzimuth;
+				sprintf(cbuf, "Target heading: %.1f\u00B0", targetAzimuth);
+				skp->Text(secondColumnHUDx* TextX0, yIndex* LineSpacing + TextY0, cbuf, strlen(cbuf));
+				yIndex += 1;
+			}
 		}
 
 		// Chute status
@@ -1676,6 +1777,14 @@ void ProjectMercury::clbkLoadStateEx(FILEHANDLE scn, void* status)
 		{
 			rollLimit = 10.0;
 		}
+		else if (!_strnicmp(cbuf, "HOLDTIME", 8))
+		{
+			sscanf_s(cbuf + 8, "%lf", &holdDownTime);
+		}
+		else if (!_strnicmp(cbuf, "BECOTIME", 8))
+		{
+			sscanf_s(cbuf + 8, "%lf", &becoTime);
+		}
 		else if (!_strnicmp(cbuf, "MET", 3))
 		{
 			int metTime;
@@ -1748,7 +1857,7 @@ void ProjectMercury::clbkSaveState(FILEHANDLE scn)
 	}
 }
 
-bool ProjectMercury::SetTargetBaseIdx(char* rstr)
+bool ProjectMercury::SetTargetBaseIdx(char* rstr, bool launch)
 {
 	oapiWriteLogV("Input target. You wrote: >%s<", rstr);
 	// First assume input is base
@@ -1762,6 +1871,7 @@ bool ProjectMercury::SetTargetBaseIdx(char* rstr)
 		noMissionLandLat = false;
 		oapiWriteLogV("Found base at %.2f N %.2f E", missionLandLat, missionLandLong);
 		landingComputing = true;
+		launchTargetPosition = true;
 		return true;
 	}
 	else // typed in a coordinate
@@ -1786,6 +1896,7 @@ bool ProjectMercury::SetTargetBaseIdx(char* rstr)
 			oapiWriteLogV("Long: %.2f E", missionLandLong);
 			noMissionLandLat = false;
 			landingComputing = true;
+			launchTargetPosition = true;
 			return true;
 		}
 		else// only longitude is input (no space detected)
@@ -1802,37 +1913,50 @@ bool ProjectMercury::SetTargetBaseIdx(char* rstr)
 			}
 			else
 			{
-				missionLandLong = atof(rstr); // atof returns 0.0 if no valid number, which is a good backup solution for erranous input
-				noMissionLandLat = true;
-				oapiWriteLogV("You only wrote long: %.2f", missionLandLong);
-				landingComputing = true;
-				return true;
+				if (launch)
+				{
+					targetInclination = atof(rstr);
+					launchTargetPosition = false;
+					oapiWriteLogV("You only wrote inc: %.2f", targetInclination);
+					return true;
+				}
+				else
+				{
+
+					missionLandLong = atof(rstr); // atof returns 0.0 if no valid number, which is a good backup solution for erranous input
+					noMissionLandLat = true;
+					oapiWriteLogV("You only wrote long: %.2f", missionLandLong);
+					landingComputing = true;
+					launchTargetPosition = true;
+					return true;
+				}
 			}
 			
 		}
 	}
 
-
-	//int targetIdx;
-
-	//sscanf_s(rstr, "%i", &targetIdx);
-
-	//if (targetIdx >= 30)
-	//{
-	//	currentLandingTargetIdx = 29;
-	//	return true;
-	//}
-	//else if (targetIdx < 0)
-	//{
-	//	return false;
-	//}
-	//else
-	//{
-	//	currentLandingTargetIdx = targetIdx;
-	//	return true;
-	//}
 	return false;
 }
+
+bool ProjectMercury::SetNumberOfOrbits(char* rstr)
+{
+	int num;
+
+	sscanf(rstr, "%i", &num);
+
+	if (num == NULL)
+	{
+		missionOrbitNumber = 1;
+		return true;
+	}
+	else if (num >= 0)
+	{
+		missionOrbitNumber = num;
+		return true;
+	}
+	return false;
+}
+
 
 // ==============================================================
 // Custom Vessel Functions
@@ -1865,7 +1989,18 @@ void ProjectMercury::AtlasAutopilot(double simt, double simdt)
 		}
 	}
 
-	double BECO = 128.6; // T+130.1 from 19620004691 page 34. T+128.6 from 19630002114 page 21. An earlier BECO time results in longer burntime.
+	if (VesselStatus == LAUNCH) // abort check
+	{
+		for (int k = 0; k < 47; k++)
+		{
+			if (met > METp[k])
+			{
+				currentPitchAim = pitchP[k];
+			}
+		}
+	}
+
+	double BECO = becoTime; // T+130.1 from 19620004691 page 34. T+128.6 from 19630002114 page 21. An earlier BECO time results in longer burntime.
 
 	// Different actions during launch
 	if (met > BECO + 26.0 && !GroundContact()) // time from 19930074071 page 54
@@ -1977,34 +2112,44 @@ void ProjectMercury::AtlasAutopilot(double simt, double simdt)
 		else
 		{
 			targetAzimuth = asin(cos(targetInclination * RAD) / cos(lat1 * RAD)) * DEG;
+			if (targetInclination < 0.0)
+				targetAzimuth = 180.0 - targetAzimuth;
 		}
 
-		velocity.x += cos(lat1 * RAD) * PI2 * oapiGetSize(GetSurfaceRef()) / oapiGetPlanetPeriod(GetSurfaceRef());
-		double currentAzimuth = atan(velocity.x / velocity.z) * DEG;
+		double currentAzimuth;
+		oapiGetHeading(GetHandle(), &currentAzimuth);
+		currentAzimuth -= OrbitalFrameSlipAngle2(currentPosition, currentVelocity);
+		currentAzimuth *= DEG;
 
 		double azimuthDiff = targetAzimuth - currentAzimuth;
-		double targetSlipAngle = 0.0;
-		if (abs(azimuthDiff) > 4.0) // don't bother fixing an impossible case
-			targetSlipAngle = 0.0;
-		else if (azimuthDiff < -0.20)
-			targetSlipAngle = -4.0;
-		else if (azimuthDiff < -0.005)
-			targetSlipAngle = -1.0;
-		else if (azimuthDiff > 0.20)
-			targetSlipAngle = 4.0;
-		else if (azimuthDiff > 0.005)
-			targetSlipAngle = 1.0;
-		else
-			targetSlipAngle = 0.0;
+		double gain = 0.3; // set to appropiate value. rate = gain * Diff
+		double gain2 = 0.05;
+		double yawRate = -gain * azimuthDiff * RAD;
+		double correctingRate = OrbitalFrameSlipAngle(currentPosition, currentVelocity) * gain2;
+		sprintf(oapiDebugString(), "azDiff: %.2f, yawRate: %.2f, corRate: %.2f, endRate: %.2f", azimuthDiff, yawRate * DEG, correctingRate * DEG, yawRate * DEG + correctingRate * DEG);
+		yawRate += correctingRate;
 
-		double yawDiff = targetSlipAngle - OrbitalFrameSlipAngle(currentPosition, currentVelocity) * DEG;
-		double yawRate;
-		if (yawDiff < -0.05)
-			yawRate = 0.5 * RAD; // guesstimate
-		else if (yawDiff > 0.05)
-			yawRate = -0.5 * RAD;
-		else
-			yawRate = 0.0;
+		//double targetSlipAngle = 0.0;
+		//if (abs(azimuthDiff) > 4.0) // don't bother fixing an impossible case
+		//	targetSlipAngle = 0.0;
+		//else if (azimuthDiff < -0.20)
+		//	targetSlipAngle = -4.0;
+		//else if (azimuthDiff < -0.005)
+		//	targetSlipAngle = -1.0;
+		//else if (azimuthDiff > 0.20)
+		//	targetSlipAngle = 4.0;
+		//else if (azimuthDiff > 0.005)
+		//	targetSlipAngle = 1.0;
+		//else
+		//	targetSlipAngle = 0.0;
+
+		//double yawRate;
+		//if (yawDiff < -0.05)
+		//	yawRate = 0.5 * RAD; // guesstimate
+		//else if (yawDiff > 0.05)
+		//	yawRate = -0.5 * RAD;
+		//else
+		//	yawRate = 0.0;
 
 		if (currentAngRate.y > yawRate + 0.0005)
 		{
@@ -2056,7 +2201,7 @@ void ProjectMercury::AtlasAutopilot(double simt, double simdt)
 	{
 		SetControlSurfaceLevel(AIRCTRL_ELEVATOR, 0.0);
 
-		double initialHeading = 105.0;
+		double initialHeading = historyLaunchHeading;
 		double targetHeading = 72.55;
 		double wantedApogee = 2.65e5;
 		if (limitApogee)
@@ -2069,11 +2214,13 @@ void ProjectMercury::AtlasAutopilot(double simt, double simdt)
 		else
 		{
 			targetHeading = asin(cos(targetInclination * RAD) / cos(historyLaunchLat)) * DEG;
+			if (targetInclination < 0.0)
+				targetHeading = 180.0 - targetHeading;
 		}
 
 		// Include Earth's rotation
 		double orbitVel = sqrt(planetMu / (planetRad + missionPerigee * 1000.0));
-		targetHeading = atan((orbitVel * sin(targetHeading * RAD) - PI2 * planetRad / oapiGetPlanetPeriod(GetSurfaceRef()) * cos(historyLaunchLat)) / (orbitVel * cos(targetHeading * RAD))) * DEG;
+		targetHeading = atan2((orbitVel * sin(targetHeading * RAD) - PI2 * planetRad / oapiGetPlanetPeriod(GetSurfaceRef()) * cos(historyLaunchLat)), (orbitVel * cos(targetHeading * RAD))) * DEG;
 
 		double targetRoll = initialHeading - targetHeading;
 		currentRollAim = targetRoll;
@@ -2083,7 +2230,8 @@ void ProjectMercury::AtlasAutopilot(double simt, double simdt)
 		double rollRate;
 
 		double rollDiff = targetRoll - integratedRoll;
-
+		if (rollDiff > 180.0) rollDiff -= 360.0;
+		else if (rollDiff < -180.0) rollDiff += 360.0;
 		double highLimit = 10.0;
 		double medLimit = 2.5;
 		double lowLimit = 0.1;
@@ -2243,12 +2391,6 @@ void ProjectMercury::AtlasAutopilot(double simt, double simdt)
 
 		double radiusNoCare;
 		GetEquPos(historyCutOffLong, historyCutOffLat, radiusNoCare);
-
-		// change to ice-less skin. This costs a fair amount of FPS though
-		/*SURFHANDLE metSkin = oapiLoadTexture("merc_atlas3.dds");
-		SURFHANDLE iceSkin = oapiGetTextureHandle(atlas, 1);
-		oapiBlt(iceSkin, metSkin, 0, 0, 0, 0, 512, 2048);
-		oapiReleaseTexture(iceSkin);*/
 	}
 
 	// Debug
@@ -2264,7 +2406,7 @@ double ProjectMercury::OrbitalFrameSlipAngle(VECTOR3 pos, VECTOR3 vel)
 	axis3 = unit(axis3);
 	VECTOR3 vv, vm;
 	vv = pos;
-	vm = crossp(axis3, vv);    // direction of orbital momentum
+	vm = crossp(axis3, vv); // direction of orbital momentum
 	axis2 = unit(crossp(vm, axis3));
 	axis1 = crossp(axis2, axis3);
 	MATRIX3 Rref = _M(axis1.x, axis2.x, axis3.x, axis1.y, axis2.y, axis3.y, axis1.z, axis2.z, axis3.z);
@@ -2284,6 +2426,37 @@ double ProjectMercury::OrbitalFrameSlipAngle(VECTOR3 pos, VECTOR3 vel)
 	euler.x = -atan2(shipy.x, shipx.x); // roll angle
 	euler.y = atan2(shipz.y, shipz.z);   // pitch angle
 	euler.z = asin(shipz.x);            // yaw angle
+
+	return euler.z;
+}
+
+double ProjectMercury::OrbitalFrameSlipAngle2(VECTOR3 pos, VECTOR3 vel)
+{
+	VECTOR3 axis1, axis2, axis3;
+	axis3 = vel;
+	axis3 = unit(axis3);
+	VECTOR3 vv, vm;
+	vv = pos;
+	vm = crossp(axis3, vv); // direction of orbital momentum
+	axis2 = unit(crossp(vm, axis3));
+	axis1 = crossp(axis2, axis3);
+	MATRIX3 Rref = _M(axis1.x, axis2.x, axis3.x, axis1.y, axis2.y, axis3.y, axis1.z, axis2.z, axis3.z);
+
+	MATRIX3 srot;
+	GetRotationMatrix(srot);
+
+	// map ship's local axes into reference frame
+	VECTOR3 shipx = { srot.m11, srot.m21, srot.m31 };
+	VECTOR3 shipy = { srot.m12, srot.m22, srot.m32 };
+	VECTOR3 shipz = { srot.m13, srot.m23, srot.m33 };
+	shipx = tmul(Rref, shipx);
+	shipy = tmul(Rref, shipy);
+	shipz = tmul(Rref, shipz);
+
+	VECTOR3 euler;
+	euler.x = atan2(shipx.y, shipy.y);  // roll angle
+	euler.y = asin(shipz.y);				// pitch angle
+	euler.z = atan2(shipz.x, shipz.z);	// yaw angle
 
 	return euler.z;
 }
@@ -2593,7 +2766,8 @@ void ProjectMercury::GetLandingPointIfRetroInXSeconds(double t, ELEMENTS el, ORB
 	// Entry angle
 	double entryAngle = -abs(acos((1.0 + postBurnEcc * cos(entryTrA)) / sqrt(1.0 + postBurnEcc * postBurnEcc + 2.0 * postBurnEcc * cos(entryTrA))));
 	double entryAngleDeg = entryAngle * DEG;
-	double angleCoveredDuringReentry = (2.1545 * entryAngleDeg * entryAngleDeg + 11.1236 * entryAngleDeg + 23.9225) * RAD; // empirical formula from dataset of reentries. Second order polynomial
+	double coeff1 = 1.5578, coeff2 = 9.3007, coeff3 = 22.6108;
+	double angleCoveredDuringReentry = (coeff1 * entryAngleDeg * entryAngleDeg + coeff2 * entryAngleDeg + coeff3) * RAD; // empirical formula from dataset of reentries. Second order polynomial
 	double landingLat = asin(sin(postBurnLPe - postBurnLAN + entryTrA + angleCoveredDuringReentry) * sin(postBurnInc));
 	double landingLong = entryLong + acos((cos(angleCoveredDuringReentry) - sin(entryLat) * sin(landingLat)) / cos(entryLat) / cos(landingLat));
 
@@ -2809,13 +2983,13 @@ void ProjectMercury::CheckAbortConditions(double simt, double simdt) // These co
 	integratedRoll += angVel.z * DEG * simdt;
 
 	// These are currently dependent on autopilot, to let the user launch in any direction if needed
-	/*if (autoPilot && abs(GetPitch() * DEG - currentPitchAim) > 5.0)
+	if (!GroundContact() && GetAttachmentStatus(padAttach) == NULL && autoPilot && VesselStatus == LAUNCH && abs(GetPitch() * DEG - currentPitchAim) > 5.0)
 	{
 		abortConditionsMet = true;
 		char cbuf[256];
 		sprintf(cbuf, "Abort due to error in pitch at T+%.1f. It was %.1f deg. Target was %.2f deg", met, GetPitch() * DEG, currentPitchAim);
 		oapiWriteLog(cbuf);
-	}
+	}/*
 	if (autoPilot && abs(integratedYaw - currentYawAim) > 5.0)
 	{
 		abortConditionsMet = true;
@@ -3179,6 +3353,9 @@ void ProjectMercury::SeparateAtlasCore(void)
 	DelControlSurface(Verniers[1]);
 	DelControlSurface(Verniers[2]);
 	DelMesh(Atlas);
+	DelMesh(AtlasIce);
+	DelMesh(AtlasIce2);
+	DelMesh(AtlasIce3);
 	DelMesh(AtlasAdapter);
 	DelMesh(AtlasBooster);
 }
