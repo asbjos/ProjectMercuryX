@@ -38,3 +38,7 @@
 *.tlog
 *.pdb
 *.ipch
+*.sln
+*.vcxproj
+*.filters
+*.user
