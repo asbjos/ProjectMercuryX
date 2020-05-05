@@ -4,6 +4,7 @@
 
 #define STRICT
 #define ORBITER_MODULE
+#define VESSELVER VESSEL4
 
 #include "orbitersdk.h"
 
@@ -18,46 +19,60 @@ const double MERCURY_LENGTH_ABORT = 5.1604;
 const double ABORT_DRY_MASS = 460.4 - FUEL_MASS_ESC - FUEL_MASS_JET;
 
 static const DWORD touchdownPointsNumb = 7;
-static TOUCHDOWNVTX touchdownPoint[touchdownPointsNumb] = {
-	// pos, stiff, damping, mu, mu long
-	{_V(-0.2, -0.2, -MERCURY_LENGTH_ABORT / 2.0), 2e3, 1e3, 0.3},
-	{_V(0.2, -0.2,  -MERCURY_LENGTH_ABORT / 2.0), 2e3, 1e3, 0.3},
-	{_V(0.2, 0.2, -MERCURY_LENGTH_ABORT / 2.0), 2e3, 1e3, 0.3},
-	{_V(0.01, 0.01, MERCURY_LENGTH_ABORT / 2.0), 2e3, 1e3, 0.3},
-	{_V(0.01,.300,-.018702), 2e3, 1e3, 0.3},
-	{_V(-0.25980762, -.150, -.018702), 2e3, 1e3, 0.3},
-	{_V(0.25980762, -.150, -.018702), 2e3, 1e3, 0.3}
-};
+const VECTOR3 TOUCH_POINT0 = _V(-0.2, -0.2, -MERCURY_LENGTH_ABORT / 2.0);
+const VECTOR3 TOUCH_POINT1 = _V(0.2, -0.2, -MERCURY_LENGTH_ABORT / 2.0);
+const VECTOR3 TOUCH_POINT2 = _V(0.2, 0.2, -MERCURY_LENGTH_ABORT / 2.0);
+const VECTOR3 TOUCH_POINT3 = _V(0.01, 0.01, MERCURY_LENGTH_ABORT / 2.0);
+const VECTOR3 TOUCH_POINT4 = _V(0.01, .300, -.018702);
+const VECTOR3 TOUCH_POINT5 = _V(-0.25980762, -.150, -.018702);
+const VECTOR3 TOUCH_POINT6 = _V(0.25980762, -.150, -.018702);
 
 PARTICLESTREAMSPEC exhaust_main;
 PARTICLESTREAMSPEC exhaust_escape;
 
-class MercuryAbort: public VESSEL4
+class ProjectMercury: public VESSELVER
 {
 public:
-	MercuryAbort(OBJHANDLE hVessel, int flightmodel);
-	~MercuryAbort();
+	ProjectMercury(OBJHANDLE hVessel, int flightmodel);
+	~ProjectMercury();
 	void clbkSetClassCaps(FILEHANDLE cfg);
 	void clbkPostCreation();
+	void clbkPreStep(double simt, double simdt, double mjd);
 	// int clbkConsumeBufferedKey(DWORD key, bool down, char* kstate);
+
+	void VersionDependentTouchdown(VECTOR3 touch1, VECTOR3 touch2, VECTOR3 touch3, VECTOR3 touch4, double stiff, double damp, double mu);
+	void VersionDependentPanelClick(int id, const RECT& pos, int texidx, int draw_event, int mouse_event, PANELHANDLE hPanel, const RECT& texpos, int bkmode);
+	void VersionDependentPadHUD(oapi::Sketchpad* skp, double simt, int* yIndexUpdate, char* cbuf, VESSEL* v);
+	double normangle(double angle);
+	void oapiWriteLogV(const char* format, ...);
+	double GetGroundspeed(void);
+	double GetAnimation(UINT anim);
+	void GetGroundspeedVector(int frame, VECTOR3& v);
+	double length2(VECTOR3 vec);
+	void GetAirspeedVector(int frame, VECTOR3& v);
 private:
 	bool bManualSeparate = false;
 	double stage_sep;
 	UINT stage = 0;
 	MESHHANDLE tower;
 	UINT Tower;
-	
-	PROPELLANT_HANDLE main_tank;
-	THRUSTER_HANDLE main_engine;
-	THGROUP_HANDLE main_engine_group;
-	PSTREAM_HANDLE contrail_main;
 
-	PROPELLANT_HANDLE escape_tank;
-	THRUSTER_HANDLE escape_engine;
-	THGROUP_HANDLE escape_engine_group;
-	PSTREAM_HANDLE contrail_escape;
+	bool jettisonAfterAbort = false;
+
+	int TextX0, secondColumnHUDx, LineSpacing, TextY0;
+	
+	PROPELLANT_HANDLE main_tank = NULL;
+	THRUSTER_HANDLE main_engine = NULL;
+	THGROUP_HANDLE main_engine_group = NULL;
+	PSTREAM_HANDLE contrail_main = NULL;
+
+	PROPELLANT_HANDLE escape_tank = NULL;
+	THRUSTER_HANDLE escape_engine = NULL;
+	THGROUP_HANDLE escape_engine_group = NULL;
+	PSTREAM_HANDLE contrail_escape = NULL;
 };
 
+#include "..\..\FunctionsForOrbiter2016.h"
 
 // ==============================================================
 // API interface
@@ -66,21 +81,27 @@ private:
 
 
 
-MercuryAbort::MercuryAbort(OBJHANDLE hVessel, int flightmodel) : VESSEL4(hVessel, flightmodel)
+ProjectMercury::ProjectMercury(OBJHANDLE hVessel, int flightmodel) : VESSELVER(hVessel, flightmodel)
 {
 	tower = oapiLoadMeshGlobal("ProjectMercury\\merc_tower");
 }
 
-MercuryAbort::~MercuryAbort()
+ProjectMercury::~ProjectMercury()
 {
 }
 
-void MercuryAbort::clbkSetClassCaps(FILEHANDLE cfg)
+void ProjectMercury::clbkSetClassCaps(FILEHANDLE cfg)
 {
+	if (!oapiReadItem_bool(cfg, "JettisonAfterAbort", jettisonAfterAbort))
+	{
+		oapiWriteLog("Mercury Abort could not read jettison state from config!");
+		jettisonAfterAbort = false;
+	}
+
 	// SURFHANDLE tex = oapiRegisterExhaustTexture("Exhaust2");
 	// ==============================================================
 	SetSize(MERCURY_LENGTH_ABORT / 2.0);
-	SetTouchdownPoints(touchdownPoint, touchdownPointsNumb);
+	VersionDependentTouchdown(TOUCH_POINT0, TOUCH_POINT1, TOUCH_POINT2, TOUCH_POINT3, 2e3, 1e3, 0.3);
 	SetEmptyMass(ABORT_DRY_MASS);
 	// ==============================================================
 	// This is from the altanis launch config and is what makes the V-2 launch vertically
@@ -167,29 +188,40 @@ void MercuryAbort::clbkSetClassCaps(FILEHANDLE cfg)
 	contrail_escape = AddExhaustStream(escape_engine, &exhaust_escape);
 }
 
-void MercuryAbort::clbkPostCreation()
+void ProjectMercury::clbkPostCreation()
 {
-	if (GetPropellantMass(escape_tank) == 0.0)
+	if (jettisonAfterAbort)
 	{
 		oapiWriteLog("Firing tower jett (we have aborted)");
-		SetThrusterGroupLevel(THGROUP_MAIN, 1.0);
+		if (escape_tank != NULL) SetPropellantMass(escape_tank, 0.0);
 	}
 	else
 	{
 		oapiWriteLog("Firing tower escape (nominal flight)");
-		SetThrusterGroupLevel(escape_engine_group, 1.0);
-		SetThrusterGroupLevel(THGROUP_MAIN, 1.0); // https://web.archive.org/web/20140222235747/http://www.mercury-redstone3.com/?page_id=54 somewhere on this page says that both are fired for regular tower sep
+	}
+}
+
+void ProjectMercury::clbkPreStep(double simt, double simdt, double mjd)
+{
+	if (jettisonAfterAbort)
+	{
+		if (main_engine != NULL) SetThrusterLevel(main_engine, 1.0);
+	}
+	else
+	{
+		if (escape_engine != NULL) SetThrusterLevel(escape_engine, 1.0);
+		if (main_engine != NULL) SetThrusterLevel(main_engine, 1.0);  // https://web.archive.org/web/20140222235747/http://www.mercury-redstone3.com/?page_id=54 somewhere on this page says that both are fired for regular tower sep
 	}
 }
 
 // Initialisation
 DLLCLBK VESSEL* ovcInit(OBJHANDLE hvessel, int flightmodel)
 {
-	return new MercuryAbort(hvessel, flightmodel);
+	return new ProjectMercury(hvessel, flightmodel);
 }
 
 // Cleanup
 DLLCLBK void ovcExit(VESSEL* vessel)
 {
-	if (vessel) delete (MercuryAbort*)vessel;
+	if (vessel) delete (ProjectMercury*)vessel;
 }

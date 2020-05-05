@@ -4,6 +4,7 @@
 
 #define STRICT
 #define ORBITER_MODULE
+#define VESSELVER VESSEL4
 
 #include "orbitersdk.h"
 
@@ -55,19 +56,12 @@ static const DWORD tchdwnNum = 4;
 const double depression = -0.1;
 const double stiffness = abs(-LC_MASS * G / (3 * depression)); // abs for sanity check, as I have a tendency to forget signs
 const double damping = 0.3 * 2 * sqrt(LC_MASS * stiffness);
-static TOUCHDOWNVTX tchdwnPoints[tchdwnNum] = {
-	// pos, stiff, damping, mu, mu long
-	{_V(-40.0, depression, -30.0), stiffness, damping, 1e1},
-	{_V(40.0, depression, -30.0), stiffness, damping, 1e1},
-	{_V(0.0, depression, 50.0), stiffness, damping, 1e1},
-	{_V(0.0, depression, 0.0), stiffness, damping, 1e1}
-};
 
-class MercuryLC14 : public VESSEL4
+class ProjectMercury : public VESSELVER
 {
 public:
-	MercuryLC14(OBJHANDLE hVessel, int flightmodel);
-	~MercuryLC14();
+	ProjectMercury(OBJHANDLE hVessel, int flightmodel);
+	~ProjectMercury();
 	void clbkSetClassCaps(FILEHANDLE cfg); // read config for optional attach pos and dir
 	void clbkPostCreation(void);
 	void clbkPreStep(double simt, double simdt, double mjd);
@@ -79,6 +73,18 @@ public:
 	bool clbkLoadPanel2D(int id, PANELHANDLE hPanel, DWORD viewW, DWORD viewH);
 	bool clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketchpad* skp);
 	void clbkRenderHUD(int mode, const HUDPAINTSPEC* hps, SURFHANDLE hTex);
+	void clbkVisualCreated(VISHANDLE vis, int refcount);
+
+	void VersionDependentTouchdown(VECTOR3 touch1, VECTOR3 touch2, VECTOR3 touch3, VECTOR3 touch4, double stiff, double damp, double mu);
+	void VersionDependentPanelClick(int id, const RECT& pos, int texidx, int draw_event, int mouse_event, PANELHANDLE hPanel, const RECT& texpos, int bkmode);
+	void VersionDependentPadHUD(oapi::Sketchpad* skp, double simt, int* yIndexUpdate, char* cbuf, VESSEL* v);
+	/*double normangle(double angle);
+	void oapiWriteLogV(const char* format, ...);
+	double GetGroundspeed(void);
+	double GetAnimation(UINT anim);
+	void GetGroundspeedVector(int frame, VECTOR3& v);
+	double length2(VECTOR3 vec);
+	void GetAirspeedVector(int frame, VECTOR3& v);*/
 
 	void SwitchCamera(int camera);
 	void AttachRocket(double simt, OBJHANDLE closestVessel, VESSEL* v);
@@ -118,12 +124,14 @@ private:
 	//PROPELLANT_HANDLE dumProp;
 };
 
+#include "..\..\FunctionsForOrbiter2016.h"
+
 // ==============================================================
 // API interface
 // ==============================================================
 
 
-MercuryLC14::MercuryLC14(OBJHANDLE hVessel, int flightmodel) : VESSEL4(hVessel, flightmodel)
+ProjectMercury::ProjectMercury(OBJHANDLE hVessel, int flightmodel) : VESSELVER(hVessel, flightmodel)
 {
 	launchPad = oapiLoadMeshGlobal("ProjectMercury\\K-LC-14");
 
@@ -132,11 +140,11 @@ MercuryLC14::MercuryLC14(OBJHANDLE hVessel, int flightmodel) : VESSEL4(hVessel, 
 	TowerInProcess = AWAY;
 }
 
-MercuryLC14::~MercuryLC14()
+ProjectMercury::~ProjectMercury()
 {
 }
 
-void MercuryLC14::clbkSetClassCaps(FILEHANDLE cfg)
+void ProjectMercury::clbkSetClassCaps(FILEHANDLE cfg)
 {
 	if (!oapiReadItem_vec(cfg, "AttachmentPosition", rocketPosition))
 	{
@@ -150,8 +158,21 @@ void MercuryLC14::clbkSetClassCaps(FILEHANDLE cfg)
 		oapiWriteLog("LC-14 could not read rocket attachment direction config.");
 	}
 
+	double heightOverGround;
+	if (!oapiReadItem_float(cfg, "HeightOverGround", heightOverGround))
+	{
+		heightOverGround = -1.26;
+		oapiWriteLog("LC-14 could not read rocket height over ground config");
+	}
+
 	SetSize(50.0);
-	SetTouchdownPoints(tchdwnPoints, tchdwnNum);
+
+	const VECTOR3 TOUCHDOWN_POINTS0 = _V(-40.0, depression - heightOverGround, -30.0);
+	const VECTOR3 TOUCHDOWN_POINTS1 = _V(40.0, depression - heightOverGround, -30.0);
+	const VECTOR3 TOUCHDOWN_POINTS2 = _V(0.0, depression - heightOverGround, 50.0);
+	const VECTOR3 TOUCHDOWN_POINTS3 = _V(0.0, depression + 10.0, 0.0);
+
+	VersionDependentTouchdown(TOUCHDOWN_POINTS0, TOUCHDOWN_POINTS1, TOUCHDOWN_POINTS2, TOUCHDOWN_POINTS3, stiffness, damping, 10.0);
 	SetEmptyMass(LC_MASS);
 
 	rocketAttach = CreateAttachment(false, rocketPosition + PAD_OFFSET, unit(rocketDirection), _V(0, 0, 1), "ROCKET", true);
@@ -209,7 +230,7 @@ void MercuryLC14::clbkSetClassCaps(FILEHANDLE cfg)
 	//AddExhaust(dum, 50.0, 1.0);
 }
 
-void MercuryLC14::clbkPostCreation(void)
+void ProjectMercury::clbkPostCreation(void)
 {
 	oapiGetViewportSize(&ScreenWidth, &ScreenHeight, &ScreenColour);
 	TextX0 = (int)(0.025 * ScreenWidth);
@@ -233,7 +254,7 @@ void MercuryLC14::clbkPostCreation(void)
 	}
 }
 
-void MercuryLC14::clbkPreStep(double simt, double simdt, double mjd)
+void ProjectMercury::clbkPreStep(double simt, double simdt, double mjd)
 {
 	OBJHANDLE closestVessel = NULL;
 	double distance = 1e10;
@@ -281,7 +302,7 @@ void MercuryLC14::clbkPreStep(double simt, double simdt, double mjd)
 	}
 }
 
-void MercuryLC14::clbkPostStep(double simt, double simdt, double mjd)
+void ProjectMercury::clbkPostStep(double simt, double simdt, double mjd)
 {
 	double delta = simdt / TOWER_DURATION;
 	if (TowerProcess == MOVEAWAY)
@@ -328,7 +349,7 @@ void MercuryLC14::clbkPostStep(double simt, double simdt, double mjd)
 	}
 }
 
-void MercuryLC14::clbkLoadStateEx(FILEHANDLE scn, void* vs)
+void ProjectMercury::clbkLoadStateEx(FILEHANDLE scn, void* vs)
 {
 	char* line;
 
@@ -361,9 +382,9 @@ void MercuryLC14::clbkLoadStateEx(FILEHANDLE scn, void* vs)
 	}
 }
 
-void MercuryLC14::clbkSaveState(FILEHANDLE scn)
+void ProjectMercury::clbkSaveState(FILEHANDLE scn)
 {
-	VESSEL4::clbkSaveState(scn); // write default parameters (orbital elements etc.)
+	VESSELVER::clbkSaveState(scn); // write default parameters (orbital elements etc.)
 
 	oapiWriteScenario_int(scn, "TOWERINSTATUS", TowerInProcess);
 
@@ -374,7 +395,7 @@ void MercuryLC14::clbkSaveState(FILEHANDLE scn)
 	oapiWriteScenario_float(scn, "TOWERAWAYPROCESS", towerStatus);
 }
 
-int MercuryLC14::clbkConsumeBufferedKey(DWORD key, bool down, char* kstate)
+int ProjectMercury::clbkConsumeBufferedKey(DWORD key, bool down, char* kstate)
 {
 	if (!down) return 0; // only process keydown events
 
@@ -467,19 +488,19 @@ int MercuryLC14::clbkConsumeBufferedKey(DWORD key, bool down, char* kstate)
 
 	return 0;
 }
-bool MercuryLC14::clbkLoadPanel2D(int id, PANELHANDLE hPanel, DWORD viewW, DWORD viewH)
+bool ProjectMercury::clbkLoadPanel2D(int id, PANELHANDLE hPanel, DWORD viewW, DWORD viewH)
 {
 	return true;
 }
 
-bool MercuryLC14::clbkLoadGenericCockpit(void)
+bool ProjectMercury::clbkLoadGenericCockpit(void)
 {
 	// Disable MFD view
 
 	return false;
 }
 
-bool MercuryLC14::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketchpad* skp)
+bool ProjectMercury::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketchpad* skp)
 {
 	char cbuf[256];
 	int yIndex = 0;
@@ -548,7 +569,7 @@ bool MercuryLC14::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketchpad
 			sprintf(cbuf, "  Far 2");
 		else
 			sprintf(cbuf, "  Tower");
-		skp->Text(TextX0 * secondColumnHUDx, yIndex* LineSpacing + TextY0, cbuf, strlen(cbuf));
+		skp->Text(TextX0 * secondColumnHUDx, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
 		yIndex += 1;
 
 		OBJHANDLE closestVessel = NULL;
@@ -606,13 +627,7 @@ bool MercuryLC14::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketchpad
 			skp->Text(TextX0 * secondColumnHUDx, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
 			yIndex += 1;
 
-			sprintf(cbuf, "  Height: %.2f km", v->GetAltitude(ALTMODE_GROUND) / 1000.0);
-			skp->Text(TextX0 * secondColumnHUDx, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-			yIndex += 1;
-
-			sprintf(cbuf, "  Speed: %.1f m/s", v->GetGroundspeed());
-			skp->Text(TextX0 * secondColumnHUDx, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-			yIndex += 1;
+			VersionDependentPadHUD(skp, simt, &yIndex, cbuf, v);
 
 			VECTOR3 planetVec, rocketVec;
 			GetRelativePos(GetSurfaceRef(), planetVec);
@@ -633,12 +648,36 @@ bool MercuryLC14::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketchpad
 	return true;
 }
 
-void MercuryLC14::clbkRenderHUD(int mode, const HUDPAINTSPEC* hps, SURFHANDLE hTex)
+void ProjectMercury::clbkRenderHUD(int mode, const HUDPAINTSPEC* hps, SURFHANDLE hTex)
 {
 	// Do nothing to disable HUD
 }
 
-void MercuryLC14::SwitchCamera(int camera)
+void ProjectMercury::clbkVisualCreated(VISHANDLE vis, int refcount)
+{
+	// Delete faulty mesh groups
+	const int numFlatPlaneGroups = 25;
+	UINT flatPlaneGroups[numFlatPlaneGroups] = { 321, 333, 334, 335, 336, 337, 345, 346, 347, 348, 349, 350, 351, 352, 353, 354, 355, 356, 357, 358, 359, 360, 361, 362, 363 };
+	GROUPEDITSPEC ges;
+	DEVMESHHANDLE lnchPad = GetDevMesh(vis, LaunchPad);
+	ges.flags = GRPEDIT_ADDUSERFLAG;
+	ges.UsrFlag = 3; // hide/delete mesh group
+	for (int i = 0; i < numFlatPlaneGroups; i++)
+	{
+		oapiEditMeshGroup(lnchPad, flatPlaneGroups[i], &ges);
+	}
+
+	const int numSmallFeaturesGroups = 49;
+	UINT smallFeaturesGroups[numSmallFeaturesGroups] = { 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 
+		338, 339, 340, 1374, 1375, 1376, 1377, 1396, 1397, 1398 , 1399, 1400, 1401, 1412, 1413, 1414, 1415, 1458, 1459, 1460, 1461, 1462, 1463, 1464, 
+		1465, 1466, 1467, 1468, 1469, 1470, 1471, 1472, 1473 };
+	for (int i = 0; i < numSmallFeaturesGroups; i++)
+	{
+		oapiEditMeshGroup(lnchPad, smallFeaturesGroups[i], &ges);
+	}
+}
+
+void ProjectMercury::SwitchCamera(int camera)
 {
 	if (camera == 1)
 	{
@@ -672,7 +711,7 @@ void MercuryLC14::SwitchCamera(int camera)
 	}
 }
 
-void MercuryLC14::AttachRocket(double simt, OBJHANDLE closestVessel, VESSEL* v)
+void ProjectMercury::AttachRocket(double simt, OBJHANDLE closestVessel, VESSEL* v)
 {
 	launching = true;
 	engineIgnitionTime = simt;
@@ -689,7 +728,7 @@ void MercuryLC14::AttachRocket(double simt, OBJHANDLE closestVessel, VESSEL* v)
 	}
 }
 
-void MercuryLC14::GetClosestVessel(OBJHANDLE* closestVessel, double* distance)
+void ProjectMercury::GetClosestVessel(OBJHANDLE* closestVessel, double* distance)
 {
 	VECTOR3 pos;
 	OBJHANDLE vesselI;
@@ -705,19 +744,21 @@ void MercuryLC14::GetClosestVessel(OBJHANDLE* closestVessel, double* distance)
 	}
 }
 
-void MercuryLC14::DefineAnimation(void)
+void ProjectMercury::DefineAnimation(void)
 {
-	static UINT towerGroups[numGroups];
+	const int additionalGroupsNum = 2;
+	static UINT towerGroups[numGroups + additionalGroupsNum];
 	for (int i = 0; i < numGroups; i++)
 	{
 		towerGroups[i] = groupStart + i;
 	}
 
-	// no idea why it has to be declared differently than rotate and scale
-	//towerMoveAway[0] = new MGROUP_TRANSLATE(launchPad, towerGroups, numGroups, TOWER_MOVE_AWAY);
+	towerGroups[numGroups] = 241;
+	towerGroups[numGroups + 1] = 242;
+
 	static MGROUP_TRANSLATE towerMoveA(
 		LaunchPad,
-		towerGroups, numGroups,
+		towerGroups, numGroups + additionalGroupsNum,
 		TOWER_MOVE_AWAY
 	);
 	TowerMoveAway = CreateAnimation(0.0);
@@ -725,7 +766,7 @@ void MercuryLC14::DefineAnimation(void)
 
 	static MGROUP_TRANSLATE towerMoveB(
 		LaunchPad,
-		towerGroups, numGroups,
+		towerGroups, numGroups + additionalGroupsNum,
 		TOWER_MOVE_IN
 	);
 	TowerMoveIn = CreateAnimation(1.0);
@@ -735,11 +776,11 @@ void MercuryLC14::DefineAnimation(void)
 // Initialisation
 DLLCLBK VESSEL* ovcInit(OBJHANDLE hvessel, int flightmodel)
 {
-	return new MercuryLC14(hvessel, flightmodel);
+	return new ProjectMercury(hvessel, flightmodel);
 }
 
 // Cleanup
 DLLCLBK void ovcExit(VESSEL* vessel)
 {
-	if (vessel) delete (MercuryLC14*)vessel;
+	if (vessel) delete (ProjectMercury*)vessel;
 }

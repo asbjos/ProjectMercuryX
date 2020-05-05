@@ -2,8 +2,8 @@
   MainChute.cpp
      Creating library ..\..\..\..\..\..\..\Modules\ProjectMercury\Mercury_MainChute.lib and object ..\..\..\..\..\..\..\Modules\ProjectMercury\Mercury_MainChute.exp
   Generating code
-  13 of 17 functions (76.5%) were compiled, the rest were copied from previous compilation.
-    1 functions were new in current compilation
+  0 of 21 functions ( 0.0%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
     0 functions had inline decision re-evaluated but remain unchanged
   Finished generating code
   Mercury_MainChute.vcxproj -> C:\Orbiter2016\Orbitersdk\samples\Experiments\ShuttlePBforReal\ShuttlePBforReal\Mercury_MainChute\Mercury_MainChute\..\..\..\..\..\..\..\Modules\ProjectMercury\Mercury_MainChute.dll

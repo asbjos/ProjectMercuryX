@@ -71,7 +71,7 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <OutDir>..\..\..\..\..\Modules\ProjectMercury</OutDir>
+    <OutDir>..\..\..\..\..\Modules\ProjectMercury\</OutDir>
     <TargetName>ProjectMercuryRedstone</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">

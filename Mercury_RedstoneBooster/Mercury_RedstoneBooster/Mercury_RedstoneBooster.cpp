@@ -22,14 +22,25 @@ const double STAGE1_ISP_SL = 235 * G; // Sea Level (235), 216 according to NTRS
 const double STAGE1_ISP_VAC = 247 * G;
 const double STAGE1_THRUST = 395900; // 414340, or 395892 (89 000 lbs)
 
-class Mercury_RedstoneBooster : public VESSEL4
+class ProjectMercury : public VESSEL3
 {
 public:
-	Mercury_RedstoneBooster(OBJHANDLE hVessel, int flightmodel);
-	~Mercury_RedstoneBooster();
+	ProjectMercury(OBJHANDLE hVessel, int flightmodel);
+	~ProjectMercury();
 	void clbkSetClassCaps(FILEHANDLE cfg);
 	void clbkPreStep(double simt, double simdt, double mjd);
 	void clbkPostStep(double simt, double simdt, double mjd);
+
+	void VersionDependentTouchdown(VECTOR3 touch1, VECTOR3 touch2, VECTOR3 touch3, VECTOR3 touch4, double stiff, double damp, double mu);
+	void VersionDependentPanelClick(int id, const RECT& pos, int texidx, int draw_event, int mouse_event, PANELHANDLE hPanel, const RECT& texpos, int bkmode);
+	void VersionDependentPadHUD(oapi::Sketchpad* skp, double simt, int* yIndexUpdate, char* cbuf, VESSEL* v);
+	double normangle(double angle);
+	void oapiWriteLogV(const char* format, ...);
+	double GetGroundspeed(void);
+	double GetAnimation(UINT anim);
+	void GetGroundspeedVector(int frame, VECTOR3& v);
+	double length2(VECTOR3 vec);
+	void GetAirspeedVector(int frame, VECTOR3& v);
 private:
 	MESHHANDLE redstoneB;
 	UINT RedstoneB;
@@ -45,16 +56,18 @@ private:
 	double explosionLevel = 0.0;
 };
 
-Mercury_RedstoneBooster::Mercury_RedstoneBooster(OBJHANDLE hVessel, int flightmodel) : VESSEL4(hVessel, flightmodel)
+#include "..\..\FunctionsForOrbiter2010.h"
+
+ProjectMercury::ProjectMercury(OBJHANDLE hVessel, int flightmodel) : VESSEL3(hVessel, flightmodel)
 {
 	redstoneB = oapiLoadMeshGlobal("ProjectMercury\\merc_redstone");
 }
 
-Mercury_RedstoneBooster::~Mercury_RedstoneBooster()
+ProjectMercury::~ProjectMercury()
 {
 }
 
-void Mercury_RedstoneBooster::clbkSetClassCaps(FILEHANDLE cfg)
+void ProjectMercury::clbkSetClassCaps(FILEHANDLE cfg)
 {
 	SetSize(STAGE1_LENGTH / 2.0);
 
@@ -66,16 +79,11 @@ void Mercury_RedstoneBooster::clbkSetClassCaps(FILEHANDLE cfg)
 		oapiWriteLog("Redstone could not read config");
 	}
 	static const DWORD touchdownPointsNumbers = 6;
-	static TOUCHDOWNVTX touchdownPointies[touchdownPointsNumbers] = {
-		// pos, stiff, damping, mu, mu long
-		{_V(0.1, -1.0, -STAGE1_LENGTH / 2.0 - heightOverGround), 1e5, 1e5, 0.3},
-		{_V(-0.7, 0.7, -STAGE1_LENGTH / 2.0 - heightOverGround), 1e5, 1e5, 0.3},
-		{_V(0.7, 0.7, -STAGE1_LENGTH / 2.0 - heightOverGround), 1e5, 1e5,  0.3},
-		{_V(0.1, -0.5, STAGE1_LENGTH / 2.0), 1e5, 1e5, 0.3},
-		{_V(-0.5, 0.5, STAGE1_LENGTH / 2.0), 1e5, 1e5, 0.3},
-		{_V(0.5, 0.5, STAGE1_LENGTH / 2.0), 1e5, 1e5, 0.3},
-	};
-	SetTouchdownPoints(touchdownPointies, touchdownPointsNumbers);
+	const VECTOR3 TOUCH0 = _V(0.1, -1.0, -STAGE1_LENGTH / 2.0 - heightOverGround);
+	const VECTOR3 TOUCH1 = _V(-0.7, 0.7, -STAGE1_LENGTH / 2.0 - heightOverGround);
+	const VECTOR3 TOUCH2 = _V(0.7, 0.7, -STAGE1_LENGTH / 2.0 - heightOverGround);
+	const VECTOR3 TOUCH3 = _V(0.1, -0.5, STAGE1_LENGTH / 2.0);
+	VersionDependentTouchdown(TOUCH0, TOUCH1, TOUCH2, TOUCH3, 1e5, 1e5, 0.3);
 	SetEmptyMass(STAGE1_DRY_MASS);
 
 	SetCW(1.0, 0.1, 0.3, 0.3);
@@ -116,7 +124,7 @@ void Mercury_RedstoneBooster::clbkSetClassCaps(FILEHANDLE cfg)
 	AddParticleStream(&explode2, _V(0.0, 0.0, 0.0), _V(0.0, 0.0, -1.0), &explosionLevel);
 }
 
-void Mercury_RedstoneBooster::clbkPreStep(double simt, double simdt, double mjd)
+void ProjectMercury::clbkPreStep(double simt, double simdt, double mjd)
 {
 
 	if (selfDestruct && simt - creationTime > 3.2) // delete
@@ -132,7 +140,7 @@ void Mercury_RedstoneBooster::clbkPreStep(double simt, double simdt, double mjd)
 	}
 }
 
-void Mercury_RedstoneBooster::clbkPostStep(double simt, double simdt, double mjd)
+void ProjectMercury::clbkPostStep(double simt, double simdt, double mjd)
 {
 	if (GetAtmDensity() < contrailEnd)
 	{
@@ -187,11 +195,11 @@ void Mercury_RedstoneBooster::clbkPostStep(double simt, double simdt, double mjd
 // Initialisation
 DLLCLBK VESSEL* ovcInit(OBJHANDLE hvessel, int flightmodel)
 {
-	return new Mercury_RedstoneBooster(hvessel, flightmodel);
+	return new ProjectMercury(hvessel, flightmodel);
 }
 
 // Cleanup
 DLLCLBK void ovcExit(VESSEL* vessel)
 {
-	if (vessel) delete (Mercury_RedstoneBooster*)vessel;
+	if (vessel) delete (ProjectMercury*)vessel;
 }

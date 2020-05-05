@@ -16,30 +16,39 @@ static const DWORD touchdownPointsNumb = 4;
 const double depression = 0.3;
 const double stiffness = abs(-47.0 * G / (3 * depression)); // abs for sanity check, as I have a tendency to forget signs
 const double damping = 0.3 * 2 * sqrt(47.0 * stiffness);
-static TOUCHDOWNVTX touchdownPoint[touchdownPointsNumb] = {
-	// pos, stiff, damping, mu, mu long
-	{_V(0.0, -3.5, -LENGTH_CHUTE / 2.0 + depression), stiffness, damping, 1e1},
-	{_V(-2.5, 2.5, -LENGTH_CHUTE / 2.0 + depression), stiffness, damping, 1e1},
-	{_V(2.5, 2.5, -LENGTH_CHUTE / 2.0 + depression), stiffness, damping, 1e1},
-	{_V(0.0, 0.0, LENGTH_CHUTE / 2.0), stiffness, damping, 1e1},
-};
+const VECTOR3 TOUCH0 = _V(0.0, -3.5, -LENGTH_CHUTE / 2.0 + depression);
+const VECTOR3 TOUCH1 = _V(-2.5, 2.5, -LENGTH_CHUTE / 2.0 + depression);
+const VECTOR3 TOUCH2 = _V(2.5, 2.5, -LENGTH_CHUTE / 2.0 + depression);
+const VECTOR3 TOUCH3 = _V(0.0, 0.0, LENGTH_CHUTE / 2.0);
 
-class MercuryMainChute : public VESSEL4
+class ProjectMercury : public VESSEL3
 {
 public:
-	MercuryMainChute(OBJHANDLE hVessel, int flightmodel);
-	~MercuryMainChute();
+	ProjectMercury(OBJHANDLE hVessel, int flightmodel);
+	~ProjectMercury();
 	void clbkSetClassCaps(FILEHANDLE cfg);
 	void clbkPreStep(double simt, double simdt, double mjd);
+
+	void VersionDependentTouchdown(VECTOR3 touch1, VECTOR3 touch2, VECTOR3 touch3, VECTOR3 touch4, double stiff, double damp, double mu);
+	void VersionDependentPanelClick(int id, const RECT& pos, int texidx, int draw_event, int mouse_event, PANELHANDLE hPanel, const RECT& texpos, int bkmode);
+	void VersionDependentPadHUD(oapi::Sketchpad* skp, double simt, int* yIndexUpdate, char* cbuf, VESSEL* v);
+	double normangle(double angle);
+	void oapiWriteLogV(const char* format, ...);
+	double GetGroundspeed(void);
+	double GetAnimation(UINT anim);
+	void GetGroundspeedVector(int frame, VECTOR3& v);
+	double length2(VECTOR3 vec);
+	void GetAirspeedVector(int frame, VECTOR3& v);
 
 private:
 	static void vlift(VESSEL* v, double aoa, double M, double Re, void* context, double* cl, double* cm, double* cd);
 	static void hlift(VESSEL* v, double aoa, double M, double Re, void* context, double* cl, double* cm, double* cd);
 	MESHHANDLE chute;
 	UINT Chute;
-	const double chuteLevel = 1.0;
+	/*const */double chuteLevel = 1.0; // debug orbiter2016 orbiter2010
 };
 
+#include "..\..\FunctionsForOrbiter2010.h"
 
 // ==============================================================
 // API interface
@@ -48,24 +57,23 @@ private:
 
 
 
-MercuryMainChute::MercuryMainChute(OBJHANDLE hVessel, int flightmodel) : VESSEL4(hVessel, flightmodel)
+ProjectMercury::ProjectMercury(OBJHANDLE hVessel, int flightmodel) : VESSEL3(hVessel, flightmodel)
 {
 	chute = oapiLoadMeshGlobal("ProjectMercury\\merc_chute");
 }
 
-MercuryMainChute::~MercuryMainChute()
+ProjectMercury::~ProjectMercury()
 {
 }
 
-void MercuryMainChute::clbkSetClassCaps(FILEHANDLE cfg)
+void ProjectMercury::clbkSetClassCaps(FILEHANDLE cfg)
 {
 	//SetCrossSections(_V(2.8, 2.8, LENGTH_CHUTE * 8));
 	//SetCW(1.5, 1.5, 0.3, 0.3);
 	SetSize(10.0);
 	SetEmptyMass(68.0); // MA-7 weight 2557 lb at main chute deploy, 2407.83 lb at floating -> 68 kg
-	//SetRotDrag(_V(0.7, 0.7, .1));
-	//SetPMI(_V(0.66, 0.66, .33));
-	SetTouchdownPoints(touchdownPoint, touchdownPointsNumb);
+	VersionDependentTouchdown(TOUCH0, TOUCH1, TOUCH2, TOUCH3, stiffness, damping, 1e1);
+	SetTouchdownPoints(TOUCH0, TOUCH1, TOUCH2);
 	AddMesh(chute);
 
 	double diameter = 0.7; // need to create airfoil for variabledragelement to work
@@ -75,7 +83,7 @@ void MercuryMainChute::clbkSetClassCaps(FILEHANDLE cfg)
 	CreateVariableDragElement(&chuteLevel, 218.0, CHUTE_ATTACK_POINT);
 }
 
-void MercuryMainChute::clbkPreStep(double simt, double simdt, double mjd)
+void ProjectMercury::clbkPreStep(double simt, double simdt, double mjd)
 {
 	if (GroundContact())
 	{
@@ -87,16 +95,16 @@ void MercuryMainChute::clbkPreStep(double simt, double simdt, double mjd)
 // Initialisation
 DLLCLBK VESSEL* ovcInit(OBJHANDLE hvessel, int flightmodel)
 {
-	return new MercuryMainChute(hvessel, flightmodel);
+	return new ProjectMercury(hvessel, flightmodel);
 }
 
 // Cleanup
 DLLCLBK void ovcExit(VESSEL* vessel)
 {
-	if (vessel) delete (MercuryMainChute*)vessel;
+	if (vessel) delete (ProjectMercury*)vessel;
 }
 
-void MercuryMainChute::vlift(VESSEL* v, double aoa, double M, double Re, void* context, double* cl, double* cm, double* cd)
+void ProjectMercury::vlift(VESSEL* v, double aoa, double M, double Re, void* context, double* cl, double* cm, double* cd)
 {
 	static const double step = RAD * 22.5;
 	static const double istep = 1.0 / step;
@@ -144,7 +152,7 @@ void MercuryMainChute::vlift(VESSEL* v, double aoa, double M, double Re, void* c
 	*cd *= 0.5;
 }
 
-void MercuryMainChute::hlift(VESSEL* v, double beta, double M, double Re, void* context, double* cl, double* cm, double* cd)
+void ProjectMercury::hlift(VESSEL* v, double beta, double M, double Re, void* context, double* cl, double* cm, double* cd)
 {
 	static const double step = RAD * 22.5;
 	static const double istep = 1.0 / step;

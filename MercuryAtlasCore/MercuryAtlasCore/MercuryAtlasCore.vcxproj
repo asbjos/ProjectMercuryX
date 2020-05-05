@@ -70,7 +70,7 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <OutDir>..\..\..\..\..\..\..\Modules\ProjectMercury</OutDir>
+    <OutDir>..\..\..\..\..\..\..\Modules\ProjectMercury\</OutDir>
     <TargetName>Mercury_AtlasCore</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">

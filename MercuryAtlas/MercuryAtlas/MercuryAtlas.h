@@ -15,11 +15,23 @@
 // 
 // ==============================================================
 
-FILEHANDLE pitchDataLogFile;
+//FILEHANDLE pitchDataLogFile;
 
 // ==============================================================
 // Some vessel parameters
 // ==============================================================
+
+typedef struct texture {
+	char file[50];
+	int w;
+	int h;
+} ATEX; // Asbjos Texture
+
+// Retrotimes panel font
+static oapi::Font* panelFont = NULL;
+
+//// Earth globe
+//SURFHANDLE globeTexture = NULL;
 
 const double MERCURY_LENGTH_CAPSULE = 2.3042;
 const double MERCURY_LENGTH_ABORT = 5.1604;
@@ -29,84 +41,99 @@ const double MERCURY_LENGTH_LANDBAG = 0.97;
 const double MERCURY_LENGTH_RETRO = 0.50;
 const double ATLAS_CORE_LENGTH = 20.90; // 19.83796; 
 const double ATLAS_BOOSTER_LENGTH = 3.86;
-const VECTOR3 MERCURY_OFS_CAPSULE = { 0.0, 0.0, (MERCURY_LENGTH_CAPSULE) / 2.0 + ATLAS_CORE_LENGTH / 2.0};
-const VECTOR3 ATLAS_CORE_OFFSET = { 0.0, 0.0, MERCURY_OFS_CAPSULE.z - 11.6 }; // Also known as 0, 0, 0
-const VECTOR3 ATLAS_BOOSTER_OFFSET = { 0.0, 0.0, MERCURY_OFS_CAPSULE.z - 20.2 };
-const VECTOR3 ATLAS_ADAPTER_OFFSET = { 0.0, 0.0, MERCURY_OFS_CAPSULE.z - 1.55 };
+VECTOR3 MERCURY_OFS_CAPSULE = { 0.0, 0.0, (MERCURY_LENGTH_CAPSULE) / 2.0 + ATLAS_CORE_LENGTH / 2.0};
+const VECTOR3 ATLAS_CORE_OFFSET = { 0.0, 0.0, 0.0 }; // MERCURY_OFS_CAPSULE.z - 11.6 = 0.0
+const VECTOR3 ATLAS_BOOSTER_OFFSET = { 0.0, 0.0, ATLAS_CORE_OFFSET.z - 8.6 }; // MERCURY_OFS_CAPSULE.z - 20.2 
+VECTOR3 ATLAS_ADAPTER_OFFSET = { 0.0, 0.0, MERCURY_OFS_CAPSULE.z - 1.55 };
 const VECTOR3 CORE_EXHAUST_POS = { 0.0, 0.0, ATLAS_CORE_OFFSET.z - ATLAS_CORE_LENGTH / 2.0 };
-const VECTOR3 BOOSTER_EXHAUST_POS = { 1.38, 0.0, ATLAS_BOOSTER_OFFSET.z - ATLAS_BOOSTER_LENGTH / 2.0};
-const VECTOR3 VERNIER_EXHAUST_POS = { 0.0, -1.90, -6.822 + ATLAS_CORE_OFFSET.z };
-const VECTOR3 TURBINE_EXHAUST_POS = { -0.1868404, -0.60114, -1.689692 + ATLAS_BOOSTER_OFFSET.z};
+const VECTOR3 BOOSTER_EXHAUST_POS = { 0.0, 1.38, ATLAS_BOOSTER_OFFSET.z - ATLAS_BOOSTER_LENGTH / 2.0};
+const VECTOR3 VERNIER_EXHAUST_POS = { 1.90, 0.0, -6.822 + ATLAS_CORE_OFFSET.z };
+const VECTOR3 TURBINE_EXHAUST_POS = { 0.60114, -0.1868404, -1.689692 + ATLAS_BOOSTER_OFFSET.z};
 const VECTOR3 CORE_EXHAUST_DIR = { 0.0, 0.0, 1.0 };
 const VECTOR3 BOOSTER_EXHAUST_DIR = { 0.0, 0.0, 1.0 };
-const VECTOR3 VERNIER_EXHAUST_DIR = { 0.0, 0.134382, 0.99093 };
-const VECTOR3 TURBINE_EXHAUST_DIR = { 0.0, sin(20 * RAD), cos(20 * RAD) }; // pick angle to fit
-const VECTOR3 ABORT_OFFSET = { 0.0, -0.04, MERCURY_OFS_CAPSULE.z + MERCURY_LENGTH_CAPSULE / 2.0 + MERCURY_LENGTH_ABORT / 2.0 };
+const VECTOR3 VERNIER_EXHAUST_DIR = { -0.134382, 0.0, 0.99093 };
+const VECTOR3 TURBINE_EXHAUST_DIR = { -sin(20 * RAD), 0.0, cos(20 * RAD) }; // pick angle to fit
+VECTOR3 ABORT_OFFSET = { 0.0, -0.04, MERCURY_OFS_CAPSULE.z + MERCURY_LENGTH_CAPSULE / 2.0 + MERCURY_LENGTH_ABORT / 2.0 };
 //const VECTOR3 MERCURY_CAPSULE_OFFSET = _V(0.0, 0.0, -0.60); // sets an offset to the capsule to have CM at roll thrusters
 
-const VECTOR3 MERCURY_OFS_SHIELD = { 0.0, 0.0, MERCURY_OFS_CAPSULE.z - MERCURY_LENGTH_CAPSULE / 2 - MERCURY_LENGTH_SHIELD / 2 + MERCURY_LENGTH_SHIELD - .05 };
-const VECTOR3 MERCURY_OFS_ANTHOUSE = { 0.0, 0.0, MERCURY_OFS_CAPSULE.z + MERCURY_LENGTH_CAPSULE / 2 + MERCURY_LENGTH_ANTHOUSE / 2 };
-const VECTOR3 MERCURY_OFS_ABORT = { 0.0, -0.04, MERCURY_OFS_CAPSULE.z + MERCURY_LENGTH_CAPSULE / 2 + MERCURY_LENGTH_ABORT / 2 };
+VECTOR3 MERCURY_OFS_SHIELD = { 0.0, 0.0, MERCURY_OFS_CAPSULE.z - MERCURY_LENGTH_CAPSULE / 2 - MERCURY_LENGTH_SHIELD / 2 + MERCURY_LENGTH_SHIELD - .05 };
+VECTOR3 MERCURY_OFS_ANTHOUSE = { 0.0, 0.0, MERCURY_OFS_CAPSULE.z + MERCURY_LENGTH_CAPSULE / 2 + MERCURY_LENGTH_ANTHOUSE / 2 };
+VECTOR3 MERCURY_OFS_ABORT = { 0.0, -0.04, MERCURY_OFS_CAPSULE.z + MERCURY_LENGTH_CAPSULE / 2 + MERCURY_LENGTH_ABORT / 2 };
 const VECTOR3 MERCURY_OFS_MAINCHUTE = { 0.0, 0.0, MERCURY_LENGTH_CAPSULE / 2 - .05 };
 const VECTOR3 MERCURY_OFS_DROGUE = { -0.12, 0.08, -.2 + MERCURY_LENGTH_ANTHOUSE / 2 };
-const VECTOR3 MERCURY_OFS_DROGUECOVER = { -0.12, 0.08, -0.07 + MERCURY_OFS_ANTHOUSE.z + MERCURY_LENGTH_ANTHOUSE / 2 };
-const VECTOR3 MERCURY_OFS_LANDBAG = { 0.0, 0.0, MERCURY_OFS_CAPSULE.z - MERCURY_LENGTH_CAPSULE / 2 + MERCURY_LENGTH_SHIELD - .05 - MERCURY_LENGTH_LANDBAG / 2 };
-const VECTOR3 MERCURY_OFS_RETRO = { 0.0, 0.025, MERCURY_OFS_CAPSULE.z - MERCURY_LENGTH_CAPSULE / 2 - MERCURY_LENGTH_RETRO / 2 + .15 };
-const VECTOR3 MERCURY_OFS_BEACON = { 0.0, 0.425, MERCURY_OFS_RETRO.z };
-const VECTOR3 MERCURY_OFS_RETROCOVER1 = { -0.196, MERCURY_OFS_RETRO.y + 0.091, MERCURY_OFS_RETRO.z - .2 };
-const VECTOR3 MERCURY_OFS_RETROCOVER2 = { -0.005, MERCURY_OFS_RETRO.y - 0.23, MERCURY_OFS_RETRO.z - .2 };
-const VECTOR3 MERCURY_OFS_RETROCOVER3 = { 0.175, MERCURY_OFS_RETRO.y + 0.091, MERCURY_OFS_RETRO.z - .2 };
-const VECTOR3 MERCURY_OFS_RETROSTRAP1 = { -0.03, MERCURY_OFS_RETRO.y + 0.46, MERCURY_OFS_RETRO.z + .093 };
-const VECTOR3 MERCURY_OFS_RETROSTRAP2 = { -0.417, MERCURY_OFS_RETRO.y - 0.287, MERCURY_OFS_RETRO.z + .093 };
-const VECTOR3 MERCURY_OFS_RETROSTRAP3 = { 0.425, MERCURY_OFS_RETRO.y - 0.27, MERCURY_OFS_RETRO.z + .093 };
-const VECTOR3 MERCURY_OFS_EXPLOSIVEBOLT = { 0.0, 0.0, MERCURY_OFS_RETRO.z - .18 };
+VECTOR3 MERCURY_OFS_DROGUECOVER = { -0.12, 0.08, -0.08 + MERCURY_OFS_ANTHOUSE.z + MERCURY_LENGTH_ANTHOUSE / 2 };
+VECTOR3 MERCURY_OFS_LANDBAG = { 0.0, 0.0, MERCURY_OFS_CAPSULE.z - MERCURY_LENGTH_CAPSULE / 2 + MERCURY_LENGTH_SHIELD - .05 - MERCURY_LENGTH_LANDBAG / 2 };
+VECTOR3 MERCURY_OFS_RETRO = { 0.0, 0.025, MERCURY_OFS_CAPSULE.z - MERCURY_LENGTH_CAPSULE / 2 - MERCURY_LENGTH_RETRO / 2 + .15 };
+VECTOR3 MERCURY_OFS_RETROCOVER1 = { -0.196, MERCURY_OFS_RETRO.y + 0.091, MERCURY_OFS_RETRO.z - .2 };
+VECTOR3 MERCURY_OFS_RETROCOVER2 = { -0.005, MERCURY_OFS_RETRO.y - 0.23, MERCURY_OFS_RETRO.z - .2 };
+VECTOR3 MERCURY_OFS_RETROCOVER3 = { 0.175, MERCURY_OFS_RETRO.y + 0.091, MERCURY_OFS_RETRO.z - .2 };
+VECTOR3 MERCURY_OFS_RETROSTRAP1 = { -0.03, MERCURY_OFS_RETRO.y + 0.46, MERCURY_OFS_RETRO.z + .093 };
+VECTOR3 MERCURY_OFS_RETROSTRAP2 = { -0.417, MERCURY_OFS_RETRO.y - 0.287, MERCURY_OFS_RETRO.z + .093 };
+VECTOR3 MERCURY_OFS_RETROSTRAP3 = { 0.425, MERCURY_OFS_RETRO.y - 0.27, MERCURY_OFS_RETRO.z + .093 };
+VECTOR3 MERCURY_OFS_EXPLOSIVEBOLT = { 0.0, 0.0, MERCURY_OFS_RETRO.z - .18 };
 
-const VECTOR3 OFS_ADAPTRING1 = { -0.61, 0.35,  -0.93 + MERCURY_OFS_CAPSULE.z };
-const VECTOR3 OFS_ADAPTRING2 = { 0.0, -0.82,  -0.93 + MERCURY_OFS_CAPSULE.z};
-const VECTOR3 OFS_ADAPTRING3 = { 0.61, 0.35,  -0.93 + MERCURY_OFS_CAPSULE.z};
-const VECTOR3 OFS_ADAPTCOVER1 = { 0.0, 0.91, -0.9 + MERCURY_OFS_CAPSULE.z };
-const VECTOR3 OFS_ADAPTCOVER2 = { -0.74, -0.43,  -0.9 + MERCURY_OFS_CAPSULE.z };
-const VECTOR3 OFS_ADAPTCOVER3 = { 0.74, -0.43,  -0.9 + MERCURY_OFS_CAPSULE.z };
+VECTOR3 OFS_ADAPTRING1 = { -0.61, 0.35,  -0.93 + MERCURY_OFS_CAPSULE.z };
+VECTOR3 OFS_ADAPTRING2 = { 0.0, -0.82,  -0.93 + MERCURY_OFS_CAPSULE.z};
+VECTOR3 OFS_ADAPTRING3 = { 0.61, 0.35,  -0.93 + MERCURY_OFS_CAPSULE.z};
+VECTOR3 OFS_ADAPTCOVER1 = { 0.0, 0.91, -0.9 + MERCURY_OFS_CAPSULE.z };
+VECTOR3 OFS_ADAPTCOVER2 = { -0.74, -0.43,  -0.9 + MERCURY_OFS_CAPSULE.z };
+VECTOR3 OFS_ADAPTCOVER3 = { 0.74, -0.43,  -0.9 + MERCURY_OFS_CAPSULE.z };
 
 
 static const DWORD tchdwnLaunchNum = 4;
-static TOUCHDOWNVTX tchdwnLaunch[tchdwnLaunchNum] = {
-	// pos, stiff, damping, mu, mu long
-	{_V(0.0, -1.0, ATLAS_CORE_OFFSET.z - ATLAS_CORE_LENGTH / 2.0), 1e7, 1e5, 10},
-	{_V(-sqrt(0.5), sqrt(0.5), ATLAS_CORE_OFFSET.z - ATLAS_CORE_LENGTH / 2.0), 1e7, 1e5, 10},
-	{_V(sqrt(0.5), sqrt(0.5), ATLAS_CORE_OFFSET.z - ATLAS_CORE_LENGTH / 2.0), 1e7, 1e5, 10},
-	{_V(0.0, 0.0, MERCURY_OFS_ABORT.z + MERCURY_LENGTH_ABORT / 2.0), 1e7, 1e5, 10},
-};
+const VECTOR3 TOUCHDOWN_LAUNCH0 = _V(0.0, -1.0, ATLAS_CORE_OFFSET.z - ATLAS_CORE_LENGTH / 2.0);
+const VECTOR3 TOUCHDOWN_LAUNCH1 = _V(-sqrt(0.5), sqrt(0.5), ATLAS_CORE_OFFSET.z - ATLAS_CORE_LENGTH / 2.0);
+const VECTOR3 TOUCHDOWN_LAUNCH2 = _V(sqrt(0.5), sqrt(0.5), ATLAS_CORE_OFFSET.z - ATLAS_CORE_LENGTH / 2.0);
+const VECTOR3 TOUCHDOWN_LAUNCH3 = _V(0.0, 0.0, MERCURY_OFS_ABORT.z + MERCURY_LENGTH_ABORT / 2.0);
+//static TOUCHDOWNVTX tchdwnLaunch[tchdwnLaunchNum] = {
+//	// pos, stiff, damping, mu, mu long
+//	{TOUCHDOWN_LAUNCH0, 1e7, 1e5, 10},
+//	{TOUCHDOWN_LAUNCH1, 1e7, 1e5, 10},
+//	{TOUCHDOWN_LAUNCH2, 1e7, 1e5, 10},
+//	{TOUCHDOWN_LAUNCH3, 1e7, 1e5, 10},
+//};
 
 static const DWORD tchdwnTowSepNum = 4;
-static TOUCHDOWNVTX tchdwnTowSep[tchdwnTowSepNum] = {
-	// pos, stiff, damping, mu, mu long
-	{_V(0.0, -1.0, ATLAS_CORE_OFFSET.z - ATLAS_CORE_LENGTH / 2.0), 1e7, 1e5, 10},
-	{_V(-0.7, 0.7, ATLAS_CORE_OFFSET.z - ATLAS_CORE_LENGTH / 2.0), 1e7, 1e5, 10},
-	{_V(0.7, 0.7, ATLAS_CORE_OFFSET.z - ATLAS_CORE_LENGTH / 2.0), 1e7, 1e5, 10},
-	{_V(0.0, 0.0, MERCURY_OFS_CAPSULE.z + MERCURY_LENGTH_CAPSULE / 2.0), 1e7, 1e5, 10},
-};
+const VECTOR3 TOUCHDOWN_TOWSEP0 = _V(0.0, -1.0, ATLAS_CORE_OFFSET.z - ATLAS_CORE_LENGTH / 2.0);
+const VECTOR3 TOUCHDOWN_TOWSEP1 = _V(-0.7, 0.7, ATLAS_CORE_OFFSET.z - ATLAS_CORE_LENGTH / 2.0);
+const VECTOR3 TOUCHDOWN_TOWSEP2 = _V(0.7, 0.7, ATLAS_CORE_OFFSET.z - ATLAS_CORE_LENGTH / 2.0);
+const VECTOR3 TOUCHDOWN_TOWSEP3 = _V(0.0, 0.0, MERCURY_OFS_CAPSULE.z + MERCURY_LENGTH_CAPSULE / 2.0);
+//static TOUCHDOWNVTX tchdwnTowSep[tchdwnTowSepNum] = {
+//	// pos, stiff, damping, mu, mu long
+//	{TOUCHDOWN_TOWSEP0, 1e7, 1e5, 10},
+//	{TOUCHDOWN_TOWSEP1, 1e7, 1e5, 10},
+//	{TOUCHDOWN_TOWSEP2, 1e7, 1e5, 10},
+//	{TOUCHDOWN_TOWSEP3, 1e7, 1e5, 10},
+//};
 
 static const DWORD tchdwnFlightNum = 4;
 const double depression = 0.3;
 const double stiffness = abs(-1224.24 * G / (3 * depression)); // abs for sanity check, as I have a tendency to forget signs
 const double damping = 0.3 * 2 * sqrt(1224.24 * stiffness);
-static TOUCHDOWNVTX tchdwnFlight[tchdwnFlightNum] = {
-	// pos, stiff, damping, mu, mu long
-	{_V(0.0, -3.5, -MERCURY_LENGTH_CAPSULE / 2.0 + depression), stiffness, damping, 1e1},
-	{_V(-2.5, 2.5, -MERCURY_LENGTH_CAPSULE / 2.0 + depression), stiffness, damping, 1e1},
-	{_V(2.5, 2.5, -MERCURY_LENGTH_CAPSULE / 2.0 + depression), stiffness, damping, 1e1},
-	{_V(0.0, 0.0, MERCURY_LENGTH_CAPSULE / 2.0), stiffness, damping, 1e1},
-};
+const VECTOR3 TOUCHDOWN_FLIGHT0 = _V(0.0, -3.5, -MERCURY_LENGTH_CAPSULE / 2.0 + depression);
+const VECTOR3 TOUCHDOWN_FLIGHT1 = _V(-2.5, 2.5, -MERCURY_LENGTH_CAPSULE / 2.0 + depression);
+const VECTOR3 TOUCHDOWN_FLIGHT2 = _V(2.5, 2.5, -MERCURY_LENGTH_CAPSULE / 2.0 + depression);
+const VECTOR3 TOUCHDOWN_FLIGHT3 = _V(0.0, 0.0, MERCURY_LENGTH_CAPSULE / 2.0);
+//static TOUCHDOWNVTX tchdwnFlight[tchdwnFlightNum] = {
+//	// pos, stiff, damping, mu, mu long
+//	{TOUCHDOWN_FLIGHT0, stiffness, damping, 1e1},
+//	{TOUCHDOWN_FLIGHT1, stiffness, damping, 1e1},
+//	{TOUCHDOWN_FLIGHT2, stiffness, damping, 1e1},
+//	{TOUCHDOWN_FLIGHT3, stiffness, damping, 1e1},
+//};
 
 static const DWORD tchdwnAbortNum = 4;
-static TOUCHDOWNVTX tchdwnAbort[tchdwnAbortNum] = {
-	// pos, stiff, damping, mu, mu long
-	{_V(0.0, -1.0, -MERCURY_LENGTH_CAPSULE / 2.0), 1e7, 1e5, 10},
-	{_V(-0.7, 0.7, -MERCURY_LENGTH_CAPSULE / 2.0), 1e7, 1e5, 10},
-	{_V(0.7, 0.7, -MERCURY_LENGTH_CAPSULE / 2.0), 1e7, 1e5, 10},
-	{_V(0.0, 0.0, MERCURY_LENGTH_ABORT / 2.0), 1e7, 1e5, 10},
-};
+const VECTOR3 TOUCHDOWN_ABORT0 = _V(0.0, -1.0, -MERCURY_LENGTH_CAPSULE / 2.0);
+const VECTOR3 TOUCHDOWN_ABORT1 = _V(-0.7, 0.7, -MERCURY_LENGTH_CAPSULE / 2.0);
+const VECTOR3 TOUCHDOWN_ABORT2 = _V(0.7, 0.7, -MERCURY_LENGTH_CAPSULE / 2.0);
+const VECTOR3 TOUCHDOWN_ABORT3 = _V(0.0, 0.0, MERCURY_LENGTH_ABORT / 2.0);
+//static TOUCHDOWNVTX tchdwnAbort[tchdwnAbortNum] = {
+//	// pos, stiff, damping, mu, mu long
+//	{TOUCHDOWN_ABORT0, 1e7, 1e5, 10},
+//	{TOUCHDOWN_ABORT1, 1e7, 1e5, 10},
+//	{TOUCHDOWN_ABORT2, 1e7, 1e5, 10},
+//	{TOUCHDOWN_ABORT3, 1e7, 1e5, 10},
+//};
 
 // Contrail conditions. Calibrated to Sigma 7 launch video, from T+65 to T+77 s
 const double contrailBegin = 0.35; // Air density for contrail to begin
@@ -132,8 +159,8 @@ const double BOOSTER_THRUST = 1517422.0 / 2.0; // Two thrusters, totaling 1.5 MN
 const double VERNIER_THRUST_VAC = 2975.0; // https://www.scss.tcd.ie/Stephen.Farrell/ipn/background/Braeunig/specs/atlas.htm Or 4448 N (19630012071 page 97)
 const double  VERNIER_ISP_SL = 172.0 * G;
 const double  VERNIER_ISP_VAC = 231.0 * G;
-const VECTOR3 VERNIER1_OFFSET = _V(0.023, -1.829, -6.614) + ATLAS_CORE_OFFSET;
-const VECTOR3 VERNIER2_OFFSET = _V(-0.053, 1.841, -6.614) + ATLAS_CORE_OFFSET;
+const VECTOR3 VERNIER1_OFFSET = _V(1.829, 0.023, -6.614) + ATLAS_CORE_OFFSET;
+const VECTOR3 VERNIER2_OFFSET = _V(-1.841, -0.053, -6.614) + ATLAS_CORE_OFFSET;
 
 const double ABORT_MASS_FUEL = 131.77; // For Little Joe it was 290.5 lb (19670022198 page 27)
 const double ABORT_THRUST = 231308; // or 1267, or 231.3 kN, 52000 lb force
@@ -141,7 +168,7 @@ const double ABORT_ISP = 1.1 * ABORT_THRUST / ABORT_MASS_FUEL; // Calculated to 
 const double ABORT_MASS = 460.4; // or 580 kg. For Little Joe it was 1015 lbs. Total mass (wet)
 
 const double RETRO_MASS = 237.0; // 237 kg, according to astronautix and http://www.braeunig.us/space/specs/mercury.htm
-const double POSIGRADE_MASS_FUEL = 3.6; // Total 24 lb set (3.6 kg * 3), according to https://www.wired.com/2014/09/one-man-space-station-1960/. But edited to result dV 28 ft/s
+double POSIGRADE_MASS_FUEL = 3.6; // Total 24 lb set (3.6 kg * 3), according to https://www.wired.com/2014/09/one-man-space-station-1960/. But edited to result dV 28 ft/s
 const double POSIGRADE_THRUST = 1779; // MA-6 results pdf, page 14, 400 lb force (1779 N). Total dV is 28 ft/s. But that is from exerting force on booster, which cannot be simulated. Without it should be something like 15 ft/s
 const double POSIGRADE_ISP = 1.0 * POSIGRADE_THRUST / POSIGRADE_MASS_FUEL; // Seems like Isp should be similar to retro. Is now 494 s
 const double RETRO_MASS_FUEL = 20.0; // Astronautix, total 60 kg
@@ -167,18 +194,28 @@ const double MERCURY_THRUST_ATT_LOW = 4.448; // 1 lb
 const double DROGUE_OPERATING_SPEED = 0.4; // was 0.4
 const double MAIN_CHUTE_OPERATING_SPEED = 0.4; // was 0.4
 const double LANDING_BAG_OPERATING_SPEED = 0.2;
+const double PERISCOPE_OPERATING_SPEED = 0.2;
+const double DESTABILISER_OPERATING_SPEED = 2.0; // spring loaded
+
+// Periscope aparture sizes from 19740075935_1974075935 page 72
+const double PERISCOPE_NARROW = 19.0 * RAD / 2.0;
+const double PERISCOPE_WIDE = 175.0 * RAD / 2.0; // Actually 175 deg, but Orbiter only supports up to 160.0 deg, so this will be truncated to 160 deg FOV by Orbiter
+const double PERISCOPE_ANGLE = (90.0 - 14.5) * RAD; // 19630012071 page 291
+const VECTOR3 CAMERA_DIRECTION = _V(0, -sin(PERISCOPE_ANGLE), cos(PERISCOPE_ANGLE));
+const VECTOR3 CAMERA_OFFSET = _V(0.0, -0.6, -0.2);
+
+const int numRocketCamModes = 2;
+const VECTOR3 ROCKET_CAMERA_DIRECTION[numRocketCamModes] = { _V(0.0, 0.0, -1.0), _V(0.0, 0.0, 1.0) };
+const VECTOR3 ROCKET_CAMERA_OFFSET[numRocketCamModes] = { _V(1.5, 1.5, -ATLAS_CORE_LENGTH / 2.0 + 7.5), _V(0.0,2.0, ATLAS_CORE_LENGTH / 2.0 - 4.0) };
 
 // Pitch data from 19730073391 page 107
-const double MET[12] =		   { 0.00, 15.0, 27.0, 39.0, 64.0, 79.0, 89.0, 105.0, 120.0, 131.34, 136.34, 151.34 };
-const double aimPitchover[12] = { 0.0, 0.98, 0.76, 0.64, 0.72, 0.72, 0.50, 0.280, 0.240, 0.0000, 2.0000, 0.0000 };
+const double MET[13] =		   { 0.00, 15.0, 27.0, 39.0, 64.0, 79.0, 89.0, 105.0, 120.0, 131.34, 136.34, 151.34 , 1e10 }; // last entry is "infinity"
+const double aimPitchover[13] = { 0.0, 0.98, 0.76, 0.64, 0.68, 0.60, 0.45, 0.240, 0.160, 0.1600, 2.0000, 0.0000, 0.000 };
 //								1Bravo			1Charlie	1Delta		1Echo					 Foxtrot(end of 1st orbit)	2Alpha					2Bravo				2Charlie				2Delta						2Echo					Golf (end 2nd)	3Alpha					3Bravo					3Charlie				3Delta						3Echo					Hotel (Nominal deorbit)
 const double retroTimes[31] = { 17 * 60 + 50, 32 * 60 + 12, 50 * 60 + 24, 1 * 3600 + 15 * 60 + 42, 1 * 3600 + 28 * 60 + 50, 1 * 3600 + 36 * 60 + 38, 1 * 3600 + 50 * 60, 2 * 3600 + 5 * 60 + 59, 2 * 3600 + 38 * 60 + 31, 2 * 3600 + 48 * 60 + 59, 3 * 3600 + 39, 3 * 3600 + 11 * 60 + 26, 3 * 3600 + 22 * 60 + 32, 3 * 3600 + 40 * 60 + 18, 4 * 3600 + 12 * 60 + 32, 4 * 3600 + 22 * 60 + 12, 4 * 3600 + 32 * 60 + 37, 5 * 3600 + 44 * 60 + 5,	7 * 3600 + 18 * 60 + 10, 8 * 3600 + 51 * 60 + 28, 10 * 3600 + 23 * 60 + 37, 11 * 3600 + 56 * 60 + 24, 13 * 3600 + 19 * 60 + 20, 23 * 3600 + 31 * 60 + 3, 26 * 3600 + 14 * 60 + 48, 26 * 3600 + 34 * 60 + 48, 26 * 3600 + 58 * 60 + 50, 27 * 3600 + 43 * 60 + 48, 28 * 3600 + 31 * 60 + 24, 30 * 3600 + 53 * 60 + 1, 33 * 3600 + 59 * 60 + 24 };
 const char retroNames[][256] = { "1Bravo",	"1Charlie",		"1Delta",	"1Echo",				"Foxtrot",					"2Alpha",				"2Bravo",			"2Charlie",				"2Delta",					"2Echo",				"Golf",			"3Alpha",				"3Bravo",				"3Charlie",				"3Delta",					"3Echo",				"Hotel",				"4-2",					"5-1",					"6-1",					"7-1",						"8-1",					"9-1",						"16-1",					"17Bravo",					"18-1",					"18Alpha",					"18-2",					"19Bravo",					"20-1",					"22-1" };
 
-const double METp[47] = { 0.00 , 15.0 , 18.0 , 21.0 , 24.0 , 27.0 , 30.0 , 33.0 , 36.0 , 39.0 , 42.0 , 45.0 , 48.0 , 51.0 , 54.0 , 57.0 , 60.0 , 63.0 , 66.0 , 69.0 , 72.0 , 75.0 , 78.0 , 81.0 , 84.0 , 87.0 , 90.0 , 93.0 , 96.0 , 99.0 , 102.0 , 105.0 , 108.0 , 111.0 , 114.0 , 117.0 , 120.0 , 123.0 , 126.0 , 129.0 , 132.0 , 135.0 , 138.0 , 141.0 , 144.0 , 147.0, 150.0 };
-const double pitchP[47] = { 90.00 , 90.00 , 87.35 , 83.82 , 80.67 , 77.77 , 75.25 , 72.98 , 70.84 , 69.20 , 67.31 , 65.42 , 63.53 , 61.64 , 59.75 , 57.98 , 56.09 , 54.20 , 52.18 , 50.04 , 47.90 , 45.88 , 43.74 , 41.72 , 39.83 , 38.07 , 36.30 , 34.66 , 33.28 , 32.01 , 31.01 , 30.00 , 29.24 , 28.36 , 27.73 , 26.85 , 26.22 , 25.59 , 25.08 , 24.58 , 24.20 , 23.82 , 19.03 , 13.11 , 7.18 , 1.26 , -4.29 };
-
-class ProjectMercury : public VESSEL4 {
+class ProjectMercury : public VESSELVER {
 public:
 	ProjectMercury(OBJHANDLE hVessel, int flightmodel);
 	~ProjectMercury();
@@ -188,16 +225,35 @@ public:
 	void clbkPostStep(double simt, double simdt, double mjd);
 	int clbkConsumeBufferedKey(DWORD key, bool down, char* kstate);
 	bool clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketchpad* skp);
+	bool clbkLoadPanel2D(int id, PANELHANDLE hPanel, DWORD viewW, DWORD viewH);
+	void clbkVisualCreated(VISHANDLE vis, int refcount);
+	bool clbkLoadGenericCockpit(void);
+	bool clbkPanelMouseEvent(int id, int event, int mx, int my, void* context);
+	void clbkRenderHUD(int mode, const HUDPAINTSPEC* hps, SURFHANDLE hDefaultTex);
+	//bool clbkLoadVC(int id);
 	void clbkLoadStateEx(FILEHANDLE scn, void* status);
 	void clbkSaveState(FILEHANDLE scn);
+
+	void VersionDependentTouchdown(VECTOR3 touch1, VECTOR3 touch2, VECTOR3 touch3, VECTOR3 touch4, double stiff, double damp, double mu);
+	void VersionDependentPanelClick(int id, const RECT& pos, int texidx, int draw_event, int mouse_event, PANELHANDLE hPanel, const RECT& texpos, int bkmode);
+	void VersionDependentPadHUD(oapi::Sketchpad* skp, double simt, int* yIndexUpdate, char* cbuf, VESSEL* v);
+	/*double normangle(double angle);
+	void oapiWriteLogV(const char* format, ...);
+	double GetGroundspeed(void);
+	double GetAnimation(UINT anim);
+	void GetGroundspeedVector(int frame, VECTOR3& v);
+	double length2(VECTOR3 vec);
+	void GetAirspeedVector(int frame, VECTOR3& v);*/
 
 	bool SetTargetBaseIdx(char *rstr, bool launch);
 	bool SetNumberOfOrbits(char* rstr);
 
 	void AtlasAutopilot(double simt, double simdt);
+	void AimEulerAngle(double pitch, double yaw);
+	double PitchProgramAim(double met);
 	double OrbitalFrameSlipAngle(VECTOR3 pos, VECTOR3 vel);
 	double OrbitalFrameSlipAngle2(VECTOR3 pos, VECTOR3 vel);
-	double AtlasPitchControl(void);
+	double AtlasPitchControl(double cutoffAlt, double cutoffVel);
 	double AtlasTargetCutOffAzimuth(double simt, double ri, double longI, double latI, bool realData);
 	double EccentricAnomaly(double ecc, double TrA);
 	double TimeFromPerigee(double period, double ecc, double TrA);
@@ -206,14 +262,14 @@ public:
 	VECTOR3 Ecl2Equ(VECTOR3 Ecl);
 	VECTOR3 Equ2Ecl(VECTOR3 Equ);
 	void GetEquPosInTime(double t, double SMa, double Ecc, double Inc, double Per, double LPe, double LAN, double M, double longAtNow, double* longitude, double* latitude);
-	void GetLandingPointIfRetroInXSeconds(double t, ELEMENTS el, ORBITPARAM prm, double longAtNow, double* longitude, double* latitude);
+	bool GetLandingPointIfRetroInXSeconds(double t, ELEMENTS el, ORBITPARAM prm, double longAtNow, double* longitude, double* latitude);
 	void AtlasEngineDir(void);
 	void DefineVernierAnimations(void);
 	void CreateAirfoilsAtlas(void);
 
 	void DisableAutopilot(bool turnOff);
 	void AuxDampingAuto(bool highThrust);
-	void RetroAttitudeAuto(double simt, double simdt);
+	void RetroAttitudeAuto(double simt, double simdt, bool retroAtt);
 	bool SetPitchAuto(double targetPitch, bool highThrust);
 	bool SetYawAuto(bool highThrust);
 	bool SetRollAuto(bool highThrust);
@@ -237,10 +293,12 @@ public:
 	void CreateAirfoilsEscape(void);
 	void SwitchAttitudeMode(void);
 	void SwitchPropellantSource(void);
-	MATRIX3 RotationMatrix(VECTOR3 angles, bool xyz = FALSE);
+	MATRIX3 RotationMatrix(VECTOR3 angles, bool xyz = false);
 	void DumpFuelRCS(void);
 	VECTOR3 FlipX(VECTOR3 vIn);
 	VECTOR3 FlipY(VECTOR3 vIn);
+	VECTOR3 SwapXY(VECTOR3 vIn);
+	void myStrncpy(char* writeTo, const char* readFrom, int len);
 
 	double OrbitArea(double angle, double ecc);
 
@@ -248,6 +306,8 @@ public:
 	void SeparateAtlasBooster(bool noAbortSep);
 	void SeparateAtlasCore();
 	void SeparateRingsAndAdapters(void);
+	void SeparateConceptAdapter(void);
+	void SeparateConceptCovers(void);
 
 	void SeparateRetroPack(bool deleteThrusters);
 	void SeparateRetroCoverN(int i);
@@ -258,12 +318,40 @@ public:
 	void SeparateMainChute(void);
 	void DeployLandingBag(void);
 
+	void DefinePeriscopeAnimation(void);
+	void DefineAntennaDestabiliser(void);
 	void DefineDrogueAnimation(void);
 	void DefineMainChuteAnimation(void);
 	void DefineLandingBagAnimation(void);
+	void AnimateAntennaDestabiliser(double simt, double simdt);
+	void AnimatePeriscope(double simt, double simdt);
 	void AnimateDrogueChute(double simt, double simdt);
 	void AnimateMainChute(double simt, double simdt);
 	void AnimateLandingBag(double simt, double simdt);
+
+	bool InRadioContact(OBJHANDLE planet);
+
+	// Periscope altitude indicators
+	void GetPixelDeviationForAltitude(double inputAltitude, double *deg0Pix, double *deg5Pix);
+	void SetPeriscopeAltitude(double inputAltitude);
+
+	void SetCameraSceneVisibility(WORD mode);
+
+	void FitPanelToScreen(int w, int h);
+	void AnimateDials(void);
+	void RotateArmGroup(int groupNum, float x0, float y0, float length, float width, float angleR, float pointiness, float negLength = 0.0f, bool includeLatency = true);
+	float ValueToAngle(float value, float minValue, float maxValue, float minAngle, float maxAngle);
+	void RotateGlobe(float angularResolution, float viewAngularRadius, float longitude0, float latitude0, float rotationAngle = 0.0f);
+	void ChangePanelNumber(int group, int num);
+
+	void GetPanelRetroTimes(double met, int* rH, int* rM, int* rS, int* dH, int* dM, int* dS);
+
+	// Random number generation. Used for failure simulation
+	double GenerateRandom01(void);
+	double GenerateRandomNorm(double a1 = 2.0, double a2 = 0.5);
+	double GenerateRandomAngleNorm(double a1 = 2.0, double a2 = 0.5);
+	double NormAngleDeg(double ang);
+	void DisableAttitudeThruster(int num);
 
 	// Functions that are common in both Redstone and Atlas, and which are called in the default Orbiter callback functions
 	void MercuryGenericConstructor(void);
@@ -276,6 +364,14 @@ public:
 	void CapsuleAutopilotControl(double simt, double simdt);
 	void FlightReentryAbortControl(double simt, double simdt, double latit, double longit, double getAlt);
 	void WriteHUDAutoFlightReentry(oapi::Sketchpad* skp, double simt, int *yIndexUpdate, char *cbuf);
+	void LoadCapsule(const char *cbuf);
+	void ReadCapsuleTextureReplacement(const char* cbuf);
+	bool ReadTextureString(const char* cbuf, const int len, char* texturePath, int* textureWidth, int* textureHeight);
+	void LoadCapsuleTextureReplacement(void);
+	void LoadTextureFile(ATEX tex, const char* type, MESHHANDLE mesh, DWORD meshTexIdx);
+	// Rocket specific similar functions
+	bool ReadRocketTextureReplacement(const char* flag, const char* cbuf, int len);
+	void LoadRocketTextureReplacement(void);
 
 	// Config settings
 	double heightOverGround;
@@ -284,6 +380,7 @@ public:
 	double ampAdder = 0.05;
 	double rudderLift = 1.7;
 	double rudderDelay = 0.5;
+	double timeStepLimit = 0.1;
 
 	// HUD constants
 	DWORD ScreenWidth, ScreenHeight, ScreenColour;
@@ -306,19 +403,22 @@ private:
 	PROPELLANT_HANDLE atlas_propellant, retro_propellant[3], posigrade_propellant[3], fuel_auto, fuel_manual, escape_tank;
 	//THRUSTER_HANDLE th_main, th_rcs[14], th_group[4];
 	PARTICLESTREAMSPEC contrail_main, contrail_second;
-	PSTREAM_HANDLE contrail, contrail2, rcsStream[18], turbineExhaustContrail, boosterExhaustContrail[2];
+	PSTREAM_HANDLE contrail, contrail2, rcsStream[18], turbineExhaustContrail, boosterExhaustContrail[2], iceVenting[3];
 	UINT exMain, exBooster[2], exVernier[2];
 	bool contrailActive = true;
 	bool contrail2Active = true;
 	double engineLevel02 = 0.0;
 	double turbineContrailLevel = 0.0;
+	double iceVentLevel = 0.0;
 	bool suborbitalMission = false; // change to false for Mercury Atlas!
+	bool boilerplateMission = false;
 	bool limitApogee = false;
-	double targetApogee = 0.0;
-	double targetPerigee = 161.05e3;
+	//double targetApogee = 0.0;
+	//double targetPerigee = 161.05e3;
 	double targetInclination = 32.55;
 	double holdDownTime = 3.0;
 	double becoTime = 128.6;
+	double previousSustainerLevel = 0.0;
 	bool inclinationTarget = false;
 
 	MESHHANDLE atlas,
@@ -345,10 +445,14 @@ private:
 		retro,
 		drogue,
 		mainChute,
-		landingbag; // mesh handles
+		landingbag,
+		periscopeMesh,
+		periscopeFilterRed, periscopeFilterYellow, periscopeFilterGray,
+		circularFrameMesh,
+		cockpitPanelMesh,
+		vcFrame; // mesh handles
 
 	UINT Atlas; // rocket mesh
-	UINT AtlasIce, AtlasIce2, AtlasIce3;
 	UINT AtlasBooster;
 	UINT AtlasAdapter;
 	UINT Capsule; // capsule mesh
@@ -372,17 +476,41 @@ private:
 	UINT Drogue;
 	UINT Mainchute;
 	UINT Landingbag;
+	UINT PeriscopeMesh;
+	UINT PeriscopeFilter;
+
+	UINT VcFrame;
 
 	// MGROUP_SCALE* DrogueDeploy;
 	MGROUP_SCALE* MainChuteDeploy;
 	MGROUP_SCALE* LandingBagDeploy;
-	UINT DrogueDeployAnim, MainChuteDeployAnim, LandingBagDeployAnim, Vernier1AnimX, Vernier1AnimY, Vernier2AnimX, Vernier2AnimY;
-	ANIMATIONCOMPONENT_HANDLE DrogueDeployAnim1, MainChuteDeployAnim1, LandingBagDeployAnim1;
+	UINT DrogueDeployAnim, MainChuteDeployAnim, LandingBagDeployAnim, Vernier1AnimX, Vernier1AnimY, Vernier2AnimX, Vernier2AnimY, PeriscopeDeployAnim, DestabiliserDeployAnim;
+	ANIMATIONCOMPONENT_HANDLE DrogueDeployAnim1, MainChuteDeployAnim1, LandingBagDeployAnim1, PeriscopeDeployAnim1;
 	int heatShieldGroup = 29;
 
 	CTRLSURFHANDLE Verniers[3];
 
 	ATTACHMENTHANDLE padAttach;
+
+	// ReplacementTextures
+	int numTextures = 0;
+	char textureString[50][100] = { NULL }; // now supports up to 50 appended textures. Should be more than plenty enough
+	//char texturePorthole[50] = { NULL };
+	//int texturePortholeWidth, texturePortholeHeight;
+	ATEX texPorthole, texBrailmap, texMBrail1, texMBrail2, texRidges, texVerrail1, texMetal, texVerrail2, texOrange, texPythr, texRollthst, texScanner, texScope, texSnorkel, texTrailmap, texTopboxes, texUsa, // all these present in Freedom 7 mesh
+		texArtwork,
+		texCrack, texGlass, texFoilwindow, texFoil, texWindowfr,
+		texWfrfront, texWindow, texFlag,
+		texBoilerplateCapsule,
+		texMetalant, texAntridge, texScrew, texDialec,
+		texMetalret, texDialecret, texBw,
+		texAtlas3, texAtlas4, texAtlas5, texAtlas3ice, texAtlas3ice2, texAtlas3ice3, texAdapterridge, texMetaladapt, texAtlas5boost, texAtlas3boost;
+	int configTextureUserNum = -1; // if between 0 and 9, it is defined
+	char configTextureUserName[10][20]; // up to 10 user defined capsules, supports up to length 20
+	int configTextureUserBasis[10]; // The original frame to build upon
+	bool configTextureUserEnable = false; // by default, don't load textures defined in config. Only if actual capsule is called
+	bool scenarioTextureUserEnable = false;
+
 
 	// Actions
 	bool separateTowerAction = false;
@@ -403,19 +531,19 @@ private:
 	double currentYawAim = 0.0;
 	double currentRollAim = 0.0;
 	bool spaceLaunch = false;
+	bool launchFromLC14 = false;
+	bool boosterSeparated = false;
+	bool coreSeparated = false;
 	bool engageRetro = false;
 	double retroStartTime;
 	bool autoPilot = false;
 	double launchTime = 0.0;
 	double boosterShutdownTime = 0.0;
-	//double timeFromCutOffToMaxLat;
-	double maxLatitudeTime;
-	double recordedLAN = 0.0, recordedAPe = 0.0, recordedMA0 = 0.0, recordedLong = 0.0, recordedEpoch = 0.0;
-	double previousOrbitSimt = 0.0;
 	double previousFrameLatitude;
 	bool posigradeDampingActivated = false;
 	double posigradeDampingTime = 0.0;
 	bool turnAroundFinished = false;
+	bool attitudeHold14deg = false;
 	double integratedSpeed = 0.0;
 	double integratedPitch = 90.0;
 	double integratedYaw = 0.0;
@@ -424,9 +552,10 @@ private:
 	bool CGshifted;
 	double escapeLevel = 0.0;
 	bool inFlightAbort = false;
-	bool abortSepSequencePerformed = false;
+	//bool abortSepSequencePerformed = false;
 	double abortTime = 0.0;
 	double towerJetTime = 0.0;
+	double capsuleSepTime = 0.0;
 	bool retroCoverSeparated[3] = { false, false, false };
 	bool attitudeControlManual = true;
 	bool attitudeFuelAuto = true;
@@ -436,10 +565,21 @@ private:
 	bool engageFuelDump = false;
 	bool rollProgram = false;
 	bool pitchProgram = false;
+	bool retroAttitude = false;
+	double eulerPitch = 0.0;
+	double eulerYaw = 0.0;
 
 	int showInfoOnHud = 0;	/* 0 = Both key commands and flight data
 							   1 = Only flight data
 							   2 = Nothing (only stock HUD)*/
+	char contactBase[50];
+	bool leftMFDwasOn = false;
+	bool rightMFDwasOn = false;
+	bool MercuryNetwork = true;
+
+	// Left cockpit lights
+	bool towerJettisoned = false;
+
 
 	bool drogueCoverSeparated = false;
 	bool drogueDeployed = false;
@@ -453,6 +593,7 @@ private:
 	double drogueReefedTime;
 	double mainChuteProgress = 0.0;
 	double mainChuteProgressArea = 0.0;
+	double mainChuteDeployTime = 0.0;
 	bool mainChuteMoving = false;
 	bool mainChuteEndAnimation = false;
 	double mainChuteReefedTime;
@@ -464,8 +605,33 @@ private:
 	double landingBagProgress = 0.0;
 	bool landingBagMoving = false;
 	bool landingBagEndAnimation = false;
+	double destabiliserProgress = 0.0;
+
+	bool periscope = false;
+	double oldFOV = 20.0 * RAD;
+	bool narrowField = false;
+	double periscopeProgress = 0.0;
+	double periscopeAltitude = 160.0;
+	bool rocketCam = false;
+	int rocketCamMode = 0;
+	bool panelView = false;
+	int armGroups[50] = { NULL }; // Support up to 50 for now. Real number more like 15
+	int totalArmGroups = 0;
+	int panelMeshGroupSide[100] = { 0 }; // 0 empty, 1 left, 2 right, -1 ignore
+	float addScreenWidthValue = 0.0;
+	int globeGroup = NULL;
+	int globeVertices = NULL;
+	float previousDialAngle[200] = { 0.0f }; // must be longer than total mesh group number
+	float dialAngularSpeed = float(180.0 * RAD); // Degrees per second
+
+	//SURFHANDLE panelDynamicTexture;
+	//SURFHANDLE panelTexture = NULL;
+
 
 	double vesselAcceleration;
+	double longitudinalAcc;
+	double maxVesselAcceleration = -1e9; // random initialiser value (neg inft.)
+	double minVesselAcceleration = 1e9; // rand. init. val. (plus inft.)
 	int orbitCount = 0;
 	int currentLandingTargetIdx = 0;
 	bool passedBase = false;
@@ -485,9 +651,13 @@ private:
 	bool noMissionLandLat = false;
 	bool landingComputing = true;
 
+	bool missileMission = false;
+	double missileCutoffVelocity = 7282.0;
+	double missileCutoffAngle = -1.50;
+	double missileCutoffAltitude = 140.04;
+
 	double historyMaxAltitude = 0.0;
 	double historyPerigee = 1e10;
-	double historyPeriod = 0.0;
 	double historyBottomPrev = 1e10;
 	double historyBottomPrevPrev = 1e10;
 	double historyInclination = 0.0;
@@ -508,20 +678,66 @@ private:
 	double historyWeightlessTime = 0.0;
 	OBJHANDLE historyReference;
 
-	enum capsule { FREEDOM7, LIBERTYBELL7, FRIENDSHIP7, AURORA7, SIGMA7, FAITH7, FREEDOM7II } CapsuleVersion;
+	enum capsulever { FREEDOM7, LIBERTYBELL7, FRIENDSHIP7, AURORA7, SIGMA7, FAITH7, FREEDOM7II, CAPSULEBIGJOE, CAPSULELITTLEJOE, CAPSULEBD } CapsuleVersion;
 	enum vesselstate { LAUNCH, LAUNCHCORE, TOWERSEP, LAUNCHCORETOWERSEP, FLIGHT, REENTRY, REENTRYNODROGUE, REENTRYMAIN, ABORT, ABORTNORETRO } VesselStatus, PreviousVesselStatus;
 	enum chutestate { CLOSED, DEPLOYED, OPENING, REEFED, UNREEFING, OPENED } DrogueStatus, MainChuteStatus, ReserveChuteStatus;
 	//enum mainchutestate { M_CLOSED, M_DEPLOYED, M_OPENING, M_REEFED, M_UNREEFING, M_OPENED } MainChuteStatus, ReserveChuteStatus;
 	enum landingbagstate { L_CLOSED, L_DEPLOYED, L_OPENING, L_OPENED } LandingBagStatus;
+	enum periscopestate { P_CLOSED, P_DEPLOYED, P_OPENING, P_CLOSING } PeriscopeStatus, DestabiliserStatus;
 	enum rcsstate { MANUAL, AUTOHIGH, AUTOLOW } RcsStatus;
 	enum autopilotstate { AUTOLAUNCH, POSIGRADEDAMP, TURNAROUND, PITCHHOLD, REENTRYATT, LOWG } AutopilotStatus;
 	enum icemesh { ICE0, ICE1, ICE2, ICE3 } AtlasIceStatus;
+	enum filtertype { CLEAR, RED, YELLOW, GRAY } CurrentFilter;
 
-	bool PMIcheck = false;
-	double PMItime = 0.0;
-	int PMIn = 0;
+	// Failure definitions
+	enum failure { NONE, LOWGACTIVATE, LOWGDEACTIVE, ATTSTUCKON, ATTSTUCKOFF, ATTMODEOFF, RETROSTUCKOFF, RETROSTUCKON, RETRONOSEP, MAINCHUTETORN, NOLANDBAG, RETROCALCOFF, BOOSTERDEVIATIONSPEED, BOOSTERPROBLEM, ATTITUDEOFFSET, LASTENTRY} FailureMode = NONE; // LASTENTRY is used to dynamically get length of enum. Always have it last in the array
+	bool difficultyHard = false; // Used for most extreme cases. If false and a hard case is chosen, no error occurs.
+	double timeOfError = 1e10; // initialise to "infinity". This says when an error first occurs / breaks out
+	double pitchOffset = 0.0, yawOffset = 0.0, rollOffset = 0.0; // radians
+	double speedError = 0.0; // m/s
+	double chuteDestroyFactor = 0.0; // 1 is completely mess, 0 is no problem
+	int retroErrorNum = 10; // the retro to be failed. 10 is "infinity", must be either 0, 1 or 2
+	int attitudeThrusterErrorNum = 100; // "infinity". Must be between 0 and 17
 
 	int stuffCreated = 0;
 	OBJHANDLE createdVessel[25]; // number is close to 20, but don't bother counting exactly
 	bool createdAbove50km[25] = { false };
+
+	bool capsuleOnly = false; // Is possibly overloaded at SetClassCaps, and if so, spawns a capsule in FLIGHT stage
+
+	bool conceptManouverUnit = false;
+	bool conceptManouverUnitAttached = true;
+	bool conceptCoverAttached = true;
+	bool separateConceptAdapterAction = false;
+	bool separateConceptCoverAction = false;
+	MESHHANDLE conceptRetrogradeThrusters;
+	MESHHANDLE conceptCover1, conceptCover2;
+	UINT ConceptRetrogradeThrusters;
+	UINT ConceptCover1, ConceptCover2;
+	double CONCEPT_POSIGRADE_EMPTY_MASS = 167.4;
+	double CONCEPT_POSIGRADE_FUEL_MASS = 240.9;
+	double CONCEPT_POSIGRADE_THRUST = 1112.0; // per thruster. Two forward, two aft
+	double CONCEPT_POSIGRADE_ISP = 232.0 * G; // vacuum, from document page 105. JP4-H2O2. Hypothetical maximum is 319 s (astronautix). Should have dV of 800ft/s = 244 m/s after circularisation at 150 nm. Tot dV should be roughly 310 m/s
+	VECTOR3 CONCEPT_RETROGRADE_MESH_OFFSET = MERCURY_OFS_CAPSULE + _V(0, 0, -1.5);
+	VECTOR3 CONCEPT_RETROGRADE_THRUSTER_UP = CONCEPT_RETROGRADE_MESH_OFFSET + _V(-0.214, 0.472, 2.418);
+	VECTOR3 CONCEPT_RETROGRADE_THRUSTER_DOWN = CONCEPT_RETROGRADE_MESH_OFFSET + _V(0.214, -0.472, 2.418);
+	VECTOR3 CONCEPT_RETROGRADE_COVER1_OFFSET = CONCEPT_RETROGRADE_THRUSTER_UP;
+	VECTOR3 CONCEPT_RETROGRADE_COVER2_OFFSET = CONCEPT_RETROGRADE_THRUSTER_DOWN;
+	//VECTOR3 CONCEPT_RETROGRADE_THRUSTER_UP_DIR = unit(_V(0.0584, -0.1458, -0.274921));
+	VECTOR3 CONCEPT_RETROGRADE_THRUSTER_UP_DIR = _V(0.214 * 0.957172, -0.472 * 0.957172, -0.868293); // should produce a vector length 1, passing through z axis with same angle to z as the one above
+	VECTOR3 CONCEPT_RETROGRADE_THRUSTER_DOWN_DIR = FlipX(FlipY(CONCEPT_RETROGRADE_THRUSTER_UP_DIR));
+	VECTOR3 CONCEPT_POSIGRADE_THRUSTER_LEFT = ATLAS_ADAPTER_OFFSET + _V(0.12, 0.0, 0.2 - 0.1);
+	VECTOR3 CONCEPT_POSIGRADE_THRUSTER_RIGHT = ATLAS_ADAPTER_OFFSET + _V(-0.12, 0.0, 0.2 - 0.1);
+	VECTOR3 CONCEPT_POSIGRADE_THRUSTER_LEFT_DIR = _V(0, 0, 1);
+	VECTOR3 CONCEPT_POSIGRADE_THRUSTER_RIGHT_DIR = _V(0, 0, 1);
+	double CONCEPT_EXTRA_LENGTH = 0.4; // 0.238
+
+	const VECTOR3 CONCEPT_LINEAR_UP = ATLAS_ADAPTER_OFFSET + _V(0.0, -0.952, 0.20825);
+	const VECTOR3 CONCEPT_LINEAR_DOWN = FlipY(CONCEPT_LINEAR_UP);
+	const VECTOR3 CONCEPT_LINEAR_RIGHT = ATLAS_ADAPTER_OFFSET + _V(0.952, 0.0, 0.20825);
+	const VECTOR3 CONCEPT_LINEAR_LEFT = FlipX(CONCEPT_LINEAR_RIGHT);
+	const double CONCEPT_LINEAR_THRUST = 120.0; // Guess. Should at least be as much as rot att (106.8 N)
+
+	THRUSTER_HANDLE conceptPosigrade[2], conceptRetrograde[2], conceptLinear[4];
+	PROPELLANT_HANDLE conceptPropellant;
 };

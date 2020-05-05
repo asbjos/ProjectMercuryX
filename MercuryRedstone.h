@@ -15,12 +15,17 @@
 // 
 // ==============================================================
 
+typedef struct texture {
+	char file[50];
+	int w;
+	int h;
+} ATEX; // Asbjos Texture
 
 // ==============================================================
 // Some vessel parameters
 // ==============================================================
 
-FILEHANDLE jetVaneLogFile;
+//FILEHANDLE jetVaneLogFile;
 
 const VECTOR3 OFS_ADAPTRING1 = { -0.61, 0.35, 9.33 };
 const VECTOR3 OFS_ADAPTRING2 = { 0.0, -0.82, 9.33 };
@@ -49,7 +54,7 @@ const VECTOR3 MERCURY_OFS_ANTHOUSE = { 0.0, 0.0, MERCURY_OFS_CAPSULE.z + MERCURY
 const VECTOR3 MERCURY_OFS_ABORT = { 0.0, -0.04, MERCURY_OFS_CAPSULE.z + MERCURY_LENGTH_CAPSULE / 2 + MERCURY_LENGTH_ABORT / 2 };
 const VECTOR3 MERCURY_OFS_MAINCHUTE = { 0.0, 0.0, MERCURY_LENGTH_CAPSULE / 2 - .05 };
 const VECTOR3 MERCURY_OFS_DROGUE = { -0.12, 0.08, -.2 + MERCURY_LENGTH_ANTHOUSE / 2 };
-const VECTOR3 MERCURY_OFS_DROGUECOVER = { -0.12, 0.08, -0.07 + MERCURY_OFS_ANTHOUSE.z + MERCURY_LENGTH_ANTHOUSE / 2 };
+const VECTOR3 MERCURY_OFS_DROGUECOVER = { -0.12, 0.08, -0.08 + MERCURY_OFS_ANTHOUSE.z + MERCURY_LENGTH_ANTHOUSE / 2 };
 const VECTOR3 MERCURY_OFS_LANDBAG = { 0.0, 0.0, MERCURY_OFS_CAPSULE.z - MERCURY_LENGTH_CAPSULE / 2 + MERCURY_LENGTH_SHIELD - .05 - MERCURY_LENGTH_LANDBAG / 2 };
 const VECTOR3 MERCURY_OFS_RETRO = { 0.0, 0.025, MERCURY_OFS_CAPSULE.z - MERCURY_LENGTH_CAPSULE / 2 - MERCURY_LENGTH_RETRO / 2 + .15 };
 const VECTOR3 MERCURY_OFS_BEACON = { 0.0, 0.425, MERCURY_OFS_RETRO.z };
@@ -62,66 +67,61 @@ const VECTOR3 MERCURY_OFS_RETROSTRAP3 = { 0.425, MERCURY_OFS_RETRO.y - 0.27, MER
 const VECTOR3 MERCURY_OFS_EXPLOSIVEBOLT = { 0.0, 0.0, MERCURY_OFS_RETRO.z - .18 };
 
 static const DWORD tchdwnLaunchNum = 4;
-static TOUCHDOWNVTX tchdwnLaunch[tchdwnLaunchNum] = {
-	// pos, stiff, damping, mu, mu long
-	{_V( 0.0, -1.0, REDSTONE_OFFSET.z - STAGE1_LENGTH / 2.0), 1e7, 1e5, 10},
-	{_V( -0.7, 0.7, REDSTONE_OFFSET.z - STAGE1_LENGTH / 2.0), 1e7, 1e5, 10},
-	{_V( 0.7, 0.7, REDSTONE_OFFSET.z  - STAGE1_LENGTH / 2.0), 1e7, 1e5, 10},
-	{_V(0.0, 0.0, MERCURY_OFS_ABORT.z + MERCURY_LENGTH_ABORT / 2.0), 1e7, 1e5, 10},
-};
+const VECTOR3 TOUCHDOWN_LAUNCH0 = _V(0.0, -1.0, REDSTONE_OFFSET.z - STAGE1_LENGTH / 2.0);
+const VECTOR3 TOUCHDOWN_LAUNCH1 = _V(-0.7, 0.7, REDSTONE_OFFSET.z - STAGE1_LENGTH / 2.0);
+const VECTOR3 TOUCHDOWN_LAUNCH2 = _V(0.7, 0.7, REDSTONE_OFFSET.z - STAGE1_LENGTH / 2.0);
+const VECTOR3 TOUCHDOWN_LAUNCH3 = _V(0.0, 0.0, MERCURY_OFS_ABORT.z + MERCURY_LENGTH_ABORT / 2.0);
+//static TOUCHDOWNVTX tchdwnLaunch[tchdwnLaunchNum] = {
+//	// pos, stiff, damping, mu, mu long
+//	{TOUCHDOWN_LAUNCH0, 1e7, 1e5, 10},
+//	{TOUCHDOWN_LAUNCH1, 1e7, 1e5, 10},
+//	{TOUCHDOWN_LAUNCH2, 1e7, 1e5, 10},
+//	{TOUCHDOWN_LAUNCH3, 1e7, 1e5, 10},
+//};
+
 
 static const DWORD tchdwnTowSepNum = 4;
-static TOUCHDOWNVTX tchdwnTowSep[tchdwnTowSepNum] = {
-	// pos, stiff, damping, mu, mu long
-	{_V(0.0, -1.0, REDSTONE_OFFSET.z - STAGE1_LENGTH / 2.0), 1e7, 1e5, 10},
-	{_V(-0.7, 0.7, REDSTONE_OFFSET.z - STAGE1_LENGTH / 2.0), 1e7, 1e5, 10},
-	{_V(0.7, 0.7, REDSTONE_OFFSET.z - STAGE1_LENGTH / 2.0), 1e7, 1e5, 10},
-	{_V(0.0, 0.0, MERCURY_OFS_CAPSULE.z + MERCURY_LENGTH_CAPSULE / 2.0), 1e7, 1e5, 10},
-};
-
-//static const DWORD tchdwnFlightNum = 4;
-//static TOUCHDOWNVTX tchdwnFlight[tchdwnFlightNum] = {
+const VECTOR3 TOUCHDOWN_TOWSEP0 = _V(0.0, -1.0, REDSTONE_OFFSET.z - STAGE1_LENGTH / 2.0);
+const VECTOR3 TOUCHDOWN_TOWSEP1 = _V(-0.7, 0.7, REDSTONE_OFFSET.z - STAGE1_LENGTH / 2.0);
+const VECTOR3 TOUCHDOWN_TOWSEP2 = _V(0.7, 0.7, REDSTONE_OFFSET.z - STAGE1_LENGTH / 2.0);
+const VECTOR3 TOUCHDOWN_TOWSEP3 = _V(0.0, 0.0, MERCURY_OFS_CAPSULE.z + MERCURY_LENGTH_CAPSULE / 2.0);
+//static TOUCHDOWNVTX tchdwnTowSep[tchdwnTowSepNum] = {
 //	// pos, stiff, damping, mu, mu long
-//	{_V(0.0, -0.9461, -MERCURY_LENGTH_CAPSULE / 2.0 - MERCURY_LENGTH_LANDBAG), 1e4, 7e3, 10},
-//	{_V(-0.669, 0.669, -MERCURY_LENGTH_CAPSULE / 2.0 - MERCURY_LENGTH_LANDBAG), 1e4, 7e3, 10},
-//	{_V(0.669, 0.669, -MERCURY_LENGTH_CAPSULE / 2.0 - MERCURY_LENGTH_LANDBAG), 1e4, 7e3, 10},
-//	{_V(0.0, 0.0, MERCURY_LENGTH_CAPSULE / 2.0), 1e4, 7e3, 10},
-//};
-
-//static const DWORD tchdwnFlightNum = 4;
-//const double depression = -MERCURY_LENGTH_LANDBAG;
-//const double stiffness = -1224.24 * G / (3 * depression);
-//const double damping = 0.9 * 2 * sqrt(1224.24 * stiffness);
-//static TOUCHDOWNVTX tchdwnFlight[tchdwnFlightNum] = {
-//	// pos, stiff, damping, mu, mu long
-//	{_V(0.0, -3.5, -MERCURY_LENGTH_CAPSULE / 2.0 - MERCURY_LENGTH_LANDBAG), stiffness, damping, 1e1},
-//	{_V(-2.5, 2.5, -MERCURY_LENGTH_CAPSULE / 2.0 - MERCURY_LENGTH_LANDBAG), stiffness, damping, 1e1},
-//	{_V(2.5, 2.5, -MERCURY_LENGTH_CAPSULE / 2.0 - MERCURY_LENGTH_LANDBAG), stiffness, damping, 1e1},
-//	{_V(0.0, 0.0, MERCURY_LENGTH_CAPSULE / 2.0), stiffness, damping, 1e1},
+//	{TOUCHDOWN_TOWSEP0, 1e7, 1e5, 10},
+//	{TOUCHDOWN_TOWSEP1, 1e7, 1e5, 10},
+//	{TOUCHDOWN_TOWSEP2, 1e7, 1e5, 10},
+//	{TOUCHDOWN_TOWSEP3, 1e7, 1e5, 10},
 //};
 
 
-// This is the best one so far, but causes crash
 static const DWORD tchdwnFlightNum = 4;
 const double depression = 0.3;
 const double stiffness = abs(-1224.24 * G / (3 * depression)); // abs for sanity check, as I have a tendency to forget signs
 const double damping = 0.3 * 2 * sqrt(1224.24 * stiffness);
-static TOUCHDOWNVTX tchdwnFlight[tchdwnFlightNum] = {
-	// pos, stiff, damping, mu, mu long
-	{_V(0.0, -3.5, -MERCURY_LENGTH_CAPSULE / 2.0 + depression), stiffness, damping, 1e1},
-	{_V(-2.5, 2.5, -MERCURY_LENGTH_CAPSULE / 2.0 + depression), stiffness, damping, 1e1},
-	{_V(2.5, 2.5, -MERCURY_LENGTH_CAPSULE / 2.0 + depression), stiffness, damping, 1e1},
-	{_V(0.0, 0.0, MERCURY_LENGTH_CAPSULE / 2.0), stiffness, damping, 1e1},
-};
+const VECTOR3 TOUCHDOWN_FLIGHT0 = _V(0.0, -3.5, -MERCURY_LENGTH_CAPSULE / 2.0 + depression);
+const VECTOR3 TOUCHDOWN_FLIGHT1 = _V(-2.5, 2.5, -MERCURY_LENGTH_CAPSULE / 2.0 + depression);
+const VECTOR3 TOUCHDOWN_FLIGHT2 = _V(2.5, 2.5, -MERCURY_LENGTH_CAPSULE / 2.0 + depression);
+const VECTOR3 TOUCHDOWN_FLIGHT3 = _V(0.0, 0.0, MERCURY_LENGTH_CAPSULE / 2.0);
+//static TOUCHDOWNVTX tchdwnFlight[tchdwnFlightNum] = {
+//	// pos, stiff, damping, mu, mu long
+//	{TOUCHDOWN_FLIGHT0, stiffness, damping, 1e1},
+//	{TOUCHDOWN_FLIGHT1, stiffness, damping, 1e1},
+//	{TOUCHDOWN_FLIGHT2, stiffness, damping, 1e1},
+//	{TOUCHDOWN_FLIGHT3, stiffness, damping, 1e1},
+//};
 
 static const DWORD tchdwnAbortNum = 4;
-static TOUCHDOWNVTX tchdwnAbort[tchdwnAbortNum] = {
-	// pos, stiff, damping, mu, mu long
-	{_V(0.0, -1.0, - MERCURY_LENGTH_CAPSULE / 2.0), 1e7, 1e5, 10},
-	{_V(-0.7, 0.7, - MERCURY_LENGTH_CAPSULE / 2.0), 1e7, 1e5, 10},
-	{_V(0.7, 0.7, - MERCURY_LENGTH_CAPSULE / 2.0), 1e7, 1e5, 10},
-	{_V(0.0, 0.0, MERCURY_LENGTH_ABORT / 2.0), 1e7, 1e5, 10},
-};
+const VECTOR3 TOUCHDOWN_ABORT0 = _V(0.0, -1.0, -MERCURY_LENGTH_CAPSULE / 2.0);
+const VECTOR3 TOUCHDOWN_ABORT1 = _V(-0.7, 0.7, -MERCURY_LENGTH_CAPSULE / 2.0);
+const VECTOR3 TOUCHDOWN_ABORT2 = _V(0.7, 0.7, -MERCURY_LENGTH_CAPSULE / 2.0);
+const VECTOR3 TOUCHDOWN_ABORT3 = _V(0.0, 0.0, MERCURY_LENGTH_ABORT / 2.0);
+//static TOUCHDOWNVTX tchdwnAbort[tchdwnAbortNum] = {
+//	// pos, stiff, damping, mu, mu long
+//	{TOUCHDOWN_ABORT0, 1e7, 1e5, 10},
+//	{TOUCHDOWN_ABORT1, 1e7, 1e5, 10},
+//	{TOUCHDOWN_ABORT2, 1e7, 1e5, 10},
+//	{TOUCHDOWN_ABORT3, 1e7, 1e5, 10},
+//};
 
 // Contrail conditions. Calibrated to Liberty Bell 7 launch video, from T+80 to T+95 s
 const double contrailBegin = 0.35; // Air density for contrail to begin
@@ -170,14 +170,26 @@ const double MERCURY_THRUST_ATT_LOW = 4.448; // 1 lb
 const double DROGUE_OPERATING_SPEED = 0.4; // was 0.4
 const double MAIN_CHUTE_OPERATING_SPEED = 0.4; // was 0.4
 const double LANDING_BAG_OPERATING_SPEED = 0.2;
+const double PERISCOPE_OPERATING_SPEED = 0.2;
+const double DESTABILISER_OPERATING_SPEED = 2.0; // spring loaded
+
+// Periscope aparture sizes from 19740075935_1974075935 page 72
+const double PERISCOPE_NARROW = 19.0 * RAD / 2.0;
+const double PERISCOPE_WIDE = 175.0 * RAD / 2.0; // Actually 175 deg, but Orbiter only supports up to 160.0 deg, so this will be truncated to 160 deg FOV by Orbiter
+const double PERISCOPE_ANGLE = (90.0 - 14.5) * RAD; // 19630012071 page 291
+const VECTOR3 CAMERA_DIRECTION = _V(0, -sin(PERISCOPE_ANGLE), cos(PERISCOPE_ANGLE));
+const VECTOR3 CAMERA_OFFSET = _V(0.0, -0.6, -0.2);
+
+// Rocket backwards camera
+const int numRocketCamModes = 2;
+const VECTOR3 ROCKET_CAMERA_DIRECTION[numRocketCamModes] = { _V(0.0, 0.0, -1.0), _V(0,0,1) };
+const VECTOR3 ROCKET_CAMERA_OFFSET[numRocketCamModes] = { _V(0.7, 0.7, -STAGE1_LENGTH / 2.0 + 3.0), _V(0,1, STAGE1_LENGTH / 2.0 - 2.0) };
 
 const double MET[19] =	{ 0.00, 24.0, 30.0, 35.0, 40.0, 45.0, 50.0, 55.0, 60.0, 68.0, 76.0, 84.0, 92.0, 100.0, 110.0, 116.0, 122.0, 132.0, 142.5 };
 // 19670028606 says on page 33 that tilt program was from T+15 for MR-BD, MR-3 and MR-4. But Preliminary Evaluation of MR-BD documents says tilt program from T+24.3. So guess we must trust 24 sec?
-// Pitch program at T+24 only for unmanned MR-flights. But MR-4 transcript says "Pitch is 77" at 1:11, which does not add up. Pitch data in 19670028606 page 53
-//const double MET[19] =		{ 0.00, 15.0, 21.0, 26.0, 31.0, 36.0, 41.0, 46.0, 51.0, 59.0, 67.0, 75.0, 83.0, 91.00, 101.0, 107.0, 113.0, 123.0, 133.5 };
 const double aimPitch[19] = { 90.0, 89.0, 88.0, 87.0, 86.0, 84.0, 82.0, 80.0, 76.0, 72.0, 68.0, 64.0, 60.0, 56.00, 54.00, 52.00, 50.00, 49.00, 49.00 };
 
-class ProjectMercury : public VESSEL4 {
+class ProjectMercury : public VESSELVER {
 public:
 	ProjectMercury(OBJHANDLE hVessel, int flightmodel);
 	~ProjectMercury();
@@ -187,19 +199,35 @@ public:
 	void clbkPostStep(double simt, double simdt, double mjd);
 	int clbkConsumeBufferedKey(DWORD key, bool down, char* kstate);
 	bool clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketchpad* skp);
+	void clbkRenderHUD(int mode, const HUDPAINTSPEC* hps, SURFHANDLE hDefaultTex);
+	bool clbkLoadPanel2D(int id, PANELHANDLE hPanel, DWORD viewW, DWORD viewH);
+	void clbkVisualCreated(VISHANDLE vis, int refcount);
+	bool clbkLoadGenericCockpit(void);
+	bool clbkPanelMouseEvent(int id, int event, int mx, int my, void* context);
+	//bool clbkLoadVC(int id);
 	void clbkLoadStateEx(FILEHANDLE scn, void* status);
 	void clbkSaveState(FILEHANDLE scn);
 
+	void VersionDependentTouchdown(VECTOR3 touch1, VECTOR3 touch2, VECTOR3 touch3, VECTOR3 touch4, double stiff, double damp, double mu);
+	void VersionDependentPanelClick(int id, const RECT& pos, int texidx, int draw_event, int mouse_event, PANELHANDLE hPanel, const RECT& texpos, int bkmode);
+	void VersionDependentPadHUD(oapi::Sketchpad* skp, double simt, int* yIndexUpdate, char* cbuf, VESSEL* v);
+	//double normangle(double angle);
+	//void oapiWriteLogV(const char* format, ...);
+	//double GetGroundspeed(void);
+	//double GetAnimation(UINT anim);
+	//void GetGroundspeedVector(int frame, VECTOR3& v);
+	//double length2(VECTOR3 vec);
+	//void GetAirspeedVector(int frame, VECTOR3& v);
+
 	void RedstoneAutopilot(double simt, double simdt);
+	void AimEulerAngle(double pitch, double yaw);
 	void DisableAutopilot(bool turnOff);
 	void DefineRudderAnimations(void);
 	void DefineJetVaneAnimations(void);
-	void AnimateRudders(double simt, double simdt);
-	void AnimateJetVanes(double simt, double simdt);
 	void CreateAirfoilsRedstone(void);
 
 	void AuxDampingAuto(bool highThrust);
-	void RetroAttitudeAuto(double simt, double simdt);
+	void RetroAttitudeAuto(double simt, double simdt, bool retroAtt);
 	bool SetPitchAuto(double targetPitch, bool highThrust);
 	bool SetYawAuto(bool highThrust);
 	bool SetRollAuto(bool highThrust);
@@ -212,6 +240,7 @@ public:
 	double EmptyMass(void);
 	void TowerSeparation(void);
 	void CheckAbortConditions(double simt, double simdt);
+	void SetCameraSceneVisibility(WORD mode);
 
 	void LaunchAbort(void);
 	void CreateAbortThrusters(void);
@@ -230,8 +259,11 @@ public:
 	void DumpFuelRCS(void);
 	VECTOR3 FlipX(VECTOR3 vIn);
 	VECTOR3 FlipY(VECTOR3 vIn);
+	VECTOR3 SwapXY(VECTOR3 vIn);
 
 	double OrbitArea(double angle, double ecc);
+	double OrbitalFrameSlipAngle(VECTOR3 pos, VECTOR3 vel);
+	double OrbitalFrameSlipAngle2(VECTOR3 pos, VECTOR3 vel);
 
 	void SeparateTower(bool noAbortSep);
 	void SeparateRedstone(void);
@@ -246,12 +278,42 @@ public:
 	void SeparateMainChute(void);
 	void DeployLandingBag(void);
 
+	void DefinePeriscopeAnimation(void);
+	void DefineAntennaDestabiliser(void);
 	void DefineDrogueAnimation(void);
 	void DefineMainChuteAnimation(void);
 	void DefineLandingBagAnimation(void);
+	void AnimateAntennaDestabiliser(double simt, double simdt);
+	void AnimatePeriscope(double simt, double simdt);
 	void AnimateDrogueChute(double simt, double simdt);
 	void AnimateMainChute(double simt, double simdt);
 	void AnimateLandingBag(double simt, double simdt);
+
+	// Random number generation. Used for failure simulation
+	double GenerateRandom01(void);
+	double GenerateRandomNorm(double a1 = 2.0, double a2 = 0.5);
+	double GenerateRandomAngleNorm(double a1 = 2.0, double a2 = 0.5);
+	double NormAngleDeg(double ang);
+	void DisableAttitudeThruster(int num);
+
+	void GetPixelDeviationForAltitude(double inputAltitude, double* deg0Pix, double* deg5Pix);
+	void SetPeriscopeAltitude(double inputAltitude);
+
+	void FitPanelToScreen(int w, int h);
+	void AnimateDials(void);
+	void RotateArmGroup(int groupNum, float x0, float y0, float length, float width, float angleR, float pointiness, float negLength = 0.0f, bool includeLatency = true);
+	float ValueToAngle(float value, float minValue, float maxValue, float minAngle, float maxAngle);
+	void RotateGlobe(float angularResolution, float viewAngularRadius, float longitude0, float latitude0, float rotationAngle = 0.0f);
+	void ChangePanelNumber(int group, int num);
+
+	void GetPanelRetroTimes(double met, int* rH, int* rM, int* rS, int* dH, int* dM, int* dS);
+
+	// Mercury network
+	bool InRadioContact(OBJHANDLE planet);
+	double MnA2TrA(double MnA, double Ecc);
+	double TrA2MnA(double TrA, double Ecc);
+	double EccentricAnomaly(double ecc, double TrA);
+	void myStrncpy(char* writeTo, const char* readFrom, int len);
 
 	// Functions that are common in both Redstone and Atlas, and which are called in the default Orbiter callback functions
 	void MercuryGenericConstructor(void);
@@ -264,6 +326,14 @@ public:
 	void CapsuleAutopilotControl(double simt, double simdt);
 	void FlightReentryAbortControl(double simt, double simdt, double latit, double longit, double getAlt);
 	void WriteHUDAutoFlightReentry(oapi::Sketchpad* skp, double simt, int* yIndexUpdate, char* cbuf);
+	void LoadCapsule(const char* cbuf);
+	void ReadCapsuleTextureReplacement(const char* cbuf);
+	bool ReadTextureString(const char* cbuf, const int len, char* texturePath, int* textureWidth, int* textureHeight);
+	void LoadCapsuleTextureReplacement(void);
+	void LoadTextureFile(ATEX tex, const char* type, MESHHANDLE mesh, DWORD meshTexIdx);
+	// Rocket specific similar functions
+	bool ReadRocketTextureReplacement(const char* flag, const char* cbuf, int len);
+	void LoadRocketTextureReplacement(void);
 
 	// Config settings
 	double heightOverGround;
@@ -272,6 +342,7 @@ public:
 	double ampAdder = 0.05;
 	double rudderLift = 1.7;
 	double rudderDelay = 0.5;
+	double timeStepLimit = 0.1;
 
 	// HUD constants
 	DWORD ScreenWidth, ScreenHeight, ScreenColour;
@@ -297,14 +368,15 @@ private:
 	PSTREAM_HANDLE contrail, rcsStream[18];
 	bool contrailActive = true;
 	bool suborbitalMission = true; // change to false for Mercury Atlas!
+	bool boilerplateMission = false;
 
-	MESHHANDLE redstone, 
-		capsule, 
-		adaptcover1, 
-		adaptcover2, 
-		adaptcover3, 
-		adaptring1, 
-		adaptring2, 
+	MESHHANDLE booster,
+		capsule,
+		adaptcover1,
+		adaptcover2,
+		adaptcover3,
+		adaptring1,
+		adaptring2,
 		adaptring3,
 		tower,
 		antennahouse,
@@ -319,9 +391,14 @@ private:
 		retro,
 		drogue,
 		mainChute,
-		landingbag; // mesh handles
+		landingbag,
+		periscopeMesh,
+		periscopeFilterRed, periscopeFilterYellow, periscopeFilterGray,
+		circularFrameMesh,
+		cockpitPanelMesh,
+		vcFrame; // mesh handles
 
-	UINT Redstone; // rocket mesh
+	UINT Booster; // rocket mesh
 	UINT Capsule; // capsule mesh
 	UINT Adaptcover1; // etc
 	UINT Adaptcover2;
@@ -343,17 +420,39 @@ private:
 	UINT Drogue;
 	UINT Mainchute;
 	UINT Landingbag;
+	UINT PeriscopeMesh;
+	UINT PeriscopeFilter;
+	UINT VcFrame;
 
 	// MGROUP_SCALE* DrogueDeploy;
 	MGROUP_SCALE* MainChuteDeploy;
 	MGROUP_SCALE* LandingBagDeploy;
-	UINT DrogueDeployAnim, MainChuteDeployAnim, LandingBagDeployAnim, Rudder1Anim, Rudder2Anim, Rudder3Anim, Rudder4Anim, JetVaneAnim[4];
+	UINT DrogueDeployAnim, MainChuteDeployAnim, LandingBagDeployAnim, Rudder1Anim, Rudder2Anim, Rudder3Anim, Rudder4Anim, JetVaneAnim[4], PeriscopeDeployAnim, DestabiliserDeployAnim;
 	ANIMATIONCOMPONENT_HANDLE DrogueDeployAnim1, MainChuteDeployAnim1, LandingBagDeployAnim1;
 	int heatShieldGroup = 29;
 
 	CTRLSURFHANDLE Rudders[4];
 
 	ATTACHMENTHANDLE padAttach;
+
+	// ReplacementTextures
+	int numTextures = 0;
+	char textureString[50][100] = { NULL }; // now supports up to 50 appended textures. Should be more than plenty enough
+	//char texturePorthole[50] = { NULL };
+	//int texturePortholeWidth, texturePortholeHeight;
+	ATEX texPorthole, texBrailmap, texMBrail1, texMBrail2, texRidges, texVerrail1, texMetal, texVerrail2, texOrange, texPythr, texRollthst, texScanner, texScope, texSnorkel, texTrailmap, texTopboxes, texUsa, // all these present in Freedom 7 mesh
+		texArtwork,
+		texCrack, texGlass, texFoilwindow, texFoil, texWindowfr,
+		texWfrfront, texWindow, texFlag,
+		texBoilerplateCapsule,
+		texMetalant, texAntridge, texScrew, texDialec,
+		texMetalret, texDialecret, texBw,
+		texRedstone, texFin, texRudder;
+	int configTextureUserNum = -1; // if between 0 and 9, it is defined
+	char configTextureUserName[10][20]; // up to 10 user defined capsules, supports up to length 20
+	int configTextureUserBasis[10]; // The original frame to build upon
+	bool configTextureUserEnable = false; // by default, don't load textures defined in config. Only if actual capsule is called
+	bool scenarioTextureUserEnable = false;
 
 	// Actions
 	bool separateTowerAction = false;
@@ -376,9 +475,11 @@ private:
 	bool autoPilot = false;
 	double launchTime = 0.0;
 	double boosterShutdownTime = 0.0;
+	bool boosterSeparated = false;
 	bool posigradeDampingActivated = false;
 	double posigradeDampingTime = 0.0;
 	bool turnAroundFinished = false;
+	bool attitudeHold14deg = false;
 	double integratedSpeed = 0.0;
 	double integratedLongitudinalSpeed = 0.0;
 	double integratedPitch = 90.0;
@@ -387,9 +488,9 @@ private:
 	bool CGshifted;
 	double escapeLevel = 0.0;
 	bool inFlightAbort = false;
-	bool abortSepSequencePerformed = false;
 	double abortTime = 0.0;
 	double towerJetTime = 0.0;
+	bool towerJettisoned = false;
 	bool retroCoverSeparated[3] = { false, false, false };
 	bool attitudeControlManual = true;
 	bool attitudeFuelAuto = true;
@@ -397,10 +498,18 @@ private:
 	bool abortDamping = true;
 	bool rcsExists = false;
 	bool engageFuelDump = false;
+	bool retroAttitude = false;
+	double previousThrusterLevel = 0.0;
+	double eulerPitch = 0.0;
+	double eulerYaw = 0.0;
 
 	int showInfoOnHud = 0;	/* 0 = Both key commands and flight data
 							   1 = Only flight data
 							   2 = Nothing (only stock HUD)*/
+	char contactBase[50];
+	bool leftMFDwasOn = false;
+	bool rightMFDwasOn = false;
+	bool MercuryNetwork = true;
 
 	bool drogueCoverSeparated = false;
 	bool drogueDeployed = false;
@@ -414,6 +523,7 @@ private:
 	double drogueReefedTime;
 	double mainChuteProgress = 0.0;
 	double mainChuteProgressArea = 0.0;
+	double mainChuteDeployTime = 0.0;
 	bool mainChuteMoving = false;
 	bool mainChuteEndAnimation = false;
 	double mainChuteReefedTime;
@@ -425,14 +535,38 @@ private:
 	double landingBagProgress = 0.0;
 	bool landingBagMoving = false;
 	bool landingBagEndAnimation = false;
+	double destabiliserProgress = 0.0;
+
+	bool periscope = false;
+	double oldFOV = 20.0 * RAD;
+	bool narrowField = false;
+	int oldHUDMode = HUD_SURFACE;
+	double periscopeProgress = 0.0;
+	double periscopeAltitude = 160.0;
+
+	double rocketCam = false;
+	int rocketCamMode = 0;
+	bool panelView = false;
+	int armGroups[50] = { NULL }; // Support up to 50 for now. Real number more like 15
+	int totalArmGroups = 0;
+	int panelMeshGroupSide[100] = { 0 }; // 0 empty, 1 left, 2 right, -1 ignore
+	float addScreenWidthValue = 0.0;
+	int globeGroup = NULL;
+	int globeVertices = NULL;
+	float previousDialAngle[200] = { 0.0f }; // must be longer than total mesh group number
+	float dialAngularSpeed = float(180.0 * RAD); // Degrees per second
+
 
 	double vesselAcceleration;
+	double longitudinalAcc;
+	double maxVesselAcceleration = -1e9; // random initialiser value (neg inft.)
+	double minVesselAcceleration = 1e9; // rand. init. val. (plus inft.)
 	int orbitCount = 0;
 	int currentLandingTargetIdx = 0;
 	bool passedBase = false;
 	double oldAngle;
 	bool launchTargetPosition = true;
-	double lowGLat, lowGLong;
+	double lowGLat, lowGLong, lowGHeading;
 	double entryAng, entryAngleToBase;
 	VECTOR3 entryLoc, entryVel;
 	// Defaults to MA-6 data
@@ -463,15 +597,29 @@ private:
 	double historyLandLat;
 	double historyLandLong;
 	OBJHANDLE historyReference;
+	double historyLaunchHeading = 105.0;
 	double historyWeightlessTime = 0.0;
 
-	enum capsule { FREEDOM7, LIBERTYBELL7, FRIENDSHIP7, AURORA7, SIGMA7, FAITH7, FREEDOM7II } CapsuleVersion;
+	enum capsulever { FREEDOM7, LIBERTYBELL7, FRIENDSHIP7, AURORA7, SIGMA7, FAITH7, FREEDOM7II, CAPSULEBIGJOE, CAPSULELITTLEJOE, CAPSULEBD } CapsuleVersion;
 	enum vesselstate { LAUNCH, TOWERSEP, FLIGHT, REENTRY, REENTRYNODROGUE, REENTRYMAIN, ABORT, ABORTNORETRO } VesselStatus, PreviousVesselStatus;
-	enum droguestate { D_CLOSED, D_DEPLOYED, D_OPENING, D_REEFED, D_UNREEFING, D_OPENED } DrogueStatus;
-	enum mainchutestate { M_CLOSED, M_DEPLOYED, M_OPENING, M_REEFED, M_UNREEFING, M_OPENED } MainChuteStatus, ReserveChuteStatus;
+	//enum droguestate { D_CLOSED, D_DEPLOYED, D_OPENING, D_REEFED, D_UNREEFING, D_OPENED } DrogueStatus;
+	enum chutestate { CLOSED, DEPLOYED, OPENING, REEFED, UNREEFING, OPENED } DrogueStatus, MainChuteStatus, ReserveChuteStatus;
 	enum landingbagstate { L_CLOSED, L_DEPLOYED, L_OPENING, L_OPENED } LandingBagStatus;
+	enum periscopestate { P_CLOSED, P_DEPLOYED, P_OPENING, P_CLOSING } PeriscopeStatus, DestabiliserStatus;
 	enum rcsstate { MANUAL, AUTOHIGH, AUTOLOW } RcsStatus;
 	enum autopilotstate { AUTOLAUNCH, POSIGRADEDAMP, TURNAROUND, PITCHHOLD, REENTRYATT, LOWG } AutopilotStatus;
+	enum filtertype { CLEAR, RED, YELLOW, GRAY } CurrentFilter;
+
+	// Failure definitions
+	enum failure { NONE, LOWGACTIVATE, LOWGDEACTIVE, ATTSTUCKON, ATTSTUCKOFF, ATTMODEOFF, RETROSTUCKOFF, RETROSTUCKON, RETRONOSEP, MAINCHUTETORN, NOLANDBAG, RETROCALCOFF, BOOSTERDEVIATIONSPEED, BOOSTERPROBLEM, ATTITUDEOFFSET, LASTENTRY } FailureMode = NONE; // LASTENTRY is used to dynamically get length of enum. Always have it last in the array
+	bool difficultyHard = false; // Used for most extreme cases. If false and a hard case is chosen, no error occurs.
+	double timeOfError = 1e10; // initialise to "infinity". This says when an error first occurs / breaks out
+	double pitchOffset = 0.0, yawOffset = 0.0, rollOffset = 0.0; // radians
+	double speedError = 0.0; // m/s
+	double chuteDestroyFactor = 0.0; // 1 is completely mess, 0 is no problem
+	int retroErrorNum = 10; // the retro to be failed. 10 is "infinity", must be either 0, 1 or 2
+	int attitudeThrusterErrorNum = 100; // "infinity". Must be between 0 and 17
+	bool logError = false;
 
 	bool PMIcheck = false;
 	double PMItime = 0.0;
@@ -480,4 +628,11 @@ private:
 	int stuffCreated = 0;
 	OBJHANDLE createdVessel[25]; // number is close to 20, but don't bother counting exactly
 	bool createdAbove50km[25] = { false };
+
+	// Concept adapter stuff that has to be created, but is only used on Atlas
+	bool conceptManouverUnit = false;
+	bool conceptManouverUnitAttached = false;
+	PROPELLANT_HANDLE conceptPropellant;
+	THRUSTER_HANDLE conceptPosigrade[2], conceptRetrograde[2], conceptLinear[6];
+
 };
