@@ -4,7 +4,7 @@
 
 #define STRICT
 #define ORBITER_MODULE
-#define VESSELVER VESSEL4
+#define VESSELVER VESSEL3
 
 #include "orbitersdk.h"
 
@@ -33,7 +33,7 @@ private:
 	int TextX0, secondColumnHUDx, LineSpacing, TextY0;
 };
 
-#include "..\..\FunctionsForOrbiter2016.h"
+#include "..\..\FunctionsForOrbiter2010.h"
 
 // ==============================================================
 // API interface

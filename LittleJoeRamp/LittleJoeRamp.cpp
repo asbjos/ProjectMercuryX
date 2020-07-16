@@ -4,6 +4,7 @@
 
 #define STRICT
 #define ORBITER_MODULE
+#define VESSELVER VESSEL3
 
 #include "orbitersdk.h"
 
@@ -27,7 +28,7 @@ const VECTOR3 CAMERA_FAR_AWAY_2 = _V(3.6, 7.0, 27.6) + MESH_OFFSET; // 4
 const VECTOR3 CAMERA_FAR_AWAY_2_DIR = unit(_V(1, -0.1, -1.2));
 
 
-class ProjectMercury : public VESSEL3
+class ProjectMercury : public VESSELVER
 {
 public:
 	ProjectMercury(OBJHANDLE hVessel, int flightmodel);
@@ -96,7 +97,7 @@ private:
 
 #include "..\FunctionsForOrbiter2010.h"
 
-ProjectMercury::ProjectMercury(OBJHANDLE hVessel, int flightmodel) : VESSEL3(hVessel, flightmodel)
+ProjectMercury::ProjectMercury(OBJHANDLE hVessel, int flightmodel) : VESSELVER(hVessel, flightmodel)
 {
 	launchPad = oapiLoadMeshGlobal("ProjectMercury\\LJ_tower");
 
@@ -226,7 +227,7 @@ void ProjectMercury::clbkPreStep(double simt, double simdt, double mjd)
 			launching = false; // set back to normal for next launch (engines are shut off)
 		}
 
-		if (launching && simt - engineIgnitionTime > holdDownTime&& GetAttachmentStatus(rocketAttach) != NULL) // time to release
+		if (launching && simt - engineIgnitionTime > holdDownTime && GetAttachmentStatus(rocketAttach) != NULL) // time to release
 		{
 			bool success2 = DetachChild(rocketAttach, 0.0);
 			if (success2)
@@ -284,7 +285,7 @@ void ProjectMercury::clbkLoadStateEx(FILEHANDLE scn, void* vs)
 
 void ProjectMercury::clbkSaveState(FILEHANDLE scn)
 {
-	VESSEL3::clbkSaveState(scn); // write default parameters (orbital elements etc.)
+	VESSELVER::clbkSaveState(scn); // write default parameters (orbital elements etc.)
 }
 
 int ProjectMercury::clbkConsumeBufferedKey(DWORD key, bool down, char* kstate)
@@ -636,7 +637,7 @@ void ProjectMercury::GetClosestVessel(OBJHANDLE* closestVessel, double* distance
 	{
 		vesselI = oapiGetVesselByIndex(i);
 		GetRelativePos(vesselI, pos);
-		if (vesselI != GetHandle() && length(pos) < *distance && oapiGetMass(vesselI) > 1e4) // must be large enough to fit to pad
+		if (vesselI != GetHandle() && length(pos) < *distance && oapiGetMass(vesselI) > 1e3) // must be large enough to fit to pad
 		{
 			*closestVessel = vesselI;
 			*distance = length(pos);

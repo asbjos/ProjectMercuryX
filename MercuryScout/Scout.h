@@ -36,7 +36,7 @@ const double FAIRING_DIAMETER = 1.000;
 const VECTOR3 STAGE1_OFFSET = _V(0.0, 0.0, 0.0); // Translated z=-5.319541
 const VECTOR3 STAGE2_OFFSET = STAGE1_OFFSET + _V(0.0, 0.0, 9.412 + 3.66705 - 5.319541); // Translated z=-3.66705
 const VECTOR3 STAGE3_OFFSET = STAGE1_OFFSET + _V(0.0, 0.0, 15.712 + 1.5266 - 5.319541); // Translated z=-1.5266
-const VECTOR3 STAGE4_OFFSET = STAGE1_OFFSET + _V(0.0, 0.0, 18.770 + 0.9872 - 5.319541); // Translated z=-0.9872
+const VECTOR3 STAGE4_OFFSET = STAGE1_OFFSET + _V(0.0, 0.0, 18.750 + 0.9872 - 5.319541); // Translated z=-0.9872. Originally 18.770, but there was a gap between stages 3 and 4
 const VECTOR3 FAIRING_OFFSET = STAGE1_OFFSET + _V(-0.178, 0.0, 19.837 - 5.319541); // Fix this later! Debug. Translated to zero-zero
 
 const VECTOR3 STAGE1_ENGINE_POS = _V(0.0, 0.0, -STAGE1_LENGTH / 2.0 - 1.0); // Fix this later! Debug  STAGE1_OFFSET + 
@@ -166,7 +166,7 @@ const int NUMBASES = 17;
 char BASE_NAME_LIST[NUMBASES][15] = { "ATS", "BDA", "CAL", "Cape Canaveral", "CSQ", "CTN", "CYI", "GYM", "HAW", "IOS", "KNO", "MUC", "RKV", "RTK", "TEX", "WOM", "ZZB" };
 const int baseContactLogLength = 10;
 
-class ProjectMercury : public VESSEL3 {
+class ProjectMercury : public VESSELVER {
 public:
 	ProjectMercury(OBJHANDLE hVessel, int flightmodel);
 	~ProjectMercury();

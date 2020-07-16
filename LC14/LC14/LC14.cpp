@@ -4,7 +4,7 @@
 
 #define STRICT
 #define ORBITER_MODULE
-#define VESSELVER VESSEL4
+#define VESSELVER VESSEL3
 
 #include "orbitersdk.h"
 
@@ -78,13 +78,13 @@ public:
 	void VersionDependentTouchdown(VECTOR3 touch1, VECTOR3 touch2, VECTOR3 touch3, VECTOR3 touch4, double stiff, double damp, double mu);
 	void VersionDependentPanelClick(int id, const RECT& pos, int texidx, int draw_event, int mouse_event, PANELHANDLE hPanel, const RECT& texpos, int bkmode);
 	void VersionDependentPadHUD(oapi::Sketchpad* skp, double simt, int* yIndexUpdate, char* cbuf, VESSEL* v);
-	/*double normangle(double angle);
+	double normangle(double angle);
 	void oapiWriteLogV(const char* format, ...);
 	double GetGroundspeed(void);
 	double GetAnimation(UINT anim);
 	void GetGroundspeedVector(int frame, VECTOR3& v);
 	double length2(VECTOR3 vec);
-	void GetAirspeedVector(int frame, VECTOR3& v);*/
+	void GetAirspeedVector(int frame, VECTOR3& v);
 
 	void SwitchCamera(int camera);
 	void AttachRocket(double simt, OBJHANDLE closestVessel, VESSEL* v);
@@ -124,7 +124,7 @@ private:
 	//PROPELLANT_HANDLE dumProp;
 };
 
-#include "..\..\FunctionsForOrbiter2016.h"
+#include "..\..\FunctionsForOrbiter2010.h"
 
 // ==============================================================
 // API interface
@@ -266,7 +266,7 @@ void ProjectMercury::clbkPreStep(double simt, double simdt, double mjd)
 
 		exhaustLevel = v->GetThrusterGroupLevel(THGROUP_MAIN);
 
-		if (exhaustLevel != 0.0 && !launching)
+		if (exhaustLevel != 0.0 && !launching && holdDownTime >= 0.0) // if negative hold time, don't attach
 		{
 			AttachRocket(simt, closestVessel, v);
 		}
@@ -591,7 +591,7 @@ bool ProjectMercury::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketch
 			{
 				double metAbs = simt - engineIgnitionTime - holdDownTime;
 				int metSign = 1;
-				char signChar[1];
+				char signChar[2]; // sign bit + endbit
 				sprintf(signChar, "+");
 				if (metAbs < 0.0)
 				{

@@ -14,6 +14,7 @@
 
 #define STRICT
 #define ORBITER_MODULE
+#define VESSELVER VESSEL3
 
 #include "orbitersdk.h"
 
@@ -24,7 +25,7 @@
 
 
 ProjectMercury::ProjectMercury(OBJHANDLE hVessel, int flightmodel)
-	: VESSEL3(hVessel, flightmodel)
+	: VESSELVER(hVessel, flightmodel)
 {
 	// Load exterior meshes
 	// capsule is defined in loadstate
@@ -938,7 +939,7 @@ void ProjectMercury::clbkRenderHUD(int mode, const HUDPAINTSPEC* hps, SURFHANDLE
 		else
 		{
 			// Let HUD show
-			VESSEL3::clbkRenderHUD(mode, hps, hDefaultTex);
+			VESSELVER::clbkRenderHUD(mode, hps, hDefaultTex);
 
 			if (leftMFDwasOn)
 			{
@@ -1056,7 +1057,7 @@ void ProjectMercury::clbkLoadStateEx(FILEHANDLE scn, void* status)
 
 void ProjectMercury::clbkSaveState(FILEHANDLE scn)
 {
-	VESSEL3::clbkSaveState(scn); // write default parameters (orbital elements etc.)
+	VESSELVER::clbkSaveState(scn); // write default parameters (orbital elements etc.)
 
 	oapiWriteScenario_int(scn, "STATE", VesselStatus);
 
@@ -1109,7 +1110,7 @@ void ProjectMercury::ScoutAutopilot(double met, double simt, double simdt)
 
 	if (VesselStatus == STAGE2 && GetPropellantMass(scout_propellant[1]) == 0.0) // coasting stage 2
 	{
-		pitchAim = TargetEndBurnApogeePitch(363e3, STAGE3_ISP * log(stage3TotMass / (stage3TotMass - GetPropellantMass(scout_propellant[2]))));
+		pitchAim = TargetEndBurnApogeePitch(386e3, STAGE3_ISP * log(stage3TotMass / (stage3TotMass - GetPropellantMass(scout_propellant[2]))));
 		double pitchdiff = pitchAim - pitch;
 
 		if (pitchdiff > 0.5 * RAD)
@@ -1121,7 +1122,7 @@ void ProjectMercury::ScoutAutopilot(double met, double simt, double simdt)
 	}
 	else if (VesselStatus == STAGE3 && stageShutdownTime[2] == NULL) // burning stage 3
 	{
-		pitchAim = TargetEndBurnApogeePitch(363e3, STAGE3_ISP * log(GetMass() / (GetMass() - GetPropellantMass(scout_propellant[2]))));
+		pitchAim = TargetEndBurnApogeePitch(386e3, STAGE3_ISP * log(GetMass() / (GetMass() - GetPropellantMass(scout_propellant[2]))));
 
 		double pitchdiff = pitchAim - pitch;
 

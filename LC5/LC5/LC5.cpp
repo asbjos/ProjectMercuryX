@@ -4,6 +4,7 @@
 
 #define STRICT
 #define ORBITER_MODULE
+#define VESSELVER VESSEL3
 
 #include "orbitersdk.h"
 //#include <algorithm>
@@ -65,7 +66,7 @@ const VECTOR3 LIGHT3_DIR = unit(_V(-1.0, 0.0, 1.0));
 const VECTOR3 LIGHT4 = _V(4.4, -7.4, -42.8) + MESH_OFFSET;
 const VECTOR3 LIGHT4_DIR = unit(_V(1.0, 0.0, 1.0));
 
-class ProjectMercury : public VESSEL3
+class ProjectMercury : public VESSELVER
 {
 public:
 	ProjectMercury(OBJHANDLE hVessel, int flightmodel);
@@ -138,7 +139,7 @@ private:
 // ==============================================================
 
 
-ProjectMercury::ProjectMercury(OBJHANDLE hVessel, int flightmodel) : VESSEL3(hVessel, flightmodel)
+ProjectMercury::ProjectMercury(OBJHANDLE hVessel, int flightmodel) : VESSELVER(hVessel, flightmodel)
 {
 	launchPad = oapiLoadMeshGlobal("ProjectMercury\\K-Pad-5");
 
@@ -268,7 +269,7 @@ void ProjectMercury::clbkPreStep(double simt, double simdt, double mjd)
 
 		exhaustLevel = v->GetThrusterGroupLevel(THGROUP_MAIN);
 
-		if (exhaustLevel != 0.0 && !launching)
+		if (exhaustLevel != 0.0 && !launching && holdDownTime >= 0.0) // if negative hold time, don't attach
 		{
 			AttachRocket(simt, closestVessel, v);
 		}
@@ -378,7 +379,7 @@ void ProjectMercury::clbkLoadStateEx(FILEHANDLE scn, void* vs)
 
 void ProjectMercury::clbkSaveState(FILEHANDLE scn)
 {
-	VESSEL3::clbkSaveState(scn); // write default parameters (orbital elements etc.)
+	VESSELVER::clbkSaveState(scn); // write default parameters (orbital elements etc.)
 
 	oapiWriteScenario_int(scn, "TOWERSTATUS", TowerInProcess);
 
@@ -565,7 +566,7 @@ bool ProjectMercury::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketch
 			{
 				double metAbs = simt - engineIgnitionTime - holdDownTime;
 				int metSign = 1;
-				char signChar[1];
+				char signChar[2]; // len 2, sign + endbit
 				sprintf(signChar, "+");
 				if (metAbs < 0.0)
 				{

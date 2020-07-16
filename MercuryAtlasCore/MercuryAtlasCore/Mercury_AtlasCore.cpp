@@ -4,7 +4,7 @@
 
 #define STRICT
 #define ORBITER_MODULE
-#define VESSELVER VESSEL4
+#define VESSELVER VESSEL3
 
 #include "Orbitersdk.h"
 
@@ -115,7 +115,7 @@ private:
 	int LineSpacing = 0;
 };
 
-#include "..\..\FunctionsForOrbiter2016.h"
+#include "..\..\FunctionsForOrbiter2010.h"
 
 ProjectMercury::ProjectMercury(OBJHANDLE hVessel, int flightmodel) : VESSELVER(hVessel, flightmodel)
 {

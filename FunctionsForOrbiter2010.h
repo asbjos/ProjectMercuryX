@@ -25,10 +25,12 @@ inline double ProjectMercury::normangle(double angle)
 
 inline void ProjectMercury::oapiWriteLogV(const char* format, ...)
 {
-	//oapiWriteLog("oapiWriteLogV is not supported in Orbiter2010. Sorry.");
-	char string[200];
-	strcpy(string, "oapiWriteLogV not supported in Orbiter 2010: ");
-	strcat(string, format);
+	char string[256];
+	va_list va; // variable list
+    va_start (va, format);
+    vsprintf (string, format, va);
+    va_end (va);
+	
 	oapiWriteLog(string);
 }
 

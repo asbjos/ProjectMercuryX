@@ -1,8 +1,8 @@
 // ==============================================================
-//				Source file for Mercury Redstone.
+//				Source file for Mercury Atlas.
 //				Created by Asbjørn "asbjos" Krüger
 //					asbjorn.kruger@gmail.com
-//						Made in 2019
+//						Made in 2019-2020
 // 
 // Based on Project Mercury addon by "estar", with permission.
 // This code is my own work.
@@ -57,11 +57,49 @@ void ProjectMercury::clbkSetClassCaps(FILEHANDLE cfg)
 
 	ReadConfigSettings(cfg);
 
-	oapiReadItem_bool(cfg, "CAPSULEONLY", capsuleOnly);
-	if (capsuleOnly)
+	oapiReadItem_bool(cfg, "CAPSULEONLY", capsuleOnly); // spawning a single capsule
+	oapiReadItem_bool(cfg, "CAPSULETOWERRETROONLY", capsuleTowerRetroOnly); // spawning a capsule with retro and abort tower
+	oapiReadItem_bool(cfg, "CAPSULETOWERONLY", capsuleTowerOnly); // spawning a capsule with abort tower (a la beach abort)
+	if (capsuleOnly || capsuleTowerRetroOnly || capsuleTowerOnly)
 	{
-		VesselStatus = FLIGHT;
-		oapiWriteLog("Starting from capsule mode!");
+		if (capsuleOnly)
+		{
+			VesselStatus = FLIGHT;
+			oapiWriteLog("Starting from capsule mode!");
+		}
+		else if (capsuleTowerOnly)
+		{
+			VesselStatus = ABORTNORETRO;
+			oapiWriteLog("Starting from capsule + tower mode!");
+		}
+		else // capsuleTowerRetroOnly
+		{
+			VesselStatus = ABORT;
+			oapiWriteLog("Starting from capsule + tower + retro mode!");
+		}
+
+		// Change vectors, so that spacecraft loads at centre, and no shift takes place
+		MERCURY_OFS_CAPSULE.z += -(MERCURY_LENGTH_CAPSULE) / 2.0 - ATLAS_CORE_LENGTH / 2.0;
+		ABORT_OFFSET.z += -(MERCURY_LENGTH_CAPSULE) / 2.0 - ATLAS_CORE_LENGTH / 2.0;
+		MERCURY_OFS_SHIELD.z += -(MERCURY_LENGTH_CAPSULE) / 2.0 - ATLAS_CORE_LENGTH / 2.0;
+		MERCURY_OFS_ANTHOUSE.z += -(MERCURY_LENGTH_CAPSULE) / 2.0 - ATLAS_CORE_LENGTH / 2.0;
+		MERCURY_OFS_ABORT.z += -(MERCURY_LENGTH_CAPSULE) / 2.0 - ATLAS_CORE_LENGTH / 2.0;
+		MERCURY_OFS_DROGUECOVER.z += -(MERCURY_LENGTH_CAPSULE) / 2.0 - ATLAS_CORE_LENGTH / 2.0;
+		MERCURY_OFS_LANDBAG.z += -(MERCURY_LENGTH_CAPSULE) / 2.0 - ATLAS_CORE_LENGTH / 2.0;
+		MERCURY_OFS_RETRO.z += -(MERCURY_LENGTH_CAPSULE) / 2.0 - ATLAS_CORE_LENGTH / 2.0;
+		MERCURY_OFS_RETROCOVER1.z += -(MERCURY_LENGTH_CAPSULE) / 2.0 - ATLAS_CORE_LENGTH / 2.0;
+		MERCURY_OFS_RETROCOVER2.z += -(MERCURY_LENGTH_CAPSULE) / 2.0 - ATLAS_CORE_LENGTH / 2.0;
+		MERCURY_OFS_RETROCOVER3.z += -(MERCURY_LENGTH_CAPSULE) / 2.0 - ATLAS_CORE_LENGTH / 2.0;
+		MERCURY_OFS_RETROSTRAP1.z += -(MERCURY_LENGTH_CAPSULE) / 2.0 - ATLAS_CORE_LENGTH / 2.0;
+		MERCURY_OFS_RETROSTRAP2.z += -(MERCURY_LENGTH_CAPSULE) / 2.0 - ATLAS_CORE_LENGTH / 2.0;
+		MERCURY_OFS_RETROSTRAP3.z += -(MERCURY_LENGTH_CAPSULE) / 2.0 - ATLAS_CORE_LENGTH / 2.0;
+		MERCURY_OFS_EXPLOSIVEBOLT.z += -(MERCURY_LENGTH_CAPSULE) / 2.0 - ATLAS_CORE_LENGTH / 2.0;
+		OFS_ADAPTRING1.z += -(MERCURY_LENGTH_CAPSULE) / 2.0 - ATLAS_CORE_LENGTH / 2.0;
+		OFS_ADAPTRING2.z += -(MERCURY_LENGTH_CAPSULE) / 2.0 - ATLAS_CORE_LENGTH / 2.0;
+		OFS_ADAPTRING3.z += -(MERCURY_LENGTH_CAPSULE) / 2.0 - ATLAS_CORE_LENGTH / 2.0;
+		OFS_ADAPTCOVER1.z += -(MERCURY_LENGTH_CAPSULE) / 2.0 - ATLAS_CORE_LENGTH / 2.0;
+		OFS_ADAPTCOVER2.z += -(MERCURY_LENGTH_CAPSULE) / 2.0 - ATLAS_CORE_LENGTH / 2.0;
+		OFS_ADAPTCOVER3.z += -(MERCURY_LENGTH_CAPSULE) / 2.0 - ATLAS_CORE_LENGTH / 2.0;
 	}
 
 	oapiReadItem_bool(cfg, "MANOUVERCONCEPT", conceptManouverUnit);
@@ -120,11 +158,26 @@ void ProjectMercury::clbkSetClassCaps(FILEHANDLE cfg)
 	{
 		conceptPropellant = CreatePropellantResource(CONCEPT_POSIGRADE_FUEL_MASS);
 
+		COLOUR4 col_d = { (float)(0.5),(float)(0.4),0.6,0 };
+		COLOUR4 col_s = { (float)(0.6),(float)(0.4),0.6,0 };
+		COLOUR4 col_a = { 0,0,0,0 };
+		double a0 = 1;
+		double a1 = 1;
+		double a2 = 1;
+
 		conceptPosigrade[0] = CreateThruster(CONCEPT_POSIGRADE_THRUSTER_LEFT, CONCEPT_POSIGRADE_THRUSTER_LEFT_DIR, CONCEPT_POSIGRADE_THRUST, conceptPropellant, CONCEPT_POSIGRADE_ISP);
 		conceptPosigrade[1] = CreateThruster(CONCEPT_POSIGRADE_THRUSTER_RIGHT, CONCEPT_POSIGRADE_THRUSTER_RIGHT_DIR, CONCEPT_POSIGRADE_THRUST, conceptPropellant, CONCEPT_POSIGRADE_ISP);
+		LightEmitter* concept0Light = AddPointLight(CONCEPT_POSIGRADE_THRUSTER_LEFT, 10, a0, a1, a2, col_d, col_s, col_a);
+		concept0Light->SetIntensityRef(&conceptThrusterLevel[0]);
+		LightEmitter* concept1Light = AddPointLight(CONCEPT_POSIGRADE_THRUSTER_RIGHT, 10, a0, a1, a2, col_d, col_s, col_a);
+		concept1Light->SetIntensityRef(&conceptThrusterLevel[1]);
 
 		conceptRetrograde[0] = CreateThruster(CONCEPT_RETROGRADE_THRUSTER_UP, CONCEPT_RETROGRADE_THRUSTER_UP_DIR, CONCEPT_POSIGRADE_THRUST, conceptPropellant, CONCEPT_POSIGRADE_ISP);
 		conceptRetrograde[1] = CreateThruster(CONCEPT_RETROGRADE_THRUSTER_DOWN, CONCEPT_RETROGRADE_THRUSTER_DOWN_DIR, CONCEPT_POSIGRADE_THRUST, conceptPropellant, CONCEPT_POSIGRADE_ISP);
+		LightEmitter* concept2Light = AddPointLight(CONCEPT_RETROGRADE_THRUSTER_UP, 10, a0, a1, a2, col_d, col_s, col_a);
+		concept2Light->SetIntensityRef(&conceptThrusterLevel[2]);
+		LightEmitter* concept3Light = AddPointLight(CONCEPT_RETROGRADE_THRUSTER_DOWN, 10, a0, a1, a2, col_d, col_s, col_a);
+		concept3Light->SetIntensityRef(&conceptThrusterLevel[3]);
 
 		AddExhaust(conceptPosigrade[0], 0.8, 0.1);
 		AddExhaust(conceptPosigrade[1], 0.8, 0.1);
@@ -200,8 +253,6 @@ void ProjectMercury::clbkSetClassCaps(FILEHANDLE cfg)
 	turbineExhaustContrail = AddParticleStream(&turbineExhaust, TURBINE_EXHAUST_POS + _V(0.0, 0.0, -2.0), -TURBINE_EXHAUST_DIR, &turbineContrailLevel);
 	boosterExhaustContrail[0] = AddParticleStream(&boosterExhaust, BOOSTER_EXHAUST_POS, -BOOSTER_EXHAUST_DIR, &turbineContrailLevel);
 	boosterExhaustContrail[1] = AddParticleStream(&boosterExhaust, FlipY(BOOSTER_EXHAUST_POS), -BOOSTER_EXHAUST_DIR, &turbineContrailLevel);
-	iceVenting[0] = AddParticleStream(&iceVent, _V(0, 0, 2), _V(0, 1, 0), &iceVentLevel);
-	iceVentLevel = 0.0; // Debug, or at least do something about this
 
 	// Contrail stuff
 	contrail_main = {
@@ -243,8 +294,8 @@ void ProjectMercury::clbkSetClassCaps(FILEHANDLE cfg)
 	//DefineRudderAnimations();
 
 	// associate a mesh for the visual
-	AddDefaultMeshes();
 	Atlas = AddMesh(atlasIce, &ATLAS_CORE_OFFSET);
+	AddDefaultMeshes();
 	AtlasIceStatus = ICE3;
 	AtlasBooster = AddMesh(atlasBooster, &ATLAS_BOOSTER_OFFSET);
 	AtlasAdapter = AddMesh(atlasAdapter, &ATLAS_ADAPTER_OFFSET);
@@ -258,7 +309,8 @@ void ProjectMercury::clbkSetClassCaps(FILEHANDLE cfg)
 
 	DefineVernierAnimations();
 
-	padAttach = CreateAttachment(true, _V(0.0, 0.0, ATLAS_CORE_OFFSET.z - ATLAS_CORE_LENGTH / 2.0), _V(0, 0, 1), _V(0, 0, 1), "PAD", true);
+	if (capsuleTowerOnly) padAttach = CreateAttachment(true, _V(0.0, 0.0, MERCURY_OFS_CAPSULE.z - MERCURY_LENGTH_CAPSULE / 2.0), _V(0, -1, 0), _V(0, 0, 1), "PAD", false); // for Little Joe ramp, used to set specific launch angle
+	else padAttach = CreateAttachment(true, _V(0.0, 0.0, ATLAS_CORE_OFFSET.z - ATLAS_CORE_LENGTH / 2.0), _V(0, 0, 1), _V(0, 0, 1), "PAD", true);
 }
 
 void ProjectMercury::clbkPostCreation()
@@ -317,8 +369,6 @@ void ProjectMercury::clbkPostCreation()
 		DelMesh(Adaptring1);
 		DelMesh(Adaptring2);
 		DelMesh(Adaptring3);
-		boosterSeparated = true;
-		coreSeparated = true;
 
 		if (conceptManouverUnit)
 		{
@@ -336,6 +386,8 @@ void ProjectMercury::clbkPostCreation()
 		}
 
 		CreateAbortThrusters();
+		boosterSeparated = true;
+		coreSeparated = true;
 	}
 	else if (VesselStatus == ABORTNORETRO)
 	{
@@ -411,14 +463,24 @@ void ProjectMercury::clbkPostCreation()
 		DelPropellantResource(escape_tank);
 		DelMesh(Tower);
 		DelMesh(Atlas);
-		if (!(conceptManouverUnit && conceptManouverUnitAttached)) DelMesh(AtlasAdapter);
 		DelMesh(AtlasBooster);
-		DelMesh(Adaptcover1);
-		DelMesh(Adaptcover2);
-		DelMesh(Adaptcover3);
-		DelMesh(Adaptring1);
-		DelMesh(Adaptring2);
-		DelMesh(Adaptring3);
+
+		if (!(conceptManouverUnit && conceptManouverUnitAttached))
+		{
+			DelMesh(AtlasAdapter);
+			DelMesh(Adaptcover1);
+			DelMesh(Adaptcover2);
+			DelMesh(Adaptcover3);
+			DelMesh(Adaptring1);
+			DelMesh(Adaptring2);
+			DelMesh(Adaptring3);
+		}
+
+		if (conceptManouverUnit && !conceptCoverAttached) // covers have been separated in previous scenario
+		{
+			DelMesh(ConceptCover1);
+			DelMesh(ConceptCover2);
+		}
 
 		// CreatePosigradeRockets(); // Probably already fired. No scenario saved in the second they fire.
 		CreateRetroRockets();
@@ -498,6 +560,12 @@ void ProjectMercury::clbkPostCreation()
 
 			DelMesh(AtlasAdapter);
 			conceptManouverUnitAttached = false;
+
+			if (!conceptCoverAttached) // covers have been separated in previous scenario
+			{
+				DelMesh(ConceptCover1);
+				DelMesh(ConceptCover2);
+			}
 		}
 
 		DestabiliserStatus = P_OPENING;
@@ -564,6 +632,12 @@ void ProjectMercury::clbkPostCreation()
 
 			DelMesh(AtlasAdapter);
 			conceptManouverUnitAttached = false;
+
+			if (!conceptCoverAttached) // covers have been separated in previous scenario
+			{
+				DelMesh(ConceptCover1);
+				DelMesh(ConceptCover2);
+			}
 		}
 
 		drogueSeparated = true;
@@ -589,6 +663,7 @@ void ProjectMercury::clbkPreStep(double simt, double simdt, double mjd)
 	else if ((VesselStatus == TOWERSEP || VesselStatus == LAUNCHCORETOWERSEP) && abortConditionsMet)
 	{
 		CapsuleSeparate();
+		abort = true; // Debug! Check this! Does this interfere with anything else?
 	}
 
 	// Actions
@@ -663,7 +738,7 @@ void ProjectMercury::clbkPreStep(double simt, double simdt, double mjd)
 		attachedParent = GetAttachmentStatus(padAttach);
 		if (!launchFromLC14 && attachedParent != NULL && oapiGetFocusObject() == attachedParent && GetThrusterGroupLevel(THGROUP_MAIN) != 0.0) // attached, pad in focus, engines on, and has been uninitialised. Launch is initiated from pad
 		{
-			oapiSetTimeAcceleration(1.0);
+			if (oapiGetTimeAcceleration() > 1.0) oapiSetTimeAcceleration(1.0);
 			autoPilot = true;
 			launchFromLC14 = true; // don't repeat this process, so that the launchTime stays put
 			launchTime = simt + holdDownTime;
@@ -688,7 +763,7 @@ void ProjectMercury::clbkPreStep(double simt, double simdt, double mjd)
 		attachedParent2 = GetAttachmentStatus(padAttach);
 		if (!launchFromLC14 && attachedParent2 != NULL && oapiGetFocusObject() == attachedParent2 && GetThrusterGroupLevel(THGROUP_MAIN) != 0.0) // attached, pad in focus, engines on, and has been uninitialised. Launch is initiated from pad
 		{
-			oapiSetTimeAcceleration(1.0);
+			if (oapiGetTimeAcceleration() > 1.0) oapiSetTimeAcceleration(1.0);
 			autoPilot = true;
 			launchFromLC14 = true; // don't repeat this process, so that the launchTime stays put
 			launchTime = simt + holdDownTime;
@@ -743,7 +818,21 @@ void ProjectMercury::clbkPreStep(double simt, double simdt, double mjd)
 			//SetTouchdownPoints(tchdwnFlight, tchdwnFlightNum);
 			VersionDependentTouchdown(TOUCHDOWN_FLIGHT0, TOUCHDOWN_FLIGHT1, TOUCHDOWN_FLIGHT2, TOUCHDOWN_FLIGHT3, stiffness, damping, 10.0);
 			//SetTouchdownPoints(TOUCHDOWN_FLIGHT0, TOUCHDOWN_FLIGHT1, TOUCHDOWN_FLIGHT2);
-			ShiftCG(MERCURY_OFS_CAPSULE); // only from TOWERSEP or scenario
+			//ShiftCG(MERCURY_OFS_CAPSULE);
+			if (PreviousVesselStatus == ABORT) // if in capsuleTowerRetroOnly state
+			{
+				ShiftCG(-_V(0.0, 0.0, (77.8 - 19.3) * 0.0254));  // 19670022650 page 36 (CG of escape setup at 77.8 in, compared to 19.3 in for spacecraft)
+
+				CreateRetroRockets();
+				SetPropellantMass(retro_propellant[0], RETRO_MASS_FUEL);
+				SetPropellantMass(retro_propellant[1], RETRO_MASS_FUEL);
+				SetPropellantMass(retro_propellant[2], RETRO_MASS_FUEL);
+
+			}
+			else // only from TOWERSEP or scenario
+			{
+				ShiftCG(MERCURY_OFS_CAPSULE);
+			}
 			SetCameraOffset(_V(0.0, 0.0, 0.0));
 			ShiftCentreOfMass(_V(0.0, 0.0, -0.6)); // Allign RCS to CentreOfMass
 			SetCrossSections(_V(3.5, 3.37, 2.8));
@@ -837,9 +926,7 @@ void ProjectMercury::clbkPreStep(double simt, double simdt, double mjd)
 			CreateAirfoilsEscape();
 
 			SetSize(MERCURY_LENGTH_CAPSULE + MERCURY_LENGTH_ABORT);
-			//SetTouchdownPoints(tchdwnAbort, tchdwnAbortNum);
 			VersionDependentTouchdown(TOUCHDOWN_ABORT0, TOUCHDOWN_ABORT1, TOUCHDOWN_ABORT2, TOUCHDOWN_ABORT3, 1e7, 1e5, 10);
-			//SetTouchdownPoints(TOUCHDOWN_ABORT0, TOUCHDOWN_ABORT1, TOUCHDOWN_ABORT2);
 			if (PreviousVesselStatus == LAUNCH || PreviousVesselStatus == LAUNCHCORE) // either from aborting or from scenario load
 			{
 				ShiftCG(MERCURY_OFS_CAPSULE + _V(0.0, 0.0, (77.8 - 19.3) * 0.0254)); // 19670022650 page 36 (CG of escape setup at 77.8 in, compared to 19.3 in for spacecraft)
@@ -854,12 +941,39 @@ void ProjectMercury::clbkPreStep(double simt, double simdt, double mjd)
 
 		escapeLevel = GetThrusterLevel(escape_engine);
 
-		if (inFlightAbort && vesselAcceleration < 0.25 * G && (simt - abortTime) > 2.0) // When aborting from inflight, and acc<0.25g
+		if ((vesselAcceleration < 0.25 * G && (simt - abortTime) > 2.0 && GetPropellantMass(escape_tank) == 0.0) || (autoPilot && GetAltitude() > 1e5)) // When aborting from inflight and acc<0.25g and empty propellant, or autopilot and above 100 km
 		{
-			InflightAbortSeparate();
+			SeparateTower(true);
+			CGshifted = false;
+			VesselStatus = FLIGHT; // we have retro attached
 		}
 		break;
 	case ABORTNORETRO:
+		// Allow to be launched from ramp, reuse LC14 code from LAUNCH and TOWERSEP. The trigger is if engine is lit from an attached vessel
+		attachedParent = GetAttachmentStatus(padAttach);
+
+		if (!launchFromLC14 && attachedParent != NULL && oapiGetFocusObject() == attachedParent && GetThrusterGroupLevel(THGROUP_MAIN) != 0.0) // attached, pad in focus, engines on, and has been uninitialised. Launch is initiated from pad
+		{
+			if (oapiGetTimeAcceleration() > 1.0) oapiSetTimeAcceleration(1.0);
+
+			launchFromLC14 = true; // don't repeat this process, so that the launchTime stays put
+			abort = true;
+			suborbitalMission = true; // an abort is always ballistic
+
+			launchTime = simt; // appropriate, so that we can see the time from firing 
+
+			SetPropellantMass(escape_tank, ABORT_MASS_FUEL); // just in case
+			SetDefaultPropellantResource(escape_tank);
+			SetThrusterGroupLevel(THGROUP_MAIN, 1.0);
+
+			abortTime = simt;
+
+		}
+		else if (attachedParent != NULL && simt - launchTime > 0.0)
+		{
+			launchTime = simt; // so that the clock does not increase when standing attached
+		}
+
 		if (!CGshifted && !GroundContact())
 		{
 			CreateAirfoilsEscape();
@@ -891,10 +1005,11 @@ void ProjectMercury::clbkPreStep(double simt, double simdt, double mjd)
 		else
 			towerSepTime = 50.165;
 
-		if (vesselAcceleration < 0.25 * G && simt - abortTime > towerSepTime) // When aborting from inflight, and acc<0.25g and "maximum altitude sensor runs out" (http://aresinstitute.org/spacepdf/19740076641_1974076641.pdf page 10)
+		if (vesselAcceleration < 0.25 * G && simt - abortTime > towerSepTime && GetPropellantMass(escape_tank) == 0.0) // When aborting from inflight, and acc<0.25g and "maximum altitude sensor runs out" (http://aresinstitute.org/spacepdf/19740076641_1974076641.pdf page 10), and empty propellant (has fired, used in Beach Abort scenarios and similar)
 		{
 			OffPadAbortSeparate();
 		}
+		break;
 	}
 
 	DeleteRogueVessels();
@@ -949,11 +1064,28 @@ void ProjectMercury::clbkPostStep(double simt, double simdt, double mjd)
 			abortConditionsMet = true;
 			oapiWriteLog("Abort due to random failure!");
 		}
-	}
-	else
-	{
-		// Not launching, so set vent level to zero
-		iceVentLevel = 0.0; // debug, or at least do something about this later
+
+		double currentSustainerLevel = GetThrusterLevel(th_main);
+		if (currentSustainerLevel == 0.0 && previousSustainerLevel != 0.0)
+		{
+			// Ran dry, or general cutoff
+			char cbuf[256];
+			sprintf(cbuf, "Sustainer engine turned off T+%.1f", simt - launchTime); // debug
+			oapiWriteLog(cbuf);
+
+			historyCutOffAlt = GetAltitude();
+			VECTOR3 currentSpaceVelocity;
+			GetRelativeVel(GetSurfaceRef(), currentSpaceVelocity);
+			historyCutOffVel = length(currentSpaceVelocity);
+			VECTOR3 currentSpaceLocation;
+			GetRelativePos(GetSurfaceRef(), currentSpaceLocation);
+
+			historyCutOffAngl = -acos(dotp(currentSpaceLocation, currentSpaceVelocity) / length(currentSpaceLocation) / length(currentSpaceVelocity)) * DEG + 90.0;
+
+			double radiusNoCare;
+			GetEquPos(historyCutOffLong, historyCutOffLat, radiusNoCare);
+		}
+		previousSustainerLevel = currentSustainerLevel;
 	}
 
 	if ((VesselStatus == LAUNCH || VesselStatus == LAUNCHCORE || VesselStatus == LAUNCHCORETOWERSEP || VesselStatus == TOWERSEP) && enableAbortConditions && GetDamageModel() != 0)
@@ -990,25 +1122,34 @@ void ProjectMercury::clbkPostStep(double simt, double simdt, double mjd)
 	{
 		if (Atlas == NULL && GroundContact()) // no idea why I have to do this! It all worked yesterday! >:(
 		{
+			DelMesh(Atlas);
 			Atlas = AddMesh(atlasIce, &ATLAS_CORE_OFFSET);
+			if (rocketCam) SetMeshVisibilityMode(Atlas, MESHVIS_ALWAYS);
+			else SetMeshVisibilityMode(Atlas, MESHVIS_EXTERNAL);
 		}
 
 		if (GetAtmDensity() < 1e-6 && AtlasIceStatus == ICE1)
 		{
 			DelMesh(Atlas);
 			Atlas = AddMesh(atlas, &ATLAS_CORE_OFFSET);
+			if (rocketCam) SetMeshVisibilityMode(Atlas, MESHVIS_ALWAYS);
+			else SetMeshVisibilityMode(Atlas, MESHVIS_EXTERNAL);
 			AtlasIceStatus = ICE0;
 		}
 		else if (GetAtmDensity() < 1e-4 && AtlasIceStatus == ICE2)
 		{
 			DelMesh(Atlas);
 			Atlas = AddMesh(atlasIce3, &ATLAS_CORE_OFFSET);
+			if (rocketCam) SetMeshVisibilityMode(Atlas, MESHVIS_ALWAYS);
+			else SetMeshVisibilityMode(Atlas, MESHVIS_EXTERNAL);
 			AtlasIceStatus = ICE1;
 		}
 		else if (GetAtmDensity() < 1e-2 && AtlasIceStatus == ICE3)
 		{
 			DelMesh(Atlas);
 			Atlas = AddMesh(atlasIce2, &ATLAS_CORE_OFFSET);
+			if (rocketCam) SetMeshVisibilityMode(Atlas, MESHVIS_ALWAYS);
+			else SetMeshVisibilityMode(Atlas, MESHVIS_EXTERNAL);
 			AtlasIceStatus = ICE2;
 		}
 	}
@@ -1050,7 +1191,7 @@ void ProjectMercury::clbkPostStep(double simt, double simdt, double mjd)
 	GetEquPos(longit, latit, radiusDontCare);
 	double getAlt = GetAltitude();
 
-	FlightReentryAbortControl(simt, simdt, latit, longit, getAlt); // Various functions and checks for controlling abort, retrofire, and to record flight parameters
+	MercuryCapsuleGenericTimestep(simt, simdt, latit, longit, getAlt); // Various functions and checks for controlling all kinds of things during entire flight
 
 	if ((VesselStatus == LAUNCH || VesselStatus == LAUNCHCORE || VesselStatus == LAUNCHCORETOWERSEP || VesselStatus == TOWERSEP || VesselStatus == ABORT || VesselStatus == ABORTNORETRO) && vesselAcceleration > historyMaxLaunchAcc)
 		historyMaxLaunchAcc = vesselAcceleration;
@@ -1078,10 +1219,25 @@ void ProjectMercury::clbkPostStep(double simt, double simdt, double mjd)
 	}
 
 	// Separate concept retrograde thruster covers
-	if (VesselStatus == FLIGHT && conceptManouverUnit && conceptManouverUnitAttached && conceptCoverAttached && conceptRetrograde != NULL && GetThrusterLevel(conceptRetrograde[0]) != 0.0)
+	if (VesselStatus == FLIGHT && conceptManouverUnit && conceptManouverUnitAttached && conceptRetrograde != NULL)
 	{
-		// If with tank, firing thruster, and has covers attached
-		separateConceptCoverAction = true;
+		if (conceptCoverAttached && GetThrusterLevel(conceptRetrograde[0]) != 0.0)
+		{
+			// If with tank, firing thruster, and has covers attached
+			separateConceptCoverAction = true;
+		}
+
+		conceptThrusterLevel[0] = GetThrusterLevel(conceptPosigrade[0]);
+		conceptThrusterLevel[1] = GetThrusterLevel(conceptPosigrade[1]);
+		conceptThrusterLevel[2] = GetThrusterLevel(conceptRetrograde[0]);
+		conceptThrusterLevel[3] = GetThrusterLevel(conceptRetrograde[1]);
+	}
+	else
+	{
+		conceptThrusterLevel[0] = 0.0;
+		conceptThrusterLevel[1] = 0.0;
+		conceptThrusterLevel[2] = 0.0;
+		conceptThrusterLevel[3] = 0.0;
 	}
 }
 
@@ -1118,21 +1274,29 @@ int ProjectMercury::clbkConsumeBufferedKey(DWORD key, bool down, char* kstate)
 				if (GetAtmDensity() < 1e-6 && AtlasIceStatus == ICE1)
 				{
 					Atlas = AddMesh(atlas, &ATLAS_CORE_OFFSET);
+					if (rocketCam) SetMeshVisibilityMode(Atlas, MESHVIS_ALWAYS);
+					else SetMeshVisibilityMode(Atlas, MESHVIS_EXTERNAL);
 					AtlasIceStatus = ICE0;
 				}
 				else if (GetAtmDensity() < 1e-4 && AtlasIceStatus == ICE2)
 				{
 					Atlas = AddMesh(atlasIce3, &ATLAS_CORE_OFFSET);
+					if (rocketCam) SetMeshVisibilityMode(Atlas, MESHVIS_ALWAYS);
+					else SetMeshVisibilityMode(Atlas, MESHVIS_EXTERNAL);
 					AtlasIceStatus = ICE1;
 				}
 				else if (GetAtmDensity() < 1e-2 && AtlasIceStatus == ICE3)
 				{
 					Atlas = AddMesh(atlasIce2, &ATLAS_CORE_OFFSET);
+					if (rocketCam) SetMeshVisibilityMode(Atlas, MESHVIS_ALWAYS);
+					else SetMeshVisibilityMode(Atlas, MESHVIS_EXTERNAL);
 					AtlasIceStatus = ICE2;
 				}
 				else
 				{
 					Atlas = AddMesh(atlasIce, &ATLAS_CORE_OFFSET);
+					if (rocketCam) SetMeshVisibilityMode(Atlas, MESHVIS_ALWAYS);
+					else SetMeshVisibilityMode(Atlas, MESHVIS_EXTERNAL);
 					AtlasIceStatus = ICE3;
 				}
 			}
@@ -1264,22 +1428,42 @@ int ProjectMercury::clbkConsumeBufferedKey(DWORD key, bool down, char* kstate)
 			}
 			else if (VesselStatus == FLIGHT)
 			{
-				engageRetro = true;
-				retroStartTime = oapiGetSimTime() + 30.0; // retrosequence starts 30 sec before firing
-				char cbuf[256];
-				sprintf(cbuf, "Retrosequence %.0f", retroStartTime - 30.0);
-				oapiWriteLog(cbuf);
+				InitiateRetroSequence();
+			}
+			else if (VesselStatus == ABORT) // abort
+			{
+				if (oapiGetTimeAcceleration() > 1.0) oapiSetTimeAcceleration(1.0); // something extreme is happening, let's give Orbiter time to cope
 
-				AutopilotStatus = PITCHHOLD;
-				autoPilot = true;
-				attitudeHold14deg = false;
+				abort = true;
+				suborbitalMission = true; // an abort is always ballistic
+
+				if (GroundContact()) launchTime = oapiGetSimTime(); // appropriate, so that we can see the time from firing 
+
+				SetPropellantMass(escape_tank, ABORT_MASS_FUEL); // just in case
+				SetDefaultPropellantResource(escape_tank);
+				SetThrusterGroupLevel(THGROUP_MAIN, 1.0);
+
+				abortTime = oapiGetSimTime();
+
+				// Separate potentially attached pad
+				OBJHANDLE padHandle = GetAttachmentStatus(padAttach);
+				if (padHandle != NULL)
+				{
+					VESSEL* v = oapiGetVesselInterface(padHandle);
+					ATTACHMENTHANDLE padAtt = v->GetAttachmentHandle(false, 0);
+					bool success = v->DetachChild(padAtt, 0.0);
+					if (success)
+						oapiWriteLog("Separated due to abort");
+					else
+						oapiWriteLog("Failed to separate at abort");
+				}
 			}
 
 			return 1;
 		case OAPI_KEY_P:
 			if (GroundContact() && (VesselStatus == LAUNCH || VesselStatus == TOWERSEP)) // TOWERSEP is for Big Joe
 			{
-				oapiSetTimeAcceleration(1.0);
+				if (oapiGetTimeAcceleration() > 1.0) oapiSetTimeAcceleration(1.0);
 				autoPilot = true;
 				SetThrusterGroupLevel(THGROUP_MAIN, 1.0);
 				launchTime = oapiGetSimTime() + holdDownTime;
@@ -1297,6 +1481,34 @@ int ProjectMercury::clbkConsumeBufferedKey(DWORD key, bool down, char* kstate)
 			else if (VesselStatus == REENTRYNODROGUE)
 			{
 				engageFuelDump = true;
+			}
+			else if (VesselStatus == ABORTNORETRO) // launch beach abort
+			{
+				if (oapiGetTimeAcceleration() > 1.0) oapiSetTimeAcceleration(1.0); // something extreme is happening, let's give Orbiter time to cope
+
+				abort = true;
+				suborbitalMission = true; // an abort is always ballistic
+
+				if (GroundContact()) launchTime = oapiGetSimTime(); // appropriate, so that we can see the time from firing 
+
+				SetPropellantMass(escape_tank, ABORT_MASS_FUEL); // just in case
+				SetDefaultPropellantResource(escape_tank);
+				SetThrusterGroupLevel(THGROUP_MAIN, 1.0);
+
+				abortTime = oapiGetSimTime();
+
+				// Separate potentially attached pad
+				OBJHANDLE padHandle = GetAttachmentStatus(padAttach);
+				if (padHandle != NULL)
+				{
+					VESSEL* v = oapiGetVesselInterface(padHandle);
+					ATTACHMENTHANDLE padAtt = v->GetAttachmentHandle(false, 0);
+					bool success = v->DetachChild(padAtt, 0.0);
+					if (success)
+						oapiWriteLog("Separated due to abort");
+					else
+						oapiWriteLog("Failed to separate at abort");
+				}
 			}
 
 			return 1;
@@ -1327,6 +1539,10 @@ int ProjectMercury::clbkConsumeBufferedKey(DWORD key, bool down, char* kstate)
 			{
 				AutopilotStatus = REENTRYATT;
 				autoPilot = true;
+			}
+			else if (VesselStatus == ABORT)
+			{
+				separateTowerAction = true;
 			}
 
 			return 1;
@@ -1479,10 +1695,71 @@ bool ProjectMercury::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketch
 	int yIndex = 0;
 	double simt = oapiGetSimTime();
 
+
+	// Show indicator for nearest object within x km (like a docking radar)
+	if (conceptManouverUnit && conceptManouverUnitAttached && (oapiGetHUDMode() == HUD_DOCKING || panelView)) // borrowed/stolen from igel's amazing First in Space Polyot
+	{
+		double vesselDistance = 1e4; // 50 km, or any other limit
+		double vesselVel;
+		VECTOR3 vesselPos, bufferPos;
+		// Get nearest object
+		for (int i = 0; i < int(oapiGetVesselCount()); i++)
+		{
+			OBJHANDLE ves = oapiGetVesselByIndex(i);
+			GetRelativePos(ves, bufferPos);
+			if (length(bufferPos) < vesselDistance && ves != GetHandle() && oapiGetSize(ves) > 1.0)
+			{
+				vesselPos = bufferPos;
+				vesselDistance = length(vesselPos);
+				VECTOR3 relVel;
+				GetRelativeVel(oapiGetVesselByIndex(i), relVel);
+				vesselVel = relVel.z;
+				//if (relVel.z < 0.0) vesselVel *= 1.0;
+			}
+		}
+
+		if (vesselDistance < 1e4)
+		{
+			double verticalFoV = oapiCameraAperture();
+			double horizontalFoV = verticalFoV * double(ScreenWidth) / double(ScreenHeight);
+
+			MATRIX3 m;
+			GetRotationMatrix(m);
+			vesselPos = tmul(m, vesselPos);
+
+			double z = -vesselPos.z;			// skip if behind
+			double y = -vesselPos.y;			// skip if high-low
+			double x = -vesselPos.x;			// skip if far on side
+			double Yr = atan2(y, -z);
+			double Xr = atan2(-x, -z);
+
+			if (z > 0 && abs(Yr) > verticalFoV&& abs(Xr) > horizontalFoV)
+			{
+				double YY = (-z) * tan(verticalFoV);
+				double yy = y / YY; // -1 to 1
+				yy += 1; // 0 to 2
+				yy /= 2; // 0 to 1
+				yy *= int(ScreenHeight);
+
+				double XX = YY * double(ScreenWidth) / double(ScreenHeight);
+				double xx = -x / XX; // -1 to 1
+				xx += 1; // 0 to 2
+				xx /= 2; // 0 to 1
+				xx *= int(ScreenWidth);
+
+				int X = (int)xx;
+				int Y = (int)yy;
+
+				skp->Rectangle(X - 5, Y - 5, X + 5, Y + 5);
+				char label[30];
+				sprintf(label, "%.0f m | %.0f m/s", vesselDistance, vesselVel);
+				skp->Text(X + 8, Y - 5, label, strlen(label));
+			}
+		}
+	}
+
 	if (oapiCockpitMode() == COCKPIT_PANELS && panelView)
 	{
-		AnimateDials();
-
 		if (showInfoOnHud < 2)
 		{
 			// This sets the x so that the text is centered
@@ -1929,14 +2206,12 @@ bool ProjectMercury::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketch
 			double retroseqTime = retroTimes[0];
 			char retroseqName[256];
 			sprintf(retroseqName, retroNames[0]);
-			int modi = 0;
-			for (int i = 0; i < 29; i++)
+			for (int i = 0; i < (STORED_RETROSEQUENCE_TIMES - 1); i++)
 			{
 				if (metAbs > retroTimes[i])
 				{
 					retroseqTime = retroTimes[i + 1];
 					sprintf(retroseqName, "%s", retroNames[i + 1]);
-					modi = i + 1;
 				}
 			}
 
@@ -2168,167 +2443,7 @@ bool ProjectMercury::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketch
 
 	if (showInfoOnHud == 1) // Show Mercury dashboard left row of status lights. This is in the end to not affect right side font colour
 	{
-		// Remember BBGGRR, not RRGGBB
-		const DWORD Gray = 0xB0B0B0;
-		const DWORD Red = 0x0000FF;
-		const DWORD Green = 0x00FF00;
-
-		// ABORT
-		if (abort) skp->SetTextColor(Red);
-		else skp->SetTextColor(Gray);
-		sprintf(cbuf, "ABORT");
-		skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-		yIndex += 1;
-
-		// JETT TOWER
-		if (VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE || VesselStatus == TOWERSEP || VesselStatus == LAUNCHCORETOWERSEP) skp->SetTextColor(Green); // I don't implement any failures of tower sep, so don't implement any failure light. This may change when fuses are added
-		else skp->SetTextColor(Gray);
-		sprintf(cbuf, "JETT TOWER");
-		skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-		yIndex += 1;
-
-		// SEP CAPSULE
-		if (VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE || VesselStatus == ABORT || VesselStatus == ABORTNORETRO) skp->SetTextColor(Green);
-		else if (boosterShutdownTime == 0.0) skp->SetTextColor(Gray); // time between shutdown and sep is red, so gray if not shutdown yet
-		else skp->SetTextColor(Red);
-		sprintf(cbuf, "SEP CAPSULE");
-		skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-		yIndex += 1;
-
-		// RETRO SEQ
-		if (engageRetro && VesselStatus == FLIGHT) skp->SetTextColor(Green); // Debug. Not sure if this is correct. Check with old addon. Does light turn off after retrosep, or stay green?
-		else if (retroStartTime == 0.0) skp->SetTextColor(Gray);
-		else if (VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE || VesselStatus == ABORTNORETRO) skp->SetTextColor(Green);
-		else skp->SetTextColor(Red);
-		sprintf(cbuf, "RETRO SEQ");
-		skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-		yIndex += 1;
-
-		// RETRO ATT
-		double currP = GetPitch() + pitchOffset;
-		double currY = GetSlipAngle() + yawOffset;
-		if (engageRetro && abs(currP + 34.0 * RAD) < 15.0 * RAD && abs(normangle(currY + PI)) < 15.0 * RAD) skp->SetTextColor(Green); // within limits
-		else if (retroStartTime == 0.0) skp->SetTextColor(Gray); // haven't engaged retro
-		else if (VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE || VesselStatus == ABORTNORETRO) skp->SetTextColor(Green);
-		else skp->SetTextColor(Red);
-		sprintf(cbuf, "RETRO ATT");
-		skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-		yIndex += 1;
-
-		// FIRE RETRO
-		if (VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE || VesselStatus == ABORTNORETRO) skp->SetTextColor(Gray);
-		else if ((retroStartTime != 0.0 && retroStartTime - 10.0 < simt && (!retroCoverSeparated[2] || FailureMode == RETROSTUCKOFF)) || (!engageRetro && (retroCoverSeparated[0] || retroCoverSeparated[1] || retroCoverSeparated[2]))) skp->SetTextColor(Red);
-		else if (retroStartTime != 0.0 && retroStartTime - 10.0 > simt) skp->SetTextColor(Green);
-		else if (retroStartTime == 0.0) skp->SetTextColor(Gray);
-		else if (VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE || VesselStatus == ABORTNORETRO) skp->SetTextColor(Green);
-		else skp->SetTextColor(Red);
-		sprintf(cbuf, "FIRE RETRO");
-		skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-		yIndex += 1;
-
-		// JETT RETRO
-		if (retroStartTime != 0.0 && simt - retroStartTime > 58.0 && VesselStatus == FLIGHT) skp->SetTextColor(Red);
-		else if (VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE || VesselStatus == ABORTNORETRO) skp->SetTextColor(Green);
-		else if (retroStartTime == 0.0) skp->SetTextColor(Gray);
-		else skp->SetTextColor(Red);
-		sprintf(cbuf, "JETT RETRO");
-		skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-		yIndex += 1;
-
-		// RETRACT SCOPE
-		if (PeriscopeStatus != P_CLOSED && (VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE || VesselStatus == ABORTNORETRO) && simt - retroStartTime > (60.0 + 40.0)) skp->SetTextColor(Red);
-		else if (PeriscopeStatus != P_CLOSED && (VesselStatus == FLIGHT || VesselStatus == REENTRYNODROGUE || (VesselStatus == LAUNCH && GroundContact()))) skp->SetTextColor(Green);
-		else if (PeriscopeStatus == P_CLOSED) skp->SetTextColor(Gray);
-		else skp->SetTextColor(Red);
-		sprintf(cbuf, "RETRACT SCOPE");
-		skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-		yIndex += 1;
-
-		// .05 G
-		if (FailureMode != LOWGDEACTIVE && VesselStatus == REENTRY && vesselAcceleration > 0.05 * G) skp->SetTextColor(Green);
-		else if (AutopilotStatus == LOWG) skp->SetTextColor(Green);
-		else skp->SetTextColor(Gray);
-		sprintf(cbuf, ".05 G");
-		skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-		yIndex += 1;
-
-		// MAIN
-		if (mainChuteDeployed && simt > mainChuteDeployTime + 2.0) skp->SetTextColor(Green);
-		else if (!mainChuteDeployed) skp->SetTextColor(Gray);
-		else skp->SetTextColor(Red);
-		sprintf(cbuf, "MAIN");
-		skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-		yIndex += 1;
-
-		// LANDING BAG
-		if (landingBagDeployed) skp->SetTextColor(Green);
-		else if (mainChuteDeployed && simt - mainChuteDeployTime > 10.0) skp->SetTextColor(Red);
-		else if (!landingBagDeployed) skp->SetTextColor(Gray);
-		else skp->SetTextColor(Red);
-		sprintf(cbuf, "LANDING BAG");
-		skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-		yIndex += 1;
-	}
-
-	// Show indicator for nearest object within x km (like a docking radar)
-	if (conceptManouverUnit && conceptManouverUnitAttached && oapiGetHUDMode() == HUD_DOCKING) // borrowed/stolen from igel's amazing First in Space Polyot
-	{
-		double vesselDistance = 5e4; // 50 km, or any other limit
-		VECTOR3 vesselPos, bufferPos;
-		// Get nearest object
-		for (int i = 0; i < UINT(oapiGetVesselCount()); i++)
-		{
-			GetRelativePos(oapiGetVesselByIndex(i), bufferPos);
-			if (length(bufferPos) < vesselDistance && oapiGetVesselByIndex(i) != GetHandle())
-			{
-				vesselPos = bufferPos;
-				vesselDistance = length(vesselPos);
-			}
-		}
-
-		//sprintf(oapiDebugString(), "closest: %.2f", vesselDistance);
-
-		if (vesselDistance < 5e4)
-		{
-			double verticalFoV = oapiCameraAperture();
-			double horizontalFoV = verticalFoV * double(ScreenWidth) / double(ScreenHeight);
-
-			MATRIX3 m;
-			GetRotationMatrix(m);
-			vesselPos = tmul(m, vesselPos);
-
-			double z = -vesselPos.z;			// skip if behind
-			double y = -vesselPos.y;			// skip if high-low
-			double x = -vesselPos.x;			// skip if far on side
-			double Yr = atan2(y, -z);
-			double Xr = atan2(-x, -z);
-
-			//sprintf(oapiDebugString(), "closest: %.2f, x: %.1f y: %.1f z: %.1f", vesselDistance, x, y, z);
-
-			if (z > 0 && abs(Yr) > verticalFoV && abs(Xr) > horizontalFoV)
-			{
-				double YY = (-z) * tan(verticalFoV);
-				double yy = y / YY; // -1 to 1
-				yy += 1; // 0 to 2
-				yy /= 2; // 0 to 1
-				yy *= int(ScreenHeight);
-
-				double XX = YY * double(ScreenWidth) / double(ScreenHeight);
-				double xx = -x / XX; // -1 to 1
-				xx += 1; // 0 to 2
-				xx /= 2; // 0 to 1
-				xx *= int(ScreenWidth);
-
-				int X = (int)xx;
-				int Y = (int)yy;
-
-				//skp->Ellipse(X - 5, Y - 5, X + 5, Y + 5);
-				skp->Rectangle(X - 5, Y - 5, X + 5, Y + 5);
-				char label[20];
-				sprintf(label, "%.0f m", vesselDistance);
-				skp->Text(X + 8, Y - 5, label, strlen(label));
-			}
-		}
+		WriteHUDIndicators(skp, simt, &yIndex, cbuf);
 	}
 
 	return true;
@@ -2462,6 +2577,10 @@ void ProjectMercury::clbkLoadStateEx(FILEHANDLE scn, void* status)
 		{
 			conceptManouverUnitAttached = bool(atoi(cbuf + 15)); // 0 is false, anything else true
 		}
+		else if (!_strnicmp(cbuf, "CONCEPTCOVER", 12))
+		{
+			conceptCoverAttached = bool(atoi(cbuf + 12)); // 0 is false, anything else true
+		}
 		else ParseScenarioLineEx(cbuf, status);
 	}
 }
@@ -2588,7 +2707,16 @@ void ProjectMercury::LoadRocketTextureReplacement(void)
 
 void ProjectMercury::clbkSaveState(FILEHANDLE scn)
 {
+	bool attitudeFuelSwitched = false;
+	if (!attitudeFuelAuto) // switch back, so that the correct propellant is saved to scenario. If this check is not done, we risk manual and auto swapping for every current state load.
+	{
+		SwitchPropellantSource();
+		attitudeFuelSwitched = true;
+	}
+
 	VESSELVER::clbkSaveState(scn); // write default parameters (orbital elements etc.)
+
+	if (attitudeFuelSwitched) SwitchPropellantSource(); // Switch back to previous, as scenario may be saved during a running simulation. (Ctrl+S, StateSaver, ScenarioEditor...)
 
 	oapiWriteScenario_int(scn, "STATE", VesselStatus);
 
@@ -2626,6 +2754,7 @@ void ProjectMercury::clbkSaveState(FILEHANDLE scn)
 	}
 
 	if (conceptManouverUnit) oapiWriteScenario_int(scn, "CONCEPTATTACHED", conceptManouverUnitAttached);
+	if (conceptManouverUnit && !conceptCoverAttached) oapiWriteScenario_int(scn, "CONCEPTCOVER", conceptCoverAttached);
 }
 
 bool ProjectMercury::SetTargetBaseIdx(char* rstr, bool launch)
@@ -2643,6 +2772,7 @@ bool ProjectMercury::SetTargetBaseIdx(char* rstr, bool launch)
 		oapiWriteLogV("Found base at %.2f N %.2f E", missionLandLat, missionLandLong);
 		landingComputing = true;
 		launchTargetPosition = true;
+		manualInputRetroTime = NULL;
 		return true;
 	}
 	else // typed in a coordinate
@@ -2652,23 +2782,52 @@ bool ProjectMercury::SetTargetBaseIdx(char* rstr, bool launch)
 		strPos = strchr(rstr, ' ');
 		oapiWriteLogV("No base with that name. StrPos: %d", strPos - rstr + 1);
 
-		if (strPos != NULL) // found two values
+		if (strPos != NULL) // found two or more values
 		{
-			oapiWriteLogV("You wrote two coordinates.");
-			char latText[20];
-			char longText[20];
-			strncpy(latText, rstr, strPos - rstr + 1); // maybe strPos - rstr + 1
-			oapiWriteLogV("Part one: %s", latText);
-			missionLandLat = atof(latText);
-			oapiWriteLogV("Lat: %.2f N", missionLandLat);
-			strncpy(longText, rstr + int(strPos - rstr + 1), strlen(rstr) - int(strPos - rstr + 1)); // maybe etc.
-			oapiWriteLogV("Part two: %s", longText);
-			missionLandLong = atof(longText);
-			oapiWriteLogV("Long: %.2f E", missionLandLong);
-			noMissionLandLat = false;
-			landingComputing = true;
-			launchTargetPosition = true;
-			return true;
+			// Search for new space. If so, we're writing in a specific HH MM SS timestamp for retroclock
+			char* newStrPos;
+			newStrPos = strchr(strPos + 1, ' ');
+			if (newStrPos != NULL) // found another space, and thus time stamp
+			{
+				oapiWriteLogV("You wrote time stamp.");
+				char hText[5];
+				char mText[5];
+				char sText[5];
+				strncpy(hText, rstr, strPos - rstr + 1);
+				oapiWriteLogV("Part one: %s", hText);
+				int timeHour = atoi(hText);
+				oapiWriteLogV("Hour: %02i", timeHour);
+				strncpy(mText, rstr + int(strPos - rstr + 1), int(newStrPos - rstr + 1));
+				oapiWriteLogV("Part two: %s", mText);
+				int timeMinute = atoi(mText);
+				oapiWriteLogV("Minute: %02i", timeMinute);
+				strncpy(sText, rstr + int(newStrPos - rstr + 1), strlen(rstr) - int(newStrPos - rstr + 1));
+				oapiWriteLogV("Part three: %s", sText);
+				int timeSecond = atoi(sText);
+				oapiWriteLogV("Second: %02i", timeSecond);
+				landingComputing = false;
+				manualInputRetroTime = timeHour * 3600 + timeMinute * 60 + timeSecond;
+				return true;
+			}
+			else // typed in only two numbers, and thus lat long coordinates
+			{
+				oapiWriteLogV("You wrote two coordinates.");
+				char latText[20];
+				char longText[20];
+				strncpy(latText, rstr, strPos - rstr + 1); // maybe strPos - rstr + 1
+				oapiWriteLogV("Part one: %s", latText);
+				missionLandLat = atof(latText);
+				oapiWriteLogV("Lat: %.2f N", missionLandLat);
+				strncpy(longText, rstr + int(strPos - rstr + 1), strlen(rstr) - int(strPos - rstr + 1)); // maybe etc.
+				oapiWriteLogV("Part two: %s", longText);
+				missionLandLong = atof(longText);
+				oapiWriteLogV("Long: %.2f E", missionLandLong);
+				noMissionLandLat = false;
+				landingComputing = true;
+				launchTargetPosition = true;
+				manualInputRetroTime = NULL;
+				return true;
+			}
 		}
 		else// only longitude is input (no space detected)
 		{
@@ -2679,6 +2838,7 @@ bool ProjectMercury::SetTargetBaseIdx(char* rstr, bool launch)
 			if (strPosU != NULL || strPosL != NULL) // disable landing computer. Saves framerate etc.
 			{
 				landingComputing = false;
+				manualInputRetroTime = NULL;
 				oapiWriteLog("Disabled landing computing");
 				return true;
 			}
@@ -2698,6 +2858,7 @@ bool ProjectMercury::SetTargetBaseIdx(char* rstr, bool launch)
 					oapiWriteLogV("You only wrote long: %.2f", missionLandLong);
 					landingComputing = true;
 					launchTargetPosition = true;
+					manualInputRetroTime = NULL;
 					return true;
 				}
 			}
@@ -2828,9 +2989,9 @@ void ProjectMercury::AtlasAutopilot(double simt, double simdt)
 		double deltaV = targetOrbitalVelocity - currentSpeed;
 		double timeToCutoff = GetMass() * CORE_ISP_VAC / CORE_THRUST * (1.0 - exp(-deltaV / CORE_ISP_VAC));
 
-		if (timeToCutoff < 15.0)
+		if (timeToCutoff < 15.0) // if close to orbit insertion
 		{
-			if (abs(verticalSpeed) < deltaV)
+			if (abs(verticalSpeed) < deltaV) // if within valid range of asin (i.e. vertical speed deviation is smaller than remaining orbit insertion speed)
 				bottomPitch = -asin(verticalSpeed / deltaV) * DEG;
 			else if (verticalSpeed < 0.0)
 				bottomPitch = 90.0;
@@ -2839,30 +3000,24 @@ void ProjectMercury::AtlasAutopilot(double simt, double simdt)
 
 			pitchDiff = bottomPitch - pitch;
 
-			if (pitchDiff > 0.1)
+			if (pitchDiff > 0.1) // we're below aim, pitch up
 				pitchRate = 0.5 * RAD; // guesstimate
-			else if (pitchDiff < -0.1)
+			else if (pitchDiff < -0.1) // we're above aim, pitch down
 				pitchRate = -0.5 * RAD;
 			else
 				pitchRate = 0.0;
 		}
-		else
+		else // normal PEG algorithm: use the PEG pitch rate
 		{
 			pitchRate = omegaP;
 		}
 
-		if (abs(pitchRate) > 2.0 * RAD)
+		if (abs(pitchRate) > 2.0 * RAD) // if target rate above 2 deg/s, then truncate to 2 deg/s (pitch rate above 3.0 deg/s results in abort)
 		{
 			pitchRate = pitchRate / abs(pitchRate) * 2.0 * RAD;
 		}
 
-		// Disabling any checks for abort; only use attitude rate for ASIS
-		//if (met - BECO - 26.0 < 15.0) // give rocket 15.0 seconds to find new aim
-		//	currentPitchAim = pitch;
-		//else
-		//	currentPitchAim = bottomPitch; // to ASIS computer for pitch check
-
-		if (simdt > timeStepLimit) // force attitude
+		if (simdt > timeStepLimit) // force attitude, as we are time accelerating, and rocket computer can't keep up  
 		{
 			if (eulerPitch == 0.0) eulerPitch = pitchRate * simdt;
 		}
@@ -2872,7 +3027,7 @@ void ProjectMercury::AtlasAutopilot(double simt, double simdt)
 			{
 				SetControlSurfaceLevel(AIRCTRL_ELEVATOR, -(currentAngRate.x * DEG * currentAngRate.x * DEG * ampFactor + ampAdder));
 			}
-			else if (abs(currentAngAcc.x < 0.75) * RAD && currentAngRate.x < pitchRate - 0.0005)
+			else if (abs(currentAngAcc.x) < 0.75 * RAD && currentAngRate.x < pitchRate - 0.0005) // hello Kuddel! Thanks a lot! https://www.orbiter-forum.com/showthread.php?p=606147&postcount=100
 			{
 				SetControlSurfaceLevel(AIRCTRL_ELEVATOR, (currentAngRate.x * DEG * currentAngRate.x * DEG * ampFactor + ampAdder));
 			}
@@ -3153,7 +3308,7 @@ void ProjectMercury::AtlasAutopilot(double simt, double simdt)
 		SetControlSurfaceLevel(AIRCTRL_AILERON, 0.0);
 	}
 
-	if (simdt > timeStepLimit && !rollProgram) // debug
+	if (simdt > timeStepLimit && !rollProgram)
 	{
 		SetControlSurfaceLevel(AIRCTRL_RUDDER, 0.0);
 		SetControlSurfaceLevel(AIRCTRL_ELEVATOR, 0.0);
@@ -3174,44 +3329,7 @@ void ProjectMercury::AtlasAutopilot(double simt, double simdt)
 		boosterShutdownTime = simt;
 		sprintf(cbuf, "SECO T+%.1f", met);
 		oapiWriteLog(cbuf);
-
-		historyCutOffAlt = GetAltitude();
-		VECTOR3 currentSpaceVelocity;
-		GetRelativeVel(GetSurfaceRef(), currentSpaceVelocity);
-		historyCutOffVel = length(currentSpaceVelocity);
-		VECTOR3 currentSpaceLocation;
-		GetRelativePos(GetSurfaceRef(), currentSpaceLocation);
-		
-		historyCutOffAngl = -acos(dotp(currentSpaceLocation, currentSpaceVelocity) / length(currentSpaceLocation) / length(currentSpaceVelocity)) * DEG + 90.0;
-
-		historyPerigee = historyCutOffAlt; // set as starting point
-
-		double radiusNoCare;
-		GetEquPos(historyCutOffLong, historyCutOffLat, radiusNoCare);
 	}
-	else if (GetThrusterLevel(th_main) == 0.0 && previousSustainerLevel == 1.0)
-	{
-		// Ran dry, or general cutoff
-		char cbuf[256];
-		sprintf(cbuf, "Sustainer engine turned off T+%.1f", met);
-		oapiWriteLog(cbuf);
-
-		historyCutOffAlt = GetAltitude();
-		VECTOR3 currentSpaceVelocity;
-		GetRelativeVel(GetSurfaceRef(), currentSpaceVelocity);
-		historyCutOffVel = length(currentSpaceVelocity);
-		VECTOR3 currentSpaceLocation;
-		GetRelativePos(GetSurfaceRef(), currentSpaceLocation);
-
-		historyCutOffAngl = -acos(dotp(currentSpaceLocation, currentSpaceVelocity) / length(currentSpaceLocation) / length(currentSpaceVelocity)) * DEG + 90.0;
-
-		historyPerigee = historyCutOffAlt; // set as starting point
-
-		double radiusNoCare;
-		GetEquPos(historyCutOffLong, historyCutOffLat, radiusNoCare);
-	}
-	previousSustainerLevel = GetThrusterLevel(th_main);
-
 
 	//// Debug
 	/*char pitchLog[256];
@@ -3281,7 +3399,7 @@ double ProjectMercury::AtlasTargetCutOffAzimuth(double simt, double ri, double l
 	double earthAngularVel = 360.0 / oapiGetPlanetPeriod(GetSurfaceRef());
 
 	double targetElevationAngle = 0.0;
-	double rCutoff = ri; // or maybe this should be 160.9 km + planetRad
+	double rCutoff = ri;
 	double vc = sqrt(planetMu / rCutoff);
 	double cutoffVel = sqrt(planetMu * (2.0 / rCutoff - 2.0 / (missionApogee * 1000.0 + planetRad + rCutoff)));
 	if (realData) // debug
@@ -3681,7 +3799,7 @@ double ProjectMercury::EmptyMass(void)
 
 void ProjectMercury::TowerSeparation(void)
 {
-	if (VesselStatus == LAUNCH || VesselStatus == LAUNCHCORE || VesselStatus == ABORT) // only occasions with tower
+	if (VesselStatus == LAUNCH || VesselStatus == LAUNCHCORE || VesselStatus == ABORT || VesselStatus == ABORTNORETRO) // only occasions with tower
 	{
 		SeparateTower(true);
 
@@ -3693,6 +3811,13 @@ void ProjectMercury::TowerSeparation(void)
 		else if (VesselStatus == LAUNCHCORE)
 		{
 			VesselStatus = LAUNCHCORETOWERSEP;
+			CGshifted = false;
+		}
+		else if (VesselStatus == ABORT)
+		{
+			autoPilot = true;
+			AutopilotStatus = POSIGRADEDAMP; // Automatically aux-damp 
+			VesselStatus = FLIGHT;
 			CGshifted = false;
 		}
 		else
@@ -3763,7 +3888,7 @@ void ProjectMercury::CheckAbortConditions(double simt, double simdt) // These co
 
 void ProjectMercury::LaunchAbort(void)
 {
-	oapiSetTimeAcceleration(1.0); // something extreme is happening, let's give Orbiter time to cope
+	if (oapiGetTimeAcceleration() > 1.0) oapiSetTimeAcceleration(1.0); // something extreme is happening, let's give Orbiter time to cope
 
 	abort = true;
 	suborbitalMission = true; // an abort is always ballistic
@@ -3772,7 +3897,7 @@ void ProjectMercury::LaunchAbort(void)
 	{
 		SeparateAtlasBooster(false);
 		SeparateAtlasCore();
-		SeparateRingsAndAdapters(); // Adapters and rings
+		SeparateRingsAndAdapters(-0.65); // Adapters and rings
 		
 		SeparateRetroPack(false);
 		for (int i = 1; i <= 3; i++)
@@ -3811,7 +3936,7 @@ void ProjectMercury::CapsuleSeparate(void)
 	{
 		if (VesselStatus == TOWERSEP) SeparateAtlasBooster(false); // don't separate booster, just delete thrusters
 		SeparateAtlasCore(); // this automatically tells core to let booster attached or not
-		SeparateRingsAndAdapters(); // Adapters and rings
+		if (!conceptManouverUnit) SeparateRingsAndAdapters(-0.65); // Adapters and rings
 
 		if (boilerplateMission) // no retropack
 		{
@@ -3978,7 +4103,7 @@ void ProjectMercury::SeparateAtlasBooster(bool noAbortSep)
 			Local2Rel(redstoneOffset, vs.rpos);
 			GlobalRot(redstoneDirection, relativeOffset);
 			vs.rvel += relativeOffset * redstoneVelocity;
-			inFlightAbort = true;
+			//inFlightAbort = true;
 		}
 
 		strcpy(name, GetName());
@@ -4069,7 +4194,7 @@ void ProjectMercury::SeparateAtlasCore(void)
 		Local2Rel(redstoneOffset, vs.rpos);
 		GlobalRot(redstoneDirection, relativeOffset);
 		vs.rvel += relativeOffset * redstoneVelocity;
-		inFlightAbort = true;
+		//inFlightAbort = true;
 	}
 
 	if (GetThrusterLevel(th_main) != 0.0 && oapiGetSimTime() - launchTime < 30.0) // 19670028606 page 87, keep engine running if less than T+30
@@ -4106,8 +4231,10 @@ void ProjectMercury::SeparateAtlasCore(void)
 			DelPropellantResource(conceptPropellant);
 			SetDefaultPropellantResource(fuel_auto);
 			conceptManouverUnitAttached = false;
-			DelMesh(AtlasAdapter);
+			DelMesh(AtlasAdapter); // remove adapter mesh as we're in LAUNCH or TOWERSEP, meaning abort
 		}
+
+		DelMesh(AtlasBooster); // Remove booster mesh as we're in LAUNCH or TOWERSEP, and therefore had it attached
 	}
 
 	if (GetAltitude() > 5e4)
@@ -4144,7 +4271,7 @@ void ProjectMercury::SeparateAtlasCore(void)
 	DelControlSurface(Verniers[2]);
 	DelMesh(Atlas);
 	if (!conceptManouverUnit) DelMesh(AtlasAdapter);
-	DelMesh(AtlasBooster);
+
 	coreSeparated = true;
 
 	if (oapiCockpitMode() == COCKPIT_PANELS)
@@ -4154,7 +4281,7 @@ void ProjectMercury::SeparateAtlasCore(void)
 	}
 }
 
-void ProjectMercury::SeparateRingsAndAdapters()
+void ProjectMercury::SeparateRingsAndAdapters(double offZ)
 {
 	VESSELSTATUS2 vs;
 	vs.flag = 0; // no idea what it does, but thanks to face https://www.orbiter-forum.com/showthread.php?p=296740&postcount=2
@@ -4163,7 +4290,7 @@ void ProjectMercury::SeparateRingsAndAdapters()
 	char name[256];
 	VECTOR3 vel = _V(0, .95, 0);
 	VECTOR3 relativeOffset1;
-	VECTOR3 addOfs = _V(0.0, 0.0, -0.65);
+	VECTOR3 addOfs = _V(0.0, 0.0, offZ);
 	GetStatusEx(&vs);
 	Local2Rel(OFS_ADAPTCOVER1 + addOfs, vs.rpos);
 	GlobalRot(_V(0.0, -1.0, 0.0), relativeOffset1);
@@ -4253,13 +4380,16 @@ void ProjectMercury::SeparateRingsAndAdapters()
 	stuffCreated += 1;
 	DelMesh(Adaptring3);
 
-	capsuleSepTime = oapiGetSimTime();
+	//capsuleSepTime = oapiGetSimTime();
 }
 
 void ProjectMercury::SeparateConceptAdapter(void)
 {
 	if (conceptManouverUnit && conceptManouverUnitAttached)
 	{
+		// Separate rings and adapters
+		SeparateRingsAndAdapters(-0.5 - MERCURY_OFS_CAPSULE.z + CONCEPT_EXTRA_LENGTH); // we have new centre of mass, as we are in FLIGHT mode
+
 		// Create adapter vessel
 		VESSELSTATUS2 vs;
 		VESSELSTATUS2::FUELSPEC fuel;
@@ -4383,7 +4513,10 @@ inline void ProjectMercury::SetCameraSceneVisibility(WORD mode)
 
 	if (!coreSeparated && (VesselStatus == LAUNCH || VesselStatus == TOWERSEP || VesselStatus == LAUNCHCORE || VesselStatus == LAUNCHCORETOWERSEP))
 	{
-		if (Atlas != NULL && GetMeshVisibilityMode(Atlas) != mode) SetMeshVisibilityMode(Atlas, mode);
+		if (Atlas != NULL && GetMeshVisibilityMode(Atlas) != mode)
+		{
+			SetMeshVisibilityMode(Atlas, mode);
+		}
 
 		if (AtlasAdapter != NULL && GetMeshVisibilityMode(AtlasAdapter) != mode) SetMeshVisibilityMode(AtlasAdapter, mode);
 
@@ -4411,8 +4544,6 @@ inline void ProjectMercury::SetCameraSceneVisibility(WORD mode)
 // --------------------------------------------------------------
 DLLCLBK VESSEL* ovcInit(OBJHANDLE hvessel, int flightmodel)
 {
-	//globeTexture = oapiLoadTexture("Common\\adiball_grey.dds"); // debug
-
 	return new ProjectMercury(hvessel, flightmodel);
 }
 
@@ -4422,10 +4553,6 @@ DLLCLBK VESSEL* ovcInit(OBJHANDLE hvessel, int flightmodel)
 DLLCLBK void ovcExit(VESSEL* vessel)
 {
 	//oapiCloseFile(pitchDataLogFile, FILE_OUT);
-
-	//oapiDestroySurface(globeTexture);
-
-	if (panelFont) oapiReleaseFont(panelFont);
 
 	if (vessel) delete (ProjectMercury*)vessel;
 }
@@ -4530,7 +4657,24 @@ inline void ProjectMercury::GetPanelRetroTimes(double met, int* rH, int* rM, int
 	int ret3H = 0, ret3M = 0, ret3S = 0, dRetH = 0, dRetM = 0, dRetS = 0;
 	double simt = oapiGetSimTime();
 
-	if (landingComputing && VesselStatus == FLIGHT)
+	if (retroStartTime != 0.0)
+	{
+		double metRetroTime = retroStartTime - 30.0 - launchTime; // -30 to account for retroseq to retroburn. -6.6 is empirical
+		double timeToRetro = metRetroTime - met;
+
+		if (metRetroTime > (100.0 * 3600.0 - 1.0)) metRetroTime = fmod(metRetroTime, 100.0 * 3600.0); // overflow
+		ret3H = (int)floor(metRetroTime / 3600.0);
+		ret3M = (int)floor((metRetroTime - ret3H * 3600.0) / 60.0);
+		ret3S = (int)floor((metRetroTime - ret3H * 3600.0 - ret3M * 60.0));
+
+		if (timeToRetro < 0.0) timeToRetro = 0.0; // don't need to count negative numbers
+		if (timeToRetro > (100.0 * 3600.0 - 1.0)) timeToRetro = fmod(timeToRetro, 100.0 * 3600.0); // overflow
+		if (timeToRetro > 30.0) retroWarnLight = false; // warning light, actuated if less than 30 seconds until retrosequnce
+		dRetH = (int)floor(timeToRetro / 3600.0);
+		dRetM = (int)floor((timeToRetro - dRetH * 3600.0) / 60.0);
+		dRetS = (int)floor((timeToRetro - dRetH * 3600.0 - dRetM * 60.0));
+	}
+	else if (landingComputing && VesselStatus == FLIGHT)
 	{
 		// New method for retrosequence time
 		double deltaT = 50.0; // 100 is a bit much, or then the 5.0 deg closeness is a bit harsh
@@ -4621,16 +4765,18 @@ inline void ProjectMercury::GetPanelRetroTimes(double met, int* rH, int* rM, int
 		double metRetroTime = minAngDistTime - 30.0 + met - 6.6; // -30 to account for retroseq to retroburn. -6.6 is empirical, mostly from retroburn not being instantanious
 		double timeToRetro = metRetroTime - met;
 
-		if (metRetroTime > (99 * 3600 + 59 * 60 * 59 * 60)) metRetroTime = fmod(metRetroTime, 100 * 3600); // overflow
+		if (metRetroTime > (100.0 * 3600.0 - 1.0)) metRetroTime = fmod(metRetroTime, 100.0 * 3600.0); // overflow
 		ret3H = (int)floor(metRetroTime / 3600.0);
 		ret3M = (int)floor((metRetroTime - ret3H * 3600.0) / 60.0);
 		ret3S = (int)floor((metRetroTime - ret3H * 3600.0 - ret3M * 60.0));
 
 		if (timeToRetro < 0.0) timeToRetro = 0.0; // don't need to count negative numbers
-		if (timeToRetro > (99 * 3600 + 59 * 60 * 59 * 60)) timeToRetro = fmod(timeToRetro, 100 * 3600); // overflow
+		if (timeToRetro > (100.0 * 3600.0 - 1.0)) timeToRetro = fmod(timeToRetro, 100.0 * 3600.0); // overflow
+		if (timeToRetro > 30.0) retroWarnLight = false; // warning light, actuated if less than 30 seconds until retrosequnce
 		dRetH = (int)floor(timeToRetro / 3600.0);
 		dRetM = (int)floor((timeToRetro - dRetH * 3600.0) / 60.0);
 		dRetS = (int)floor((timeToRetro - dRetH * 3600.0 - dRetM * 60.0));
+
 		if (FailureMode == RETROCALCOFF && simt - launchTime > timeOfError)
 		{
 			// error numbers
@@ -4652,6 +4798,32 @@ inline void ProjectMercury::GetPanelRetroTimes(double met, int* rH, int* rM, int
 			dRetH = 0;
 			dRetM = 0;
 			dRetS = 0;
+		}
+		else if (timeToRetro < 30.0)
+		{
+			retroWarnLight = true; // warning light, actuated if less than 30 seconds until retrosequnce
+		}
+	}
+	else if (!landingComputing && manualInputRetroTime != NULL)
+	{
+		double metRetroTime = manualInputRetroTime;
+		double timeToRetro = metRetroTime - met;
+
+		if (metRetroTime > (100.0 * 3600.0 - 1.0)) metRetroTime = fmod(metRetroTime, 100.0 * 3600.0); // overflow
+		ret3H = (int)floor(metRetroTime / 3600.0);
+		ret3M = (int)floor((metRetroTime - ret3H * 3600.0) / 60.0);
+		ret3S = (int)floor((metRetroTime - ret3H * 3600.0 - ret3M * 60.0));
+
+		if (timeToRetro < 0.0) timeToRetro = 0.0; // don't need to count negative numbers
+		if (timeToRetro > (100.0 * 3600.0 - 1.0)) timeToRetro = fmod(timeToRetro, 100.0 * 3600.0); // overflow
+		if (timeToRetro > 30.0) retroWarnLight = false; // warning light, actuated if less than 30 seconds until retrosequnce
+		dRetH = (int)floor(timeToRetro / 3600.0);
+		dRetM = (int)floor((timeToRetro - dRetH * 3600.0) / 60.0);
+		dRetS = (int)floor((timeToRetro - dRetH * 3600.0 - dRetM * 60.0));
+
+		if (timeToRetro < 30.0)
+		{
+			retroWarnLight = true; // warning light, actuated if less than 30 seconds until retrosequnce
 		}
 	}
 

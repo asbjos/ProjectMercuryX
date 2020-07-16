@@ -1,14 +1,16 @@
 ﻿  MercuryAtlas.cpp
-C:\Orbiter2016\Orbitersdk\samples\Experiments\ShuttlePBforReal\ShuttlePBforReal\VirtualCockpit.h(735,40): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
-C:\Orbiter2016\Orbitersdk\samples\Experiments\ShuttlePBforReal\ShuttlePBforReal\VirtualCockpit.h(760,40): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
-C:\Orbiter2016\Orbitersdk\samples\Experiments\ShuttlePBforReal\ShuttlePBforReal\VirtualCockpit.h(785,40): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
-C:\Orbiter2016\Orbitersdk\samples\Experiments\ShuttlePBforReal\ShuttlePBforReal\VirtualCockpit.h(796,21): warning C4244: 'initializing': conversion from 'int' to 'float', possible loss of data
-C:\Orbiter2016\Orbitersdk\samples\Experiments\ShuttlePBforReal\ShuttlePBforReal\VirtualCockpit.h(797,21): warning C4244: 'initializing': conversion from 'int' to 'float', possible loss of data
-C:\Orbiter2016\Orbitersdk\samples\Experiments\ShuttlePBforReal\ShuttlePBforReal\MercuryAtlas\MercuryAtlas\MercuryAtlas.cpp(2279,21): warning C4018: '<': signed/unsigned mismatch
+C:\Orbiter2016\Orbitersdk\samples\Experiments\ShuttlePBforReal\ShuttlePBforReal\VirtualCockpit.h(912,40): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+C:\Orbiter2016\Orbitersdk\samples\Experiments\ShuttlePBforReal\ShuttlePBforReal\VirtualCockpit.h(937,40): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+C:\Orbiter2016\Orbitersdk\samples\Experiments\ShuttlePBforReal\ShuttlePBforReal\VirtualCockpit.h(962,40): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+C:\Orbiter2016\Orbitersdk\samples\Experiments\ShuttlePBforReal\ShuttlePBforReal\VirtualCockpit.h(973,21): warning C4244: 'initializing': conversion from 'int' to 'float', possible loss of data
+C:\Orbiter2016\Orbitersdk\samples\Experiments\ShuttlePBforReal\ShuttlePBforReal\VirtualCockpit.h(974,21): warning C4244: 'initializing': conversion from 'int' to 'float', possible loss of data
+C:\Orbiter2016\Orbitersdk\samples\Experiments\ShuttlePBforReal\ShuttlePBforReal\VirtualCockpit.h(1254,20): warning C4305: 'initializing': truncation from 'double' to 'float'
+C:\Orbiter2016\Orbitersdk\samples\Experiments\ShuttlePBforReal\ShuttlePBforReal\MercuryAtlas\MercuryAtlas\MercuryAtlas.cpp(161,53): warning C4305: 'initializing': truncation from 'double' to 'float'
+C:\Orbiter2016\Orbitersdk\samples\Experiments\ShuttlePBforReal\ShuttlePBforReal\MercuryAtlas\MercuryAtlas\MercuryAtlas.cpp(162,53): warning C4305: 'initializing': truncation from 'double' to 'float'
      Creating library ..\..\..\..\..\..\..\Modules\ProjectMercury\ProjectMercuryAtlas.lib and object ..\..\..\..\..\..\..\Modules\ProjectMercury\ProjectMercuryAtlas.exp
   Generating code
-  1 of 384 functions ( 0.3%) were compiled, the rest were copied from previous compilation.
+  1 of 367 functions ( 0.3%) were compiled, the rest were copied from previous compilation.
     0 functions were new in current compilation
-    12 functions had inline decision re-evaluated but remain unchanged
+    14 functions had inline decision re-evaluated but remain unchanged
   Finished generating code
   MercuryAtlas.vcxproj -> C:\Orbiter2016\Orbitersdk\samples\Experiments\ShuttlePBforReal\ShuttlePBforReal\MercuryAtlas\MercuryAtlas\..\..\..\..\..\..\..\Modules\ProjectMercury\ProjectMercuryAtlas.dll

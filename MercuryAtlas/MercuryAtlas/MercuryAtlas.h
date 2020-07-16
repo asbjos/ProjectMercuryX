@@ -27,12 +27,6 @@ typedef struct texture {
 	int h;
 } ATEX; // Asbjos Texture
 
-// Retrotimes panel font
-static oapi::Font* panelFont = NULL;
-
-//// Earth globe
-//SURFHANDLE globeTexture = NULL;
-
 const double MERCURY_LENGTH_CAPSULE = 2.3042;
 const double MERCURY_LENGTH_ABORT = 5.1604;
 const double MERCURY_LENGTH_ANTHOUSE = 0.687;
@@ -41,10 +35,8 @@ const double MERCURY_LENGTH_LANDBAG = 0.97;
 const double MERCURY_LENGTH_RETRO = 0.50;
 const double ATLAS_CORE_LENGTH = 20.90; // 19.83796; 
 const double ATLAS_BOOSTER_LENGTH = 3.86;
-VECTOR3 MERCURY_OFS_CAPSULE = { 0.0, 0.0, (MERCURY_LENGTH_CAPSULE) / 2.0 + ATLAS_CORE_LENGTH / 2.0};
 const VECTOR3 ATLAS_CORE_OFFSET = { 0.0, 0.0, 0.0 }; // MERCURY_OFS_CAPSULE.z - 11.6 = 0.0
 const VECTOR3 ATLAS_BOOSTER_OFFSET = { 0.0, 0.0, ATLAS_CORE_OFFSET.z - 8.6 }; // MERCURY_OFS_CAPSULE.z - 20.2 
-VECTOR3 ATLAS_ADAPTER_OFFSET = { 0.0, 0.0, MERCURY_OFS_CAPSULE.z - 1.55 };
 const VECTOR3 CORE_EXHAUST_POS = { 0.0, 0.0, ATLAS_CORE_OFFSET.z - ATLAS_CORE_LENGTH / 2.0 };
 const VECTOR3 BOOSTER_EXHAUST_POS = { 0.0, 1.38, ATLAS_BOOSTER_OFFSET.z - ATLAS_BOOSTER_LENGTH / 2.0};
 const VECTOR3 VERNIER_EXHAUST_POS = { 1.90, 0.0, -6.822 + ATLAS_CORE_OFFSET.z };
@@ -53,38 +45,16 @@ const VECTOR3 CORE_EXHAUST_DIR = { 0.0, 0.0, 1.0 };
 const VECTOR3 BOOSTER_EXHAUST_DIR = { 0.0, 0.0, 1.0 };
 const VECTOR3 VERNIER_EXHAUST_DIR = { -0.134382, 0.0, 0.99093 };
 const VECTOR3 TURBINE_EXHAUST_DIR = { -sin(20 * RAD), 0.0, cos(20 * RAD) }; // pick angle to fit
-VECTOR3 ABORT_OFFSET = { 0.0, -0.04, MERCURY_OFS_CAPSULE.z + MERCURY_LENGTH_CAPSULE / 2.0 + MERCURY_LENGTH_ABORT / 2.0 };
 //const VECTOR3 MERCURY_CAPSULE_OFFSET = _V(0.0, 0.0, -0.60); // sets an offset to the capsule to have CM at roll thrusters
 
-VECTOR3 MERCURY_OFS_SHIELD = { 0.0, 0.0, MERCURY_OFS_CAPSULE.z - MERCURY_LENGTH_CAPSULE / 2 - MERCURY_LENGTH_SHIELD / 2 + MERCURY_LENGTH_SHIELD - .05 };
-VECTOR3 MERCURY_OFS_ANTHOUSE = { 0.0, 0.0, MERCURY_OFS_CAPSULE.z + MERCURY_LENGTH_CAPSULE / 2 + MERCURY_LENGTH_ANTHOUSE / 2 };
-VECTOR3 MERCURY_OFS_ABORT = { 0.0, -0.04, MERCURY_OFS_CAPSULE.z + MERCURY_LENGTH_CAPSULE / 2 + MERCURY_LENGTH_ABORT / 2 };
 const VECTOR3 MERCURY_OFS_MAINCHUTE = { 0.0, 0.0, MERCURY_LENGTH_CAPSULE / 2 - .05 };
 const VECTOR3 MERCURY_OFS_DROGUE = { -0.12, 0.08, -.2 + MERCURY_LENGTH_ANTHOUSE / 2 };
-VECTOR3 MERCURY_OFS_DROGUECOVER = { -0.12, 0.08, -0.08 + MERCURY_OFS_ANTHOUSE.z + MERCURY_LENGTH_ANTHOUSE / 2 };
-VECTOR3 MERCURY_OFS_LANDBAG = { 0.0, 0.0, MERCURY_OFS_CAPSULE.z - MERCURY_LENGTH_CAPSULE / 2 + MERCURY_LENGTH_SHIELD - .05 - MERCURY_LENGTH_LANDBAG / 2 };
-VECTOR3 MERCURY_OFS_RETRO = { 0.0, 0.025, MERCURY_OFS_CAPSULE.z - MERCURY_LENGTH_CAPSULE / 2 - MERCURY_LENGTH_RETRO / 2 + .15 };
-VECTOR3 MERCURY_OFS_RETROCOVER1 = { -0.196, MERCURY_OFS_RETRO.y + 0.091, MERCURY_OFS_RETRO.z - .2 };
-VECTOR3 MERCURY_OFS_RETROCOVER2 = { -0.005, MERCURY_OFS_RETRO.y - 0.23, MERCURY_OFS_RETRO.z - .2 };
-VECTOR3 MERCURY_OFS_RETROCOVER3 = { 0.175, MERCURY_OFS_RETRO.y + 0.091, MERCURY_OFS_RETRO.z - .2 };
-VECTOR3 MERCURY_OFS_RETROSTRAP1 = { -0.03, MERCURY_OFS_RETRO.y + 0.46, MERCURY_OFS_RETRO.z + .093 };
-VECTOR3 MERCURY_OFS_RETROSTRAP2 = { -0.417, MERCURY_OFS_RETRO.y - 0.287, MERCURY_OFS_RETRO.z + .093 };
-VECTOR3 MERCURY_OFS_RETROSTRAP3 = { 0.425, MERCURY_OFS_RETRO.y - 0.27, MERCURY_OFS_RETRO.z + .093 };
-VECTOR3 MERCURY_OFS_EXPLOSIVEBOLT = { 0.0, 0.0, MERCURY_OFS_RETRO.z - .18 };
 
-VECTOR3 OFS_ADAPTRING1 = { -0.61, 0.35,  -0.93 + MERCURY_OFS_CAPSULE.z };
-VECTOR3 OFS_ADAPTRING2 = { 0.0, -0.82,  -0.93 + MERCURY_OFS_CAPSULE.z};
-VECTOR3 OFS_ADAPTRING3 = { 0.61, 0.35,  -0.93 + MERCURY_OFS_CAPSULE.z};
-VECTOR3 OFS_ADAPTCOVER1 = { 0.0, 0.91, -0.9 + MERCURY_OFS_CAPSULE.z };
-VECTOR3 OFS_ADAPTCOVER2 = { -0.74, -0.43,  -0.9 + MERCURY_OFS_CAPSULE.z };
-VECTOR3 OFS_ADAPTCOVER3 = { 0.74, -0.43,  -0.9 + MERCURY_OFS_CAPSULE.z };
-
-
-static const DWORD tchdwnLaunchNum = 4;
+//static const DWORD tchdwnLaunchNum = 4;
 const VECTOR3 TOUCHDOWN_LAUNCH0 = _V(0.0, -1.0, ATLAS_CORE_OFFSET.z - ATLAS_CORE_LENGTH / 2.0);
 const VECTOR3 TOUCHDOWN_LAUNCH1 = _V(-sqrt(0.5), sqrt(0.5), ATLAS_CORE_OFFSET.z - ATLAS_CORE_LENGTH / 2.0);
 const VECTOR3 TOUCHDOWN_LAUNCH2 = _V(sqrt(0.5), sqrt(0.5), ATLAS_CORE_OFFSET.z - ATLAS_CORE_LENGTH / 2.0);
-const VECTOR3 TOUCHDOWN_LAUNCH3 = _V(0.0, 0.0, MERCURY_OFS_ABORT.z + MERCURY_LENGTH_ABORT / 2.0);
+const VECTOR3 TOUCHDOWN_LAUNCH3 = _V(0.0, 0.0, 10.45 + 1.16 + 1.16 + 2.6 + MERCURY_LENGTH_ABORT / 2.0); // 10.45 + 1.16 + 1.16 + 2.6 is MERCURY_OFS_ABORT.z
 //static TOUCHDOWNVTX tchdwnLaunch[tchdwnLaunchNum] = {
 //	// pos, stiff, damping, mu, mu long
 //	{TOUCHDOWN_LAUNCH0, 1e7, 1e5, 10},
@@ -93,11 +63,11 @@ const VECTOR3 TOUCHDOWN_LAUNCH3 = _V(0.0, 0.0, MERCURY_OFS_ABORT.z + MERCURY_LEN
 //	{TOUCHDOWN_LAUNCH3, 1e7, 1e5, 10},
 //};
 
-static const DWORD tchdwnTowSepNum = 4;
+//static const DWORD tchdwnTowSepNum = 4;
 const VECTOR3 TOUCHDOWN_TOWSEP0 = _V(0.0, -1.0, ATLAS_CORE_OFFSET.z - ATLAS_CORE_LENGTH / 2.0);
 const VECTOR3 TOUCHDOWN_TOWSEP1 = _V(-0.7, 0.7, ATLAS_CORE_OFFSET.z - ATLAS_CORE_LENGTH / 2.0);
 const VECTOR3 TOUCHDOWN_TOWSEP2 = _V(0.7, 0.7, ATLAS_CORE_OFFSET.z - ATLAS_CORE_LENGTH / 2.0);
-const VECTOR3 TOUCHDOWN_TOWSEP3 = _V(0.0, 0.0, MERCURY_OFS_CAPSULE.z + MERCURY_LENGTH_CAPSULE / 2.0);
+const VECTOR3 TOUCHDOWN_TOWSEP3 = _V(0.0, 0.0, 10.45 + 1.16 + MERCURY_LENGTH_CAPSULE / 2.0); // 10.45 + 1.16 is MERCURY_OFS_CAPSULE.z
 //static TOUCHDOWNVTX tchdwnTowSep[tchdwnTowSepNum] = {
 //	// pos, stiff, damping, mu, mu long
 //	{TOUCHDOWN_TOWSEP0, 1e7, 1e5, 10},
@@ -106,7 +76,7 @@ const VECTOR3 TOUCHDOWN_TOWSEP3 = _V(0.0, 0.0, MERCURY_OFS_CAPSULE.z + MERCURY_L
 //	{TOUCHDOWN_TOWSEP3, 1e7, 1e5, 10},
 //};
 
-static const DWORD tchdwnFlightNum = 4;
+//static const DWORD tchdwnFlightNum = 4;
 const double depression = 0.3;
 const double stiffness = abs(-1224.24 * G / (3 * depression)); // abs for sanity check, as I have a tendency to forget signs
 const double damping = 0.3 * 2 * sqrt(1224.24 * stiffness);
@@ -122,7 +92,7 @@ const VECTOR3 TOUCHDOWN_FLIGHT3 = _V(0.0, 0.0, MERCURY_LENGTH_CAPSULE / 2.0);
 //	{TOUCHDOWN_FLIGHT3, stiffness, damping, 1e1},
 //};
 
-static const DWORD tchdwnAbortNum = 4;
+//static const DWORD tchdwnAbortNum = 4;
 const VECTOR3 TOUCHDOWN_ABORT0 = _V(0.0, -1.0, -MERCURY_LENGTH_CAPSULE / 2.0);
 const VECTOR3 TOUCHDOWN_ABORT1 = _V(-0.7, 0.7, -MERCURY_LENGTH_CAPSULE / 2.0);
 const VECTOR3 TOUCHDOWN_ABORT2 = _V(0.7, 0.7, -MERCURY_LENGTH_CAPSULE / 2.0);
@@ -168,11 +138,10 @@ const double ABORT_ISP = 1.1 * ABORT_THRUST / ABORT_MASS_FUEL; // Calculated to 
 const double ABORT_MASS = 460.4; // or 580 kg. For Little Joe it was 1015 lbs. Total mass (wet)
 
 const double RETRO_MASS = 237.0; // 237 kg, according to astronautix and http://www.braeunig.us/space/specs/mercury.htm
-double POSIGRADE_MASS_FUEL = 3.6; // Total 24 lb set (3.6 kg * 3), according to https://www.wired.com/2014/09/one-man-space-station-1960/. But edited to result dV 28 ft/s
 const double POSIGRADE_THRUST = 1779; // MA-6 results pdf, page 14, 400 lb force (1779 N). Total dV is 28 ft/s. But that is from exerting force on booster, which cannot be simulated. Without it should be something like 15 ft/s
-const double POSIGRADE_ISP = 1.0 * POSIGRADE_THRUST / POSIGRADE_MASS_FUEL; // Seems like Isp should be similar to retro. Is now 494 s
+const double POSIGRADE_ISP = 1.0 * POSIGRADE_THRUST / 3.6; // Seems like Isp should be similar to retro. Is now 494 s. 3.6 is posigrade_mass_fuel
 const double RETRO_MASS_FUEL = 20.0; // Astronautix, total 60 kg
-const double RETRO_MASS_EMPTY = RETRO_MASS - RETRO_MASS_FUEL * 3 - POSIGRADE_MASS_FUEL * 3; // should be 177 kg
+const double RETRO_MASS_EMPTY = RETRO_MASS - RETRO_MASS_FUEL * 3 - 3.6 * 3; // should be 177 kg. 3.6 is posigrade_mass_fuel
 const double RETRO_THRUST = 5590.0; // MA-6 results pdf, page 14, 1000 lb force (4448 N). Total dV is 440 ft/s (134 m/s), but at an angle of 34 deg. Each retro produces 0.4 G acc (tot. 1.2 G) 
 const double RETRO_ISP = 11.5 * RETRO_THRUST / RETRO_MASS_FUEL; // 10 sec. burn time. Isp should be approx 230 s (astronautix) or 233 s (old proj.mercury addon). Now is 226.7 s. Some sources cite 12 sec. MA-9 postlaunch report part 1 has 11.5 second firing time
 
@@ -211,9 +180,16 @@ const VECTOR3 ROCKET_CAMERA_OFFSET[numRocketCamModes] = { _V(1.5, 1.5, -ATLAS_CO
 // Pitch data from 19730073391 page 107
 const double MET[13] =		   { 0.00, 15.0, 27.0, 39.0, 64.0, 79.0, 89.0, 105.0, 120.0, 131.34, 136.34, 151.34 , 1e10 }; // last entry is "infinity"
 const double aimPitchover[13] = { 0.0, 0.98, 0.76, 0.64, 0.68, 0.60, 0.45, 0.240, 0.160, 0.1600, 2.0000, 0.0000, 0.000 };
+
+// Preprogrammed retrosequence times. Are from following sources, with authority in descending order (preferring first source if same landing zone in two sources):
+//	- MA-6 communications
+//	- MA-8 communications
+//	- MA-9 communications
+//	- MA6_FlightOps.pdf, page 93, list of all retrosequence times from 1B to 7-1.
 //								1Bravo			1Charlie	1Delta		1Echo					 Foxtrot(end of 1st orbit)	2Alpha					2Bravo				2Charlie				2Delta						2Echo					Golf (end 2nd)	3Alpha					3Bravo					3Charlie				3Delta						3Echo					Hotel (Nominal deorbit)
-const double retroTimes[31] = { 17 * 60 + 50, 32 * 60 + 12, 50 * 60 + 24, 1 * 3600 + 15 * 60 + 42, 1 * 3600 + 28 * 60 + 50, 1 * 3600 + 36 * 60 + 38, 1 * 3600 + 50 * 60, 2 * 3600 + 5 * 60 + 59, 2 * 3600 + 38 * 60 + 31, 2 * 3600 + 48 * 60 + 59, 3 * 3600 + 39, 3 * 3600 + 11 * 60 + 26, 3 * 3600 + 22 * 60 + 32, 3 * 3600 + 40 * 60 + 18, 4 * 3600 + 12 * 60 + 32, 4 * 3600 + 22 * 60 + 12, 4 * 3600 + 32 * 60 + 37, 5 * 3600 + 44 * 60 + 5,	7 * 3600 + 18 * 60 + 10, 8 * 3600 + 51 * 60 + 28, 10 * 3600 + 23 * 60 + 37, 11 * 3600 + 56 * 60 + 24, 13 * 3600 + 19 * 60 + 20, 23 * 3600 + 31 * 60 + 3, 26 * 3600 + 14 * 60 + 48, 26 * 3600 + 34 * 60 + 48, 26 * 3600 + 58 * 60 + 50, 27 * 3600 + 43 * 60 + 48, 28 * 3600 + 31 * 60 + 24, 30 * 3600 + 53 * 60 + 1, 33 * 3600 + 59 * 60 + 24 };
-const char retroNames[][256] = { "1Bravo",	"1Charlie",		"1Delta",	"1Echo",				"Foxtrot",					"2Alpha",				"2Bravo",			"2Charlie",				"2Delta",					"2Echo",				"Golf",			"3Alpha",				"3Bravo",				"3Charlie",				"3Delta",					"3Echo",				"Hotel",				"4-2",					"5-1",					"6-1",					"7-1",						"8-1",					"9-1",						"16-1",					"17Bravo",					"18-1",					"18Alpha",					"18-2",					"19Bravo",					"20-1",					"22-1" };
+const int STORED_RETROSEQUENCE_TIMES = 46;
+const int retroTimes[STORED_RETROSEQUENCE_TIMES] = {		17 * 60 + 50,	32 * 60 + 12,	50 * 60 + 24,	1 * 3600 + 15 * 60 + 42,	1 * 3600 + 28 * 60 + 50,	1 * 3600 + 36 * 60 + 38,	1 * 3600 + 50 * 60,		2 * 3600 + 5 * 60 + 59,	2 * 3600 + 38 * 60 + 31,	2 * 3600 + 48 * 60 + 59,	3 * 3600 + 39,	3 * 3600 + 11 * 60 + 26,	3 * 3600 + 22 * 60 + 32,	3 * 3600 + 40 * 60 + 18,	4 * 3600 + 12 * 60 + 32,	4 * 3600 + 22 * 60 + 12,	4 * 3600 + 32 * 60 + 37,	4 * 3600 + 43 * 60 + 53,	4 * 3600 + 54 * 60 + 40,	5 * 3600 + 31 * 60 + 29,	5 * 3600 + 44 * 60 + 5,	5 * 3600 + 55 * 60 + 14,	6 * 3600 + 3 * 60 + 48,	6 * 3600 + 28 * 60 + 12,	7 * 3600 + 3 * 60 + 52,	7 * 3600 + 18 * 60 + 10,	7 * 3600 + 28 * 60 + 30,	7 * 3600 + 36 * 60 + 9,	8 * 3600 + 11 * 60 + 38,	8 * 3600 + 37 * 60 + 23,	8 * 3600 + 51 * 60 + 28,	9 * 3600 + 24,	9 * 3600 + 11 * 60 + 56,	9 * 3600 + 40 * 60 + 22,	10 * 3600 + 14 * 60 + 13,	10 * 3600 + 23 * 60 + 37,	11 * 3600 + 56 * 60 + 24,	13 * 3600 + 19 * 60 + 20,	23 * 3600 + 31 * 60 + 3,	26 * 3600 + 14 * 60 + 48,	26 * 3600 + 34 * 60 + 48,	26 * 3600 + 58 * 60 + 50,	27 * 3600 + 43 * 60 + 48,	28 * 3600 + 31 * 60 + 24,	30 * 3600 + 53 * 60 + 1,	33 * 3600 + 59 * 60 + 24 };
+const char retroNames[][256] =							{	"1Bravo",		"1Charlie",		"1Delta",		"1Echo",					"Foxtrot",					"2Alpha",					"2Bravo",				"2Charlie",				"2Delta",					"2Echo",					"Golf",			"3Alpha",					"3Bravo",					"3Charlie",					"3Delta",					"3Echo",					"Hotel",				"4Alpha",						"4Bravo",					"4Delta",					"4-2",					"4Echo",					"5Alpha",				"5Bravo",					"5Delta",				"5-1",						"5Echo",					"5Foxtrot",				"6Bravo",					"6Delta",					"6-1",						"6Echo",		"7Alpha",					"7Bravo",					"7Delta",					"7-1",						"8-1",						"9-1",						"16-1",						"17Bravo",					"18-1",						"18Alpha",					"18-2",						"19Bravo",					"20-1",						"22-1" };
 
 class ProjectMercury : public VESSELVER {
 public:
@@ -227,6 +203,8 @@ public:
 	bool clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketchpad* skp);
 	bool clbkLoadPanel2D(int id, PANELHANDLE hPanel, DWORD viewW, DWORD viewH);
 	void clbkVisualCreated(VISHANDLE vis, int refcount);
+	//void clbkVisualDestroyed(VISHANDLE vis, int refcount);
+	void clbkFocusChanged(bool getfocus, OBJHANDLE hNewVessel, OBJHANDLE hOldVessel);
 	bool clbkLoadGenericCockpit(void);
 	bool clbkPanelMouseEvent(int id, int event, int mx, int my, void* context);
 	void clbkRenderHUD(int mode, const HUDPAINTSPEC* hps, SURFHANDLE hDefaultTex);
@@ -275,6 +253,7 @@ public:
 	bool SetRollAuto(bool highThrust);
 	void ReentryAttitudeAuto(double simt, double simdt);
 	void GRollAuto(double simt, double simdt);
+	void InitiateRetroSequence(void);
 
 	double EmptyMass(void);
 	void TowerSeparation(void);
@@ -305,7 +284,7 @@ public:
 	void SeparateTower(bool noAbortSep);
 	void SeparateAtlasBooster(bool noAbortSep);
 	void SeparateAtlasCore();
-	void SeparateRingsAndAdapters(void);
+	void SeparateRingsAndAdapters(double offZ);
 	void SeparateConceptAdapter(void);
 	void SeparateConceptCovers(void);
 
@@ -343,6 +322,10 @@ public:
 	float ValueToAngle(float value, float minValue, float maxValue, float minAngle, float maxAngle);
 	void RotateGlobe(float angularResolution, float viewAngularRadius, float longitude0, float latitude0, float rotationAngle = 0.0f);
 	void ChangePanelNumber(int group, int num);
+	void ChangeIndicatorStatus(void);
+	void SetIndicatorStatus(int indicatorNr, int status);
+	void SetIndicatorButtonStatus(int buttonNr, int status);
+	void SetPhysicalSwitchStatus(int switchNr, int status);
 
 	void GetPanelRetroTimes(double met, int* rH, int* rM, int* rS, int* dH, int* dM, int* dS);
 
@@ -362,8 +345,9 @@ public:
 	void CapsuleGenericPostCreation(void);
 	void DeleteRogueVessels(void);
 	void CapsuleAutopilotControl(double simt, double simdt);
-	void FlightReentryAbortControl(double simt, double simdt, double latit, double longit, double getAlt);
+	void MercuryCapsuleGenericTimestep(double simt, double simdt, double latit, double longit, double getAlt);
 	void WriteHUDAutoFlightReentry(oapi::Sketchpad* skp, double simt, int *yIndexUpdate, char *cbuf);
+	void WriteHUDIndicators(oapi::Sketchpad* skp, double simt, int* yIndexUpdate, char* cbuf);
 	void LoadCapsule(const char *cbuf);
 	void ReadCapsuleTextureReplacement(const char* cbuf);
 	bool ReadTextureString(const char* cbuf, const int len, char* texturePath, int* textureWidth, int* textureHeight);
@@ -388,6 +372,32 @@ public:
 	int secondColumnHUDx = 28; // The x-pos of the second collumn on the HUD
 
 private:
+
+	// Previously were const's, but as we now have manouver unit, they are changed. Thus have to be moved to private
+	VECTOR3 MERCURY_OFS_CAPSULE = { 0.0, 0.0, (MERCURY_LENGTH_CAPSULE) / 2.0 + ATLAS_CORE_LENGTH / 2.0 };
+	VECTOR3 ATLAS_ADAPTER_OFFSET = { 0.0, 0.0, MERCURY_OFS_CAPSULE.z - 1.55 };
+	VECTOR3 ABORT_OFFSET = { 0.0, -0.04, MERCURY_OFS_CAPSULE.z + MERCURY_LENGTH_CAPSULE / 2.0 + MERCURY_LENGTH_ABORT / 2.0 };
+	VECTOR3 MERCURY_OFS_SHIELD = { 0.0, 0.0, MERCURY_OFS_CAPSULE.z - MERCURY_LENGTH_CAPSULE / 2 - MERCURY_LENGTH_SHIELD / 2 + MERCURY_LENGTH_SHIELD - .05 };
+	VECTOR3 MERCURY_OFS_ANTHOUSE = { 0.0, 0.0, MERCURY_OFS_CAPSULE.z + MERCURY_LENGTH_CAPSULE / 2 + MERCURY_LENGTH_ANTHOUSE / 2 };
+	VECTOR3 MERCURY_OFS_ABORT = { 0.0, -0.04, MERCURY_OFS_CAPSULE.z + MERCURY_LENGTH_CAPSULE / 2 + MERCURY_LENGTH_ABORT / 2 };
+	VECTOR3 MERCURY_OFS_DROGUECOVER = { -0.12, 0.08, -0.08 + MERCURY_OFS_ANTHOUSE.z + MERCURY_LENGTH_ANTHOUSE / 2 };
+	VECTOR3 MERCURY_OFS_LANDBAG = { 0.0, 0.0, MERCURY_OFS_CAPSULE.z - MERCURY_LENGTH_CAPSULE / 2 + MERCURY_LENGTH_SHIELD - .05 - MERCURY_LENGTH_LANDBAG / 2 };
+	VECTOR3 MERCURY_OFS_RETRO = { 0.0, 0.025, MERCURY_OFS_CAPSULE.z - MERCURY_LENGTH_CAPSULE / 2 - MERCURY_LENGTH_RETRO / 2 + .15 };
+	VECTOR3 MERCURY_OFS_RETROCOVER1 = { -0.196, MERCURY_OFS_RETRO.y + 0.091, MERCURY_OFS_RETRO.z - .2 };
+	VECTOR3 MERCURY_OFS_RETROCOVER2 = { -0.005, MERCURY_OFS_RETRO.y - 0.23, MERCURY_OFS_RETRO.z - .2 };
+	VECTOR3 MERCURY_OFS_RETROCOVER3 = { 0.175, MERCURY_OFS_RETRO.y + 0.091, MERCURY_OFS_RETRO.z - .2 };
+	VECTOR3 MERCURY_OFS_RETROSTRAP1 = { -0.03, MERCURY_OFS_RETRO.y + 0.46, MERCURY_OFS_RETRO.z + .093 };
+	VECTOR3 MERCURY_OFS_RETROSTRAP2 = { -0.417, MERCURY_OFS_RETRO.y - 0.287, MERCURY_OFS_RETRO.z + .093 };
+	VECTOR3 MERCURY_OFS_RETROSTRAP3 = { 0.425, MERCURY_OFS_RETRO.y - 0.27, MERCURY_OFS_RETRO.z + .093 };
+	VECTOR3 MERCURY_OFS_EXPLOSIVEBOLT = { 0.0, 0.0, MERCURY_OFS_RETRO.z - .18 };
+	VECTOR3 OFS_ADAPTRING1 = { -0.61, 0.35,  -0.93 + MERCURY_OFS_CAPSULE.z };
+	VECTOR3 OFS_ADAPTRING2 = { 0.0, -0.82,  -0.93 + MERCURY_OFS_CAPSULE.z };
+	VECTOR3 OFS_ADAPTRING3 = { 0.61, 0.35,  -0.93 + MERCURY_OFS_CAPSULE.z };
+	VECTOR3 OFS_ADAPTCOVER1 = { 0.0, 0.91, -0.9 + MERCURY_OFS_CAPSULE.z };
+	VECTOR3 OFS_ADAPTCOVER2 = { -0.74, -0.43,  -0.9 + MERCURY_OFS_CAPSULE.z };
+	VECTOR3 OFS_ADAPTCOVER3 = { 0.74, -0.43,  -0.9 + MERCURY_OFS_CAPSULE.z };
+	double POSIGRADE_MASS_FUEL = 3.6; // Total 24 lb set (3.6 kg * 3), according to https://www.wired.com/2014/09/one-man-space-station-1960/. But edited to result dV 28 ft/s
+
 	static void vlift(VESSEL* v, double aoa, double M, double Re, void* context, double* cl, double* cm, double* cd);
 	static void hlift(VESSEL* v, double aoa, double M, double Re, void* context, double* cl, double* cm, double* cd);
 
@@ -409,12 +419,10 @@ private:
 	bool contrail2Active = true;
 	double engineLevel02 = 0.0;
 	double turbineContrailLevel = 0.0;
-	double iceVentLevel = 0.0;
+	//double iceVentLevel = 0.0;
 	bool suborbitalMission = false; // change to false for Mercury Atlas!
 	bool boilerplateMission = false;
 	bool limitApogee = false;
-	//double targetApogee = 0.0;
-	//double targetPerigee = 161.05e3;
 	double targetInclination = 32.55;
 	double holdDownTime = 3.0;
 	double becoTime = 128.6;
@@ -451,6 +459,8 @@ private:
 		circularFrameMesh,
 		cockpitPanelMesh,
 		vcFrame; // mesh handles
+
+	DEVMESHHANDLE cockpitPanelDevMesh;
 
 	UINT Atlas; // rocket mesh
 	UINT AtlasBooster;
@@ -551,11 +561,11 @@ private:
 	double rollLimit = 6.4;
 	bool CGshifted;
 	double escapeLevel = 0.0;
-	bool inFlightAbort = false;
+	//bool inFlightAbort = false;
 	//bool abortSepSequencePerformed = false;
 	double abortTime = 0.0;
 	double towerJetTime = 0.0;
-	double capsuleSepTime = 0.0;
+	//double capsuleSepTime = 0.0;
 	bool retroCoverSeparated[3] = { false, false, false };
 	bool attitudeControlManual = true;
 	bool attitudeFuelAuto = true;
@@ -623,6 +633,15 @@ private:
 	int globeVertices = NULL;
 	float previousDialAngle[200] = { 0.0f }; // must be longer than total mesh group number
 	float dialAngularSpeed = float(180.0 * RAD); // Degrees per second
+	int abortIndicatorGroup = NULL;
+	int previousIndicatorStatus[13] = { 0 };
+	bool retroWarnLight = false;
+	double indicatorButtonPressTime[20]; // right now support 20 buttons, but this limit is arbitrary. Increase if needed
+	int indicatorButtonPressState[20] = { -1 };
+	int indicatorButtonFirstGroup = 13; // right now it's 13, but doesn't matter what we set to, as it will be correctly assigned every frame
+	int physicalSwitchState[3] = { -2 }; // -1 left, 0 centre, 1 right. -2 is reset
+	int physicalSwitchFirstGroup = 17; // right now it's 17, but doesn't matter what we set to, as it will be correctly assigned every frame
+
 
 	//SURFHANDLE panelDynamicTexture;
 	//SURFHANDLE panelTexture = NULL;
@@ -638,6 +657,7 @@ private:
 	double oldAngle;
 	bool launchTargetPosition = true;
 	double lowGLat, lowGLong, lowGHeading;
+	int manualInputRetroTime = NULL;
 
 	double entryAng, entryAngleToBase;
 	VECTOR3 entryLoc, entryVel;
@@ -703,7 +723,9 @@ private:
 	OBJHANDLE createdVessel[25]; // number is close to 20, but don't bother counting exactly
 	bool createdAbove50km[25] = { false };
 
-	bool capsuleOnly = false; // Is possibly overloaded at SetClassCaps, and if so, spawns a capsule in FLIGHT stage
+	bool capsuleOnly = false; // Is possibly overloaded at SetClassCaps. If set to true spawns a capsule in FLIGHT stage
+	bool capsuleTowerRetroOnly = false; // Is possibly overloaded at SetClassCaps. If set to true, spawns a capsule in ABORT stage, with LES and retropack
+	bool capsuleTowerOnly = false; // Is possibly overloaded at SetClassCaps. If set to true, spawns a capsule in ABORTNORETRO stage, with LES but no retropack
 
 	bool conceptManouverUnit = false;
 	bool conceptManouverUnitAttached = true;
@@ -721,16 +743,16 @@ private:
 	VECTOR3 CONCEPT_RETROGRADE_MESH_OFFSET = MERCURY_OFS_CAPSULE + _V(0, 0, -1.5);
 	VECTOR3 CONCEPT_RETROGRADE_THRUSTER_UP = CONCEPT_RETROGRADE_MESH_OFFSET + _V(-0.214, 0.472, 2.418);
 	VECTOR3 CONCEPT_RETROGRADE_THRUSTER_DOWN = CONCEPT_RETROGRADE_MESH_OFFSET + _V(0.214, -0.472, 2.418);
-	VECTOR3 CONCEPT_RETROGRADE_COVER1_OFFSET = CONCEPT_RETROGRADE_THRUSTER_UP;
-	VECTOR3 CONCEPT_RETROGRADE_COVER2_OFFSET = CONCEPT_RETROGRADE_THRUSTER_DOWN;
-	//VECTOR3 CONCEPT_RETROGRADE_THRUSTER_UP_DIR = unit(_V(0.0584, -0.1458, -0.274921));
 	VECTOR3 CONCEPT_RETROGRADE_THRUSTER_UP_DIR = _V(0.214 * 0.957172, -0.472 * 0.957172, -0.868293); // should produce a vector length 1, passing through z axis with same angle to z as the one above
 	VECTOR3 CONCEPT_RETROGRADE_THRUSTER_DOWN_DIR = FlipX(FlipY(CONCEPT_RETROGRADE_THRUSTER_UP_DIR));
+	VECTOR3 CONCEPT_RETROGRADE_COVER1_OFFSET = CONCEPT_RETROGRADE_THRUSTER_UP + CONCEPT_RETROGRADE_THRUSTER_UP_DIR * 0.01;
+	VECTOR3 CONCEPT_RETROGRADE_COVER2_OFFSET = CONCEPT_RETROGRADE_THRUSTER_DOWN + CONCEPT_RETROGRADE_THRUSTER_DOWN_DIR * 0.01;
 	VECTOR3 CONCEPT_POSIGRADE_THRUSTER_LEFT = ATLAS_ADAPTER_OFFSET + _V(0.12, 0.0, 0.2 - 0.1);
 	VECTOR3 CONCEPT_POSIGRADE_THRUSTER_RIGHT = ATLAS_ADAPTER_OFFSET + _V(-0.12, 0.0, 0.2 - 0.1);
 	VECTOR3 CONCEPT_POSIGRADE_THRUSTER_LEFT_DIR = _V(0, 0, 1);
 	VECTOR3 CONCEPT_POSIGRADE_THRUSTER_RIGHT_DIR = _V(0, 0, 1);
-	double CONCEPT_EXTRA_LENGTH = 0.4; // 0.238
+	double CONCEPT_EXTRA_LENGTH = 0.5; // 0.238
+	double conceptThrusterLevel[4]; // for local light sources
 
 	const VECTOR3 CONCEPT_LINEAR_UP = ATLAS_ADAPTER_OFFSET + _V(0.0, -0.952, 0.20825);
 	const VECTOR3 CONCEPT_LINEAR_DOWN = FlipY(CONCEPT_LINEAR_UP);

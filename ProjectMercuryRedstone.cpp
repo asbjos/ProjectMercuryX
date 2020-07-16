@@ -16,12 +16,12 @@
 
 #define STRICT
 #define ORBITER_MODULE
-#define VESSELVER VESSEL4
+#define VESSELVER VESSEL3
 
 #include "orbitersdk.h"
 
 #include "MercuryRedstone.h"
-#include "FunctionsForOrbiter2016.h"
+#include "FunctionsForOrbiter2010.h"
 #include "MercuryCapsule.h"
 
 ProjectMercury::ProjectMercury(OBJHANDLE hVessel, int flightmodel)
@@ -593,6 +593,28 @@ void ProjectMercury::clbkPostStep(double simt, double simdt, double mjd)
 			abortConditionsMet = true;
 			oapiWriteLog("Abort due to random failure!");
 		}
+
+		double currentThrusterLevel = GetThrusterLevel(th_main);
+		if (currentThrusterLevel == 0.0 && previousThrusterLevel != 0.0)
+		{
+			// Ran dry, or general cutoff
+			char cbuf[256];
+			sprintf(cbuf, "Booster cutoff T+%.1f", simt - launchTime); // debug
+			oapiWriteLog(cbuf);
+
+			historyCutOffAlt = GetAltitude();
+			VECTOR3 currentSpaceVelocity;
+			GetRelativeVel(GetSurfaceRef(), currentSpaceVelocity);
+			historyCutOffVel = length(currentSpaceVelocity);
+			VECTOR3 currentSpaceLocation;
+			GetRelativePos(GetSurfaceRef(), currentSpaceLocation);
+
+			historyCutOffAngl = -acos(dotp(currentSpaceLocation, currentSpaceVelocity) / length(currentSpaceLocation) / length(currentSpaceVelocity)) * DEG + 90.0;
+
+			double radiusNoCare;
+			GetEquPos(historyCutOffLong, historyCutOffLat, radiusNoCare);
+		}
+		previousThrusterLevel = currentThrusterLevel;
 	}
 
 	if (VesselStatus == LAUNCH && enableAbortConditions && GetDamageModel() != 0)
@@ -665,7 +687,8 @@ void ProjectMercury::clbkPostStep(double simt, double simdt, double mjd)
 	double longit, latit, radiusDontCare;
 	GetEquPos(longit, latit, radiusDontCare);
 	double getAlt = GetAltitude();
-	FlightReentryAbortControl(simt, simdt, latit, longit, getAlt);
+
+	MercuryCapsuleGenericTimestep(simt, simdt, latit, longit, getAlt); // Always run every timestep
 
 	if ((VesselStatus == LAUNCH || VesselStatus == ABORT || VesselStatus == ABORTNORETRO) && vesselAcceleration > historyMaxLaunchAcc)
 		historyMaxLaunchAcc = vesselAcceleration;
@@ -829,13 +852,15 @@ int ProjectMercury::clbkConsumeBufferedKey(DWORD key, bool down, char* kstate)
 				spaceLaunch = !spaceLaunch;
 				autoPilot = false;
 
+				sprintf(oapiDebugString(), "launch: %i, simt: %.2f", int(spaceLaunch), oapiGetSimTime());
+
 				if (spaceLaunch)
 					SetThrusterLevel(th_main, 1.0);
 				else
 					SetThrusterLevel(th_main, 0.0);
 
-				spaceLaunch = !spaceLaunch;
-				autoPilot = false;
+				//spaceLaunch = !spaceLaunch;
+				//autoPilot = false;
 
 				if (GroundContact())
 				{
@@ -1018,8 +1043,6 @@ bool ProjectMercury::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketch
 
 	if (oapiCockpitMode() == COCKPIT_PANELS && panelView)
 	{
-		AnimateDials();
-
 		if (showInfoOnHud < 2)
 		{
 			// This sets the x so that the text is centered
@@ -1461,106 +1484,7 @@ bool ProjectMercury::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketch
 
 	if (showInfoOnHud == 1) // Show Mercury dashboard left row of status lights. This is in the end to not affect right side font colour
 	{
-		// Remember BBGGRR, not RRGGBB
-		const DWORD Gray = 0xB0B0B0;
-		const DWORD Red = 0x0000FF;
-		const DWORD Green = 0x00FF00;
-
-		// ABORT
-		if (abort) skp->SetTextColor(Red);
-		else skp->SetTextColor(Gray);
-		sprintf(cbuf, "ABORT");
-		skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-		yIndex += 1;
-
-		// JETT TOWER
-		if (VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE || VesselStatus == TOWERSEP) skp->SetTextColor(Green); // I don't implement any failures of tower sep, so don't implement any failure light. This may change when fuses are added
-		else skp->SetTextColor(Gray);
-		sprintf(cbuf, "JETT TOWER");
-		skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-		yIndex += 1;
-
-		// SEP CAPSULE
-		if (VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE || VesselStatus == ABORT || VesselStatus == ABORTNORETRO) skp->SetTextColor(Green);
-		else if (boosterShutdownTime == 0.0) skp->SetTextColor(Gray); // time between shutdown and sep is red, so gray if not shutdown yet
-		else skp->SetTextColor(Red);
-		sprintf(cbuf, "SEP CAPSULE");
-		skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-		yIndex += 1;
-
-		// RETRO SEQ
-		if (engageRetro && VesselStatus == FLIGHT) skp->SetTextColor(Green); // Debug. Not sure if this is correct. Check with old addon. Does light turn off after retrosep, or stay green?
-		else if (retroStartTime == 0.0) skp->SetTextColor(Gray);
-		else if (VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE || VesselStatus == ABORTNORETRO) skp->SetTextColor(Green);
-		else skp->SetTextColor(Red);
-		sprintf(cbuf, "RETRO SEQ");
-		skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-		yIndex += 1;
-
-		// RETRO ATT
-		double currP = GetPitch() + pitchOffset;
-		double currY = GetSlipAngle() + yawOffset;
-		if (engageRetro && abs(currP + 34.0 * RAD) < 15.0 * RAD && abs(normangle(currY + PI)) < 15.0 * RAD) skp->SetTextColor(Green); // within limits
-		else if (retroStartTime == 0.0) skp->SetTextColor(Gray); // haven't engaged retro
-		else if (VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE || VesselStatus == ABORTNORETRO) skp->SetTextColor(Green);
-		else skp->SetTextColor(Red);
-		sprintf(cbuf, "RETRO ATT");
-		skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-		yIndex += 1;
-
-		// FIRE RETRO
-		if (VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE || VesselStatus == ABORTNORETRO) skp->SetTextColor(Gray);
-		else if ((retroStartTime != 0.0 && retroStartTime - 10.0 < simt && (!retroCoverSeparated[2] || FailureMode == RETROSTUCKOFF)) || (!engageRetro && (retroCoverSeparated[0] || retroCoverSeparated[1] || retroCoverSeparated[2]))) skp->SetTextColor(Red);
-		else if (retroStartTime != 0.0 && retroStartTime - 10.0 > simt) skp->SetTextColor(Green);
-		else if (retroStartTime == 0.0) skp->SetTextColor(Gray);
-		else if (VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE || VesselStatus == ABORTNORETRO) skp->SetTextColor(Green);
-		else skp->SetTextColor(Red);
-		sprintf(cbuf, "FIRE RETRO");
-		skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-		yIndex += 1;
-
-		// JETT RETRO
-		if (retroStartTime != 0.0 && simt - retroStartTime > 58.0 && VesselStatus == FLIGHT) skp->SetTextColor(Red);
-		else if (VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE || VesselStatus == ABORTNORETRO) skp->SetTextColor(Green);
-		else if (retroStartTime == 0.0) skp->SetTextColor(Gray);
-		else skp->SetTextColor(Red);
-		sprintf(cbuf, "JETT RETRO");
-		skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-		yIndex += 1;
-
-		// RETRACT SCOPE
-		if (PeriscopeStatus != P_CLOSED && (VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE || VesselStatus == ABORTNORETRO) && simt - retroStartTime > (60.0 + 40.0)) skp->SetTextColor(Red);
-		else if (PeriscopeStatus != P_CLOSED && (VesselStatus == FLIGHT || VesselStatus == REENTRYNODROGUE || (VesselStatus == LAUNCH && GroundContact()))) skp->SetTextColor(Green);
-		else if (PeriscopeStatus == P_CLOSED) skp->SetTextColor(Gray);
-		else skp->SetTextColor(Red);
-		sprintf(cbuf, "RETRACT SCOPE");
-		skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-		yIndex += 1;
-
-		// .05 G
-		if (FailureMode != LOWGDEACTIVE && VesselStatus == REENTRY && vesselAcceleration > 0.05 * G) skp->SetTextColor(Green);
-		else if (AutopilotStatus == LOWG) skp->SetTextColor(Green);
-		else skp->SetTextColor(Gray);
-		sprintf(cbuf, ".05 G");
-		skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-		yIndex += 1;
-
-		// MAIN
-		if (mainChuteDeployed && simt > mainChuteDeployTime + 2.0) skp->SetTextColor(Green);
-		else if (!mainChuteDeployed) skp->SetTextColor(Gray);
-		else skp->SetTextColor(Red);
-		sprintf(cbuf, "MAIN");
-		skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-		yIndex += 1;
-
-		// LANDING BAG
-		if (landingBagDeployed) skp->SetTextColor(Green);
-		else if (mainChuteDeployed && simt - mainChuteDeployTime > 10.0) skp->SetTextColor(Red);
-		else if (!landingBagDeployed) skp->SetTextColor(Gray);
-		else skp->SetTextColor(Red);
-		sprintf(cbuf, "LANDING BAG");
-		skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-		yIndex += 1;
+		WriteHUDIndicators(skp, simt, &yIndex, cbuf);
 	}
 
 	return true;
@@ -1618,6 +1542,11 @@ void ProjectMercury::clbkLoadStateEx(FILEHANDLE scn, void* status)
 		else if (!_strnicmp(cbuf, "HARDMODE", 8))
 		{
 			difficultyHard = true;
+		}
+		else if (!_strnicmp(cbuf, "SPEEDLIMIT", 10))
+		{
+			sscanf_s(cbuf + 10, "%lf", &integratedSpeedLimit);
+			oapiWriteLogV("Integrated speed limit set in scenario to %.1f m/s", integratedSpeedLimit);
 		}
 		else if (!_strnicmp(cbuf, "REPLACETEXTURE", 14))
 		{
@@ -1842,26 +1771,6 @@ void ProjectMercury::RedstoneAutopilot(double simt, double simdt)
 		AutopilotStatus = POSIGRADEDAMP;
 		boosterShutdownTime = simt;
 	}
-	else if (GetThrusterLevel(th_main) == 0.0 && previousThrusterLevel == 1.0)
-	{
-		// Ran dry, or general cutoff
-		char cbuf[256];
-		sprintf(cbuf, "Booster cutoff T+%.1f", met);
-		oapiWriteLog(cbuf);
-
-		historyCutOffAlt = GetAltitude();
-		VECTOR3 currentSpaceVelocity;
-		GetRelativeVel(GetSurfaceRef(), currentSpaceVelocity);
-		historyCutOffVel = length(currentSpaceVelocity);
-		VECTOR3 currentSpaceLocation;
-		GetRelativePos(GetSurfaceRef(), currentSpaceLocation);
-
-		historyCutOffAngl = -acos(dotp(currentSpaceLocation, currentSpaceVelocity) / length(currentSpaceLocation) / length(currentSpaceVelocity)) * DEG + 90.0;
-
-		double radiusNoCare;
-		GetEquPos(historyCutOffLong, historyCutOffLat, radiusNoCare);
-	}
-	previousThrusterLevel = GetThrusterLevel(th_main);
 
 	//// debug
 	//char vaneLog[256];
@@ -2101,8 +2010,6 @@ void ProjectMercury::SetCameraSceneVisibility(WORD mode)
 
 	if (Capsule != NULL && GetMeshVisibilityMode(Capsule) != mode) SetMeshVisibilityMode(Capsule, mode);
 	if (VesselStatus != REENTRYNODROGUE && !drogueSeparated && Antennahouse != NULL && GetMeshVisibilityMode(Antennahouse) != mode) SetMeshVisibilityMode(Antennahouse, mode);
-
-	//oapiWriteLog("Debug scene visibility");
 }
 
 void ProjectMercury::LaunchAbort(void)
@@ -2217,6 +2124,9 @@ void ProjectMercury::SeparateTower(bool noAbortSep)
 	GlobalRot(towerDirection, relativeOffset);
 	vs.rvel += relativeOffset * towerVelocity;
 
+	strcpy(name, GetName());
+	strcat(name, " abort tower");
+
 	vs.flag = VS_FUELLIST;
 	vs.fuel = &fuel;
 	vs.nfuel = 2;
@@ -2226,18 +2136,18 @@ void ProjectMercury::SeparateTower(bool noAbortSep)
 	{
 		vs.fuel->idx = 1;
 		vs.fuel->level = 1.0;
+
+		createdVessel[stuffCreated] = oapiCreateVesselEx(name, "ProjectMercury\\Mercury_AbortNominal", &vs);
 	}
 	else
 	{
 		vs.fuel->idx = 1;
 		vs.fuel->level = 0.0;
-		abortDamping = true; // abort. So that we can enable abort damping
+		abortDamping = true; // we have abort, so dampen any movement
+
+		createdVessel[stuffCreated] = oapiCreateVesselEx(name, "ProjectMercury\\Mercury_Abort", &vs);
 	}
 
-	strcpy(name, GetName());
-	strcat(name, " abort tower");
-
-	createdVessel[stuffCreated] = oapiCreateVesselEx(name, "ProjectMercury\\Mercury_Abort", &vs);
 	if (GetAltitude() > 5e4)
 		createdAbove50km[stuffCreated] = true;
 	stuffCreated += 1;
@@ -2570,13 +2480,16 @@ inline void ProjectMercury::GetPanelRetroTimes(double met, int* rH, int* rM, int
 	*rM = 4;
 	*rS = 44;
 
-	double timeToRetro = 4 * 60 + 44 - met;
+	double timeToRetro = 4.0 * 60.0 + 44.0 - met;
+	if (timeToRetro > 30.0) retroWarnLight = false; // warning light, actuated if less than 30 seconds until retrosequnce
 	if (timeToRetro < 0.0) timeToRetro = 0.0; // don't need to count negative numbers
-	if (met < 0.0) timeToRetro = 4 * 60 + 44;
+	if (met < 0.0) timeToRetro = 4.0 * 60.0 + 44.0;
 	int tH = 0, tM = 0, tS = 0;
 	tH = (int)floor(timeToRetro / 3600.0);
 	tM = (int)floor((timeToRetro - tH * 3600.0) / 60.0);
 	tS = (int)floor((timeToRetro - tH * 3600.0 - tM * 60.0));
+
+	if (timeToRetro < 30.0) retroWarnLight = true; // warning light, actuated if less than 30 seconds until retrosequnce
 
 	*dH = tH;
 	*dM = tM;

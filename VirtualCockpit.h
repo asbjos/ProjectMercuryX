@@ -1,3 +1,5 @@
+//#include "MercuryAtlas\MercuryAtlas\MercuryAtlas.h"
+//#include "MercuryAtlas\MercuryAtlas\MercuryAtlas.h"
 #pragma once
 
 // ==============================================================
@@ -17,6 +19,15 @@
 
 const VECTOR3 VC_INTERNAL_OFS = _V(0.0, 0.5, -0.8);
 const VECTOR3 VC_FRAME_OFS = _V(0.0, -1.5, 5.0) + VC_INTERNAL_OFS;
+
+// Create panel ID's as enum, as we don't care about the value, only that it's an unique ID. This way, they get autoassigned in increasing order. We don't need any variable.
+const enum PANEL_ID { PANEL_ID_PERISCOPE_FILTER_SWITCH , PANEL_ID_LOAD_RESET, 
+PANEL_ID_TOWJET_BUTTON, PANEL_ID_CAPSEP_BUTTON, PANEL_ID_RETSEQ_BUTTON, PANEL_ID_RETJET_BUTTON, PANEL_ID_TIMZER_BUTTON,
+PANEL_ID_FUELSRC_SWITCH_L, PANEL_ID_FUELSRC_SWITCH_R, 
+PANEL_ID_AUTOSTATE_SWITCH_L, PANEL_ID_AUTOSTATE_SWITCH_R,
+PANEL_ID_THRUSTER_SWITCH_L, PANEL_ID_THRUSTER_SWITCH_R
+};
+
 //
 //bool ProjectMercury::clbkLoadVC(int id)
 //{
@@ -40,7 +51,7 @@ bool ProjectMercury::clbkLoadPanel2D(int id, PANELHANDLE hPanel, DWORD viewW, DW
 {
 	if (oapiGetOrbiterVersion() < 100831)
 	{
-		oapiWriteLog("Sorry, periscope and rocket cameras are disabled in Orbiter 2010 and earlier, as the views give crash to desktop. I'll try to find a solution.");
+		oapiWriteLog("Sorry, panel, periscope and rocket cameras are disabled in Orbiter 2010 and earlier, as the views give crash to desktop. I'll try to find a solution.");
 		return false; // Don't support periscope as for now, as it leads to a crash
 	}
 
@@ -48,7 +59,13 @@ bool ProjectMercury::clbkLoadPanel2D(int id, PANELHANDLE hPanel, DWORD viewW, DW
 	const DWORD PANEL2D_HEIGHT = 1440; // 1440
 	double defaultScale = (double)viewH / PANEL2D_HEIGHT; // nobody has a < 1 aspect ratio (I hope)
 	double	panelScale = max(defaultScale, 1.0);
-	//panelTexture = NULL;
+
+	// Button coordinates for click actions
+	const int loadX = 190, loadY = 850;
+	const int butX = 45, towjetY = 150, capsepY = 240, retseqY = 330, retjetY = 600;
+	const int butRad = 30;
+	const int switchX = 2060, fuelsrcY = 100, autostateY = 200, thrusterY = 300;
+	const int switchW = 200, switchH = 100;
 
 	if (id == 1 && (VesselStatus != FLIGHT && VesselStatus != REENTRY && VesselStatus != REENTRYNODROGUE && !(VesselStatus == LAUNCH && GroundContact()))) // must be in capsule mode
 	{
@@ -56,18 +73,18 @@ bool ProjectMercury::clbkLoadPanel2D(int id, PANELHANDLE hPanel, DWORD viewW, DW
 	}
 	else if (id == 1 && (CapsuleVersion == FAITH7 || CapsuleVersion == FREEDOM7II || CapsuleVersion == CAPSULEBIGJOE || CapsuleVersion == CAPSULELITTLEJOE || CapsuleVersion == CAPSULEBD)) // these two did not feature a periscope
 	{
+		oapiWriteLog("You are trying to access the periscope, but Faith 7 and Freedom 7II (and boilerplates) did not include it in their capsules. Therefore it's not supported.");
+
 		if (VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE) // no rocket cam
 			id = 0; // Did not include periscope, send back to panel
 		else
 			id = 2; // Did not include periscope, send to rocket cam
 	}
 
-	//oapiWriteLog("Debug 1");
-	//// Work with the surface
-	//if (panelDynamicTexture) oapiDestroySurface(panelDynamicTexture);
-	//panelDynamicTexture = oapiCreateSurfaceEx(12 * 75, 2 * 50, OAPISURFACE_SKETCHPAD | OAPISURFACE_UNCOMPRESS | OAPISURFACE_TEXTURE);	// surface for dynamic elements
-	//SURFHANDLE panelTextures[] = { panelDynamicTexture };
-	//SURFHANDLE panelTexes[2];
+	if (id == 2 && (VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE || VesselStatus == ABORTNORETRO))
+	{
+		id = 0; // We don't have any rocket cam, and therefore send to panel
+	}
 
 	switch (id)
 	{
@@ -90,21 +107,27 @@ bool ProjectMercury::clbkLoadPanel2D(int id, PANELHANDLE hPanel, DWORD viewW, DW
 			oapiSetPanelNeighbours(-1, -1, -1, 1);
 
 		// Here comes the panel
-		//panelTexture = oapiGetTextureHandle(cockpitPanelMesh, 1);
-		//panelTexes[0] = panelTexture;
-		//panelTexes[1] = globeTexture;
-
-		//oapiWriteLog("Debug 2");
-
 		SetPanelBackground(hPanel, 0, 0, cockpitPanelMesh, PANEL2D_WIDTH, PANEL2D_HEIGHT, 0UL, PANEL_ATTACH_TOP | PANEL_ATTACH_BOTTOM);
 
 		SetPanelScaling(hPanel, defaultScale, panelScale);
-		// End periscope indicators
-		//oapiWriteLog("Debug 10");
 
 		// Click to reset load indicator
-		VersionDependentPanelClick(id, _R(190 - 150, 850 - 185, 190 + 150, 850 + 185), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN, hPanel, _R(0, 0, 0, 0), NULL);
+		VersionDependentPanelClick(PANEL_ID_LOAD_RESET, _R(loadX - 150, loadY - 150, loadX + 150, loadY + 150), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN, hPanel, _R(0, 0, 0, 0), NULL);
 
+		// Click to set TowJet, CapSep, RetSeq, RetJet.
+		VersionDependentPanelClick(PANEL_ID_TOWJET_BUTTON, _R(butX - butRad, towjetY - butRad, butX + butRad, towjetY + butRad), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN | PANEL_MOUSE_LBPRESSED, hPanel, _R(0, 0, 0, 0), NULL);
+		VersionDependentPanelClick(PANEL_ID_CAPSEP_BUTTON, _R(butX - butRad, capsepY - butRad, butX + butRad, capsepY + butRad), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN | PANEL_MOUSE_LBPRESSED, hPanel, _R(0, 0, 0, 0), NULL);
+		VersionDependentPanelClick(PANEL_ID_RETSEQ_BUTTON, _R(butX - butRad, retseqY - butRad, butX + butRad, retseqY + butRad), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN | PANEL_MOUSE_LBPRESSED, hPanel, _R(0, 0, 0, 0), NULL);
+		VersionDependentPanelClick(PANEL_ID_RETJET_BUTTON, _R(butX - butRad, retjetY - butRad, butX + butRad, retjetY + butRad), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN | PANEL_MOUSE_LBPRESSED, hPanel, _R(0, 0, 0, 0), NULL);
+		VersionDependentPanelClick(PANEL_ID_TIMZER_BUTTON, _R(1875 - butRad, 340 - butRad, 1875 + butRad, 340 + butRad), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN | PANEL_MOUSE_LBPRESSED, hPanel, _R(0, 0, 0, 0), NULL);
+
+		// Click to set swtiches. Left box and right box
+		VersionDependentPanelClick(PANEL_ID_FUELSRC_SWITCH_L, _R(switchX - switchW / 2, fuelsrcY - switchH / 2, switchX, fuelsrcY + switchH / 2), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN, hPanel, _R(0, 0, 0, 0), NULL);
+		VersionDependentPanelClick(PANEL_ID_FUELSRC_SWITCH_R, _R(switchX, fuelsrcY - switchH / 2, switchX + switchW / 2, fuelsrcY + switchH / 2), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN, hPanel, _R(0, 0, 0, 0), NULL);
+		VersionDependentPanelClick(PANEL_ID_AUTOSTATE_SWITCH_L, _R(switchX - switchW / 2, autostateY - switchH / 2, switchX, autostateY + switchH / 2), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN, hPanel, _R(0, 0, 0, 0), NULL);
+		VersionDependentPanelClick(PANEL_ID_AUTOSTATE_SWITCH_R, _R(switchX, autostateY - switchH / 2, switchX + switchW / 2, autostateY + switchH / 2), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN, hPanel, _R(0, 0, 0, 0), NULL);
+		VersionDependentPanelClick(PANEL_ID_THRUSTER_SWITCH_L, _R(switchX - switchW / 2, thrusterY - switchH / 2, switchX, thrusterY + switchH / 2), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN, hPanel, _R(0, 0, 0, 0), NULL);
+		VersionDependentPanelClick(PANEL_ID_THRUSTER_SWITCH_R, _R(switchX, thrusterY - switchH / 2, switchX + switchW / 2, thrusterY + switchH / 2), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN, hPanel, _R(0, 0, 0, 0), NULL);
 
 		return true; // always available
 	case 1: // periscope
@@ -152,8 +175,6 @@ bool ProjectMercury::clbkLoadPanel2D(int id, PANELHANDLE hPanel, DWORD viewW, DW
 		// End FOV and other basic stuff
 
 		// Here comes periscope indicators
-		//panelTexture = oapiGetTextureHandle(periscopeMesh, 1);
-
 		SetPanelBackground(hPanel, 0, 0, periscopeMesh, PANEL2D_WIDTH, PANEL2D_HEIGHT, 0UL, PANEL_ATTACH_TOP | PANEL_ATTACH_BOTTOM);
 
 		SetPanelScaling(hPanel, defaultScale, panelScale);
@@ -184,7 +205,7 @@ bool ProjectMercury::clbkLoadPanel2D(int id, PANELHANDLE hPanel, DWORD viewW, DW
 		}
 
 		// Click to switch filters
-		VersionDependentPanelClick(id, _R(0, 0, PANEL2D_WIDTH, PANEL2D_HEIGHT), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN, hPanel, _R(0, 0, 0, 0), NULL);
+		VersionDependentPanelClick(PANEL_ID_PERISCOPE_FILTER_SWITCH, _R(0, 0, PANEL2D_WIDTH, PANEL2D_HEIGHT), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN, hPanel, _R(0, 0, 0, 0), NULL);
 		return true;
 	case 2: // rocket camera
 		if (VesselStatus != FLIGHT && VesselStatus != REENTRY && VesselStatus != REENTRYNODROGUE && VesselStatus != ABORT && VesselStatus != ABORTNORETRO) // basically in launch, but different states between Redstone and Atlas
@@ -204,15 +225,8 @@ bool ProjectMercury::clbkLoadPanel2D(int id, PANELHANDLE hPanel, DWORD viewW, DW
 			DelMesh(PeriscopeFilter); // So that it doesn't appear in generic cockpit
 			SetCameraSceneVisibility(MESHVIS_ALWAYS);
 
-			// Here comes circular frame
-			//const DWORD PANEL2D_WIDTH = 2160; // 2160
-			//const DWORD PANEL2D_HEIGHT = 1440; // 1440
-			//panelTexture = oapiGetTextureHandle(circularFrameMesh, 1);
-
 			SetPanelBackground(hPanel, 0, 0, circularFrameMesh, PANEL2D_WIDTH, PANEL2D_HEIGHT, 0UL, PANEL_ATTACH_TOP | PANEL_ATTACH_BOTTOM);
 
-			//double defaultScale = (double)viewH / PANEL2D_HEIGHT; // nobody has a < 1 aspect ratio (I hope)
-			//double	panelScale = max(defaultScale, 1.0);
 			SetPanelScaling(hPanel, defaultScale, panelScale);
 			// End circular frame
 
@@ -222,8 +236,143 @@ bool ProjectMercury::clbkLoadPanel2D(int id, PANELHANDLE hPanel, DWORD viewW, DW
 	default:
 		return false;
 	}
-	//oapiWriteLog("Debug 9");
 }
+
+inline bool ProjectMercury::clbkPanelMouseEvent(int id, int event, int mx, int my, void* context)
+{
+	double simt = oapiGetSimTime();
+
+	switch (id)
+	{
+	case PANEL_ID_PERISCOPE_FILTER_SWITCH:
+		if (periscope && oapiCameraInternal())
+		{
+			CurrentFilter = filtertype(((int(CurrentFilter) + 1) % 4));
+
+			VECTOR3 filterOffset = CAMERA_OFFSET + CAMERA_DIRECTION * 1.0;
+			switch (CurrentFilter)
+			{
+			case CLEAR:
+				DelMesh(PeriscopeFilter);
+				break;
+			case RED:
+				DelMesh(PeriscopeFilter);
+				PeriscopeFilter = AddMesh(periscopeFilterRed, &filterOffset);
+				SetMeshVisibilityMode(PeriscopeFilter, MESHVIS_COCKPIT);
+				break;
+			case YELLOW:
+				DelMesh(PeriscopeFilter);
+				PeriscopeFilter = AddMesh(periscopeFilterYellow, &filterOffset);
+				SetMeshVisibilityMode(PeriscopeFilter, MESHVIS_COCKPIT);
+				break;
+			case GRAY:
+				DelMesh(PeriscopeFilter);
+				PeriscopeFilter = AddMesh(periscopeFilterGray, &filterOffset);
+				SetMeshVisibilityMode(PeriscopeFilter, MESHVIS_COCKPIT);
+				break;
+			}
+		}
+		else
+		{
+			oapiWriteLog("Debug debug debug. What is happening? clbkPanelMouseEvent");
+		}
+
+		return true;
+	case PANEL_ID_LOAD_RESET:
+		// Reset
+		maxVesselAcceleration = -1e9; // neg inft.
+		minVesselAcceleration = 1e9; // plus inft.
+
+		return true;
+	case PANEL_ID_TOWJET_BUTTON:
+		SetIndicatorButtonStatus(indicatorButtonFirstGroup + 0, 1);
+		indicatorButtonPressTime[0] = simt;
+
+		separateTowerAction = true;
+		return true;
+	case PANEL_ID_CAPSEP_BUTTON:
+		SetIndicatorButtonStatus(indicatorButtonFirstGroup + 1, 1);
+		indicatorButtonPressTime[1] = simt;
+
+		separateCapsuleAction = true;
+		return true;
+	case PANEL_ID_RETSEQ_BUTTON:
+		SetIndicatorButtonStatus(indicatorButtonFirstGroup + 2, 1);
+		indicatorButtonPressTime[2] = simt;
+
+		InitiateRetroSequence();
+		return true;
+	case PANEL_ID_RETJET_BUTTON:
+		SetIndicatorButtonStatus(indicatorButtonFirstGroup + 3, 1);
+		indicatorButtonPressTime[3] = simt;
+
+		prepareReentryAction = true;
+		return true;
+	case PANEL_ID_TIMZER_BUTTON:
+		SetIndicatorButtonStatus(indicatorButtonFirstGroup + 4, 1);
+		indicatorButtonPressTime[4] = simt;
+
+		launchTime = simt; // Set this instant to T+0. Useful for when launching on a Fred18 Multistage booster, where we don't have contact with launcher.
+		return true;
+	case PANEL_ID_FUELSRC_SWITCH_L:
+		if (!attitudeFuelAuto) // if in man, switch to auto
+		{
+			SwitchPropellantSource();
+		}
+
+		return true;
+	case PANEL_ID_FUELSRC_SWITCH_R:
+		if (attitudeFuelAuto) // if in auto, switch to man
+		{
+			SwitchPropellantSource();
+		}
+
+		return true;
+	case PANEL_ID_AUTOSTATE_SWITCH_L:
+		autoPilot = true;
+
+		if (VesselStatus == FLIGHT)
+		{
+			AutopilotStatus = TURNAROUND;
+		}
+		else if (VesselStatus == REENTRY)
+		{
+			AutopilotStatus = REENTRYATT;
+		}
+
+		return true;
+	case PANEL_ID_AUTOSTATE_SWITCH_R:
+		// Turn off autopilot
+		DisableAutopilot(true);
+		abortDamping = false;
+		engageFuelDump = false;
+
+		return true;
+	case PANEL_ID_THRUSTER_SWITCH_L:
+		if (RcsStatus == MANUAL) RcsStatus = AUTOHIGH;
+		else if (RcsStatus == AUTOLOW) RcsStatus = MANUAL;
+
+		if (VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE) SwitchAttitudeMode(); // need to have thruster groups defined prior
+
+		if (conceptManouverUnit && VesselStatus == FLIGHT) SetAttitudeMode(RCS_ROT);
+
+		return true;
+	case PANEL_ID_THRUSTER_SWITCH_R:
+		if (RcsStatus == MANUAL) RcsStatus = AUTOLOW;
+		else if (RcsStatus == AUTOHIGH) RcsStatus = MANUAL;
+
+		if (VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE) SwitchAttitudeMode(); // need to have thruster groups defined prior
+
+		if (conceptManouverUnit && VesselStatus == FLIGHT) SetAttitudeMode(RCS_ROT);
+
+		return true;
+	default:
+		return false;
+	}
+
+	return false;
+}
+
 
 inline void ProjectMercury::clbkVisualCreated(VISHANDLE vis, int refcount)
 {
@@ -233,6 +382,11 @@ inline void ProjectMercury::clbkVisualCreated(VISHANDLE vis, int refcount)
 	// Set instrument panel on far left and right
 	FitPanelToScreen(ScreenWidth, ScreenHeight);
 }
+//
+//inline void ProjectMercury::clbkVisualDestroyed(VISHANDLE vis, int refcount)
+//{
+//	oapiWriteLog("Debug destroy!");
+//}
 
 // Altitude in kilometres
 void ProjectMercury::GetPixelDeviationForAltitude(double inputAltitude, double *deg0Pix, double *deg5Pix)
@@ -353,6 +507,16 @@ void ProjectMercury::FitPanelToScreen(int w, int h)
 			globeVertices = groupData->nVtx;
 		}
 
+		if (groupData->nVtx == 41)
+		{
+			if (abortIndicatorGroup == NULL)
+			{
+				abortIndicatorGroup = i;
+				oapiWriteLogV("Found abort indicator at group %i", i);
+			}
+			else oapiWriteLog("ERROR ERROR ERROR! More than one mesh group with 41 vertices! Please debug!");
+		}
+
 		//oapiWriteLogV("Group %i has %i vertices", i, groupData->nVtx);
 	}
 
@@ -431,7 +595,7 @@ inline void ProjectMercury::AnimateDials(void)
 	float pitchPos[2] =		{attitudeCenter[0] + 250, attitudeCenter[1]};
 	float rollPos[2] =		{attitudeCenter[0] - 250, attitudeCenter[1]};
 	float yawPos[2] =		{attitudeCenter[0], attitudeCenter[1] + 270};
-	float attitudePos[2] = { attitudeCenter[0], attitudeCenter[1] };
+	float attitudePos[2] = { attitudeCenter[0] - 1.0f, attitudeCenter[1] + 0.5f}; // additional small fixes to perfectly centre crosshairs.
 
 	// Longitudinal acceleration
 	float load = float(longitudinalAcc / G);
@@ -486,8 +650,8 @@ inline void ProjectMercury::AnimateDials(void)
 	RotateArmGroup(armGroups[idx], pitchPos[0], pitchPos[1], 115.0f, 12.0f, ValueToAngle(pitch, float(-PI), float(PI), 34.0f, 394.0f), 0.8f, 60.0f); // Negative length part
 	idx += 1;
 
-	// Yaw
-	float yaw = float(normangle((GetSlipAngle() + yawOffset)));
+	// Yaw. Note that retroattitude is indicated yaw 0 degrees! That's why we add PI.
+	float yaw = float(normangle((GetSlipAngle() + yawOffset + PI)));
 	RotateArmGroup(armGroups[idx], yawPos[0], yawPos[1], 115.0f, 12.0f, ValueToAngle(yaw, float(-PI), float(PI), -270.0f, 90.0f), 0.8f, 40.0f); // Negative length part
 	idx += 1;
 
@@ -527,20 +691,34 @@ inline void ProjectMercury::AnimateDials(void)
 	// Get attitude rate
 	VECTOR3 angVel;
 	GetAngularVel(angVel);
-	// MinMax +- 40 deg/s
+	// The limits of attitude rate display is a bit confusing. 
+	// MercuryFamiliarizationManual20May1962 page 395 says "A zero to three volt signal level represents a rate level of decreasing 40 deg/sec to increasing 40 deg/sec".
+	// Same manual, page 440, says (now for apparently a kind of tape recorder):
+	//		"A 0 volt signal level represents a zero attitude rate.
+	//		A -1.5 V signal ... a decreasing rate of 6 deg/sec
+	//		and a plus 1.5 V signal ... an increasing rate of 6 deg/sec."
+	// According to MA6_FlightOps.pdf page 1-40 (page 26 in pdf), roll rate switches from a one range (+6 deg/sec for last dot, total +8 deg/sec) while in flight,
+	// to a new range (+15 deg/sec for last dot, total +20 deg/sec) after .05g activation.
+	// This is only for roll, however. One may assume that pitch and yaw rates also are at the default (+6 deg/sec, tot +8 deg/sec) scale during flight.
+	// In that case, the question whether pitch and way rates also scale during .05g program. I guess no.
+	// Summary: -> MinMax +- 8 deg/s, with roll going to +- 20 deg/s when .05g
+	// Epilogue: I don't like the limited range of 6-8 deg/s, so I'm setting it to always be the extended .05g range, i.e. 15 deg/s.
+	float range = 15.0f;
+	float rollRange = range;
+	//if (AutopilotStatus == LOWG) rollRange = 15.0f; // if .05g, set range scale to MinMax 20 deg/s
 	float pRate = float(angVel.x * DEG);
-	if (pRate > 40.0f) pRate = 40.0f;
-	if (pRate < -40.0f) pRate = -40.0f;
+	if (pRate > range) pRate = range;
+	if (pRate < -range) pRate = -range;
 	float yRate = float(angVel.y * DEG);
-	if (yRate > 40.0f) yRate = 40.0f;
-	if (yRate < -40.0f) yRate = -40.0f;
+	if (yRate > range) yRate = range;
+	if (yRate < -range) yRate = -range;
 	float rRate = float(angVel.z * DEG);
-	if (rRate > 40.0f) rRate = 40.0f;
-	if (rRate < -40.0f) rRate = -40.0f;
+	if (rRate > rollRange) rRate = rollRange;
+	if (rRate < -rollRange) rRate = -rollRange;
 
-	float pPixelY = attitudePos[1] + pRate * 3.0f;
-	float yPixelX = attitudePos[0] + yRate * 3.0f;
-	float rPixelX = attitudePos[0] + rRate * 3.0f;
+	float pPixelY = attitudePos[1] + 85.0f * pRate / range;
+	float yPixelX = attitudePos[0] + 85.0f * yRate / range;
+	float rPixelX = attitudePos[0] + 85.0f * rRate / rollRange;
 
 	// Roll (actually translation, but use same rotate function)
 	RotateArmGroup(armGroups[idx], rPixelX, attitudePos[1] - 10, 100.0f, 5.0f, float(-90.0 * RAD), 0.95f, 0.0f, false);
@@ -556,20 +734,17 @@ inline void ProjectMercury::AnimateDials(void)
 
 	// Rotate globe texture
 	double posLong, posLat, posRad, heading;
-	//oapiGetEquPos(GetHandle(), )
-	GetEquPos(posLong, posLat, posRad);
-	oapiGetHeading(GetHandle(), &heading);
-	VECTOR3 currPos, currVel;
-	GetRelativePos(GetSurfaceRef(), currPos);
-	GetRelativeVel(GetSurfaceRef(), currVel);
-	heading -= OrbitalFrameSlipAngle2(currPos, currVel);
+	OBJHANDLE refP = GetEquPos(posLong, posLat, posRad);
+	VECTOR3 currVel;
+	GetGroundspeedVector(FRAME_HORIZON, currVel);
+	heading = atan2(currVel.x + oapiGetSize(refP) * PI2 / oapiGetPlanetPeriod(refP) * cos(posLat), currVel.z); // orbital heading = (ground vector + ground rotation) heading
 	RotateGlobe(5.0f, 60.0f, float(posLong), float(posLat), float(heading - PI05));
 
 	// Clock numerals
 	double simt = oapiGetSimTime();
 	double met = simt - launchTime;
 	double metFlow = met; // keep met unchanged, as it's used for retrotime
-	if (metFlow > (99 * 3600 + 59 * 60 + 59)) metFlow = fmod(metFlow, 100 * 3600); // overflow
+	if (metFlow > (100.0 * 3600.0 - 1.0)) metFlow = fmod(metFlow, 100.0 * 3600.0); // overflow
 	int metH = (int)floor(metFlow / 3600.0);
 	int metM = (int)floor((metFlow - metH * 3600.0) / 60.0);
 	int metS = (int)floor((metFlow - metH * 3600.0 - metM * 60.0));
@@ -607,6 +782,8 @@ inline void ProjectMercury::AnimateDials(void)
 	digitGrpNum += 2;
 	ChangePanelNumber(digitGrpNum, dRetS); // edits both of the digits in pair (24 -> 2, 4)
 	digitGrpNum += 2;
+
+	ChangeIndicatorStatus();
 }
 
 inline void ProjectMercury::RotateArmGroup(int groupNum, float x0, float y0, float length, float width, float angleR, float pointiness, float negLength, bool includeLatency)
@@ -808,8 +985,8 @@ inline void ProjectMercury::ChangePanelNumber(int group, int num)
 
 	float texX0 = 1683.0f / 2048.0f;
 	float texX1 = 1717.0f / 2048.0f;
-	float texY0 = (305.0f + digitToShow1 * 60.0f) / 1024.0f;
-	float texY1 = (351.0f + digitToShow1 * 60.0f) / 1024.0f;
+	float texY0 = (305.0f + digitToShow1 * 60.4f) / 1024.0f; // 60 gives slightly offset value
+	float texY1 = (351.0f + digitToShow1 * 60.4f) / 1024.0f;
 
 	newVertex[0].tu = texX0;	newVertex[0].tv = texY0;
 	newVertex[1].tu = texX1;	newVertex[1].tv = texY0;
@@ -830,4 +1007,314 @@ inline void ProjectMercury::ChangePanelNumber(int group, int num)
 
 	ges.Vtx = newVertex;
 	oapiEditMeshGroup(cockpitPanelMesh, group + 1, &ges);
+}
+
+inline void ProjectMercury::ChangeIndicatorStatus(void)
+{
+	int GRAY = 0;
+	int RED = 1;
+	int GREEN = 2;
+
+	int idx = 0;
+	double simt = oapiGetSimTime();
+
+	int indicatorStatus[13] = { 0 };
+
+	// ABORT
+	if (abort) indicatorStatus[idx] = RED;
+	else indicatorStatus[idx] = GRAY;
+	if (indicatorStatus[idx] != previousIndicatorStatus[idx]) SetIndicatorStatus(idx, indicatorStatus[idx]);
+	previousIndicatorStatus[idx] = indicatorStatus[idx];
+	idx += 1;
+
+	// JETT TOWER
+	if (towerJettisoned) indicatorStatus[idx] = GREEN; // I don't implement any failures of tower sep, so don't implement any failure light. This may change when fuses are added
+	else indicatorStatus[idx] = GRAY;
+	if (indicatorStatus[idx] != previousIndicatorStatus[idx]) SetIndicatorStatus(idx, indicatorStatus[idx]);
+	previousIndicatorStatus[idx] = indicatorStatus[idx];
+	idx += 1;
+
+	// SEP CAPSULE
+	if (VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE || VesselStatus == ABORT || VesselStatus == ABORTNORETRO) indicatorStatus[idx] = GREEN;
+	else if (boosterShutdownTime == 0.0) indicatorStatus[idx] = GRAY; // time between shutdown and sep is red, so gray if not shutdown yet
+	else indicatorStatus[idx] = RED;
+	if (indicatorStatus[idx] != previousIndicatorStatus[idx]) SetIndicatorStatus(idx, indicatorStatus[idx]);
+	previousIndicatorStatus[idx] = indicatorStatus[idx];
+	idx += 1;
+
+	// RETRO SEQ
+	if (engageRetro && VesselStatus == FLIGHT) indicatorStatus[idx] = GREEN;
+	else if (retroStartTime == 0.0) indicatorStatus[idx] = GRAY; // uninitialised
+	else if (VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE || VesselStatus == ABORTNORETRO) indicatorStatus[idx] = GRAY;
+	else indicatorStatus[idx] = RED;
+	if (indicatorStatus[idx] != previousIndicatorStatus[idx]) SetIndicatorStatus(idx, indicatorStatus[idx]);
+	previousIndicatorStatus[idx] = indicatorStatus[idx];
+	idx += 1;
+
+	// RETRO ATT
+	double currP = GetPitch() + pitchOffset;
+	double currY = GetSlipAngle() + yawOffset;
+	if (engageRetro && abs(currP + 34.0 * RAD) < 15.0 * RAD && abs(normangle(currY + PI)) < 15.0 * RAD) indicatorStatus[idx] = GREEN; // within limits
+	else if (retroStartTime == 0.0) indicatorStatus[idx] = GRAY; // haven't engaged retro
+	else if (VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE || VesselStatus == ABORTNORETRO) indicatorStatus[idx] = GRAY;
+	else indicatorStatus[idx] = RED;
+	if (indicatorStatus[idx] != previousIndicatorStatus[idx]) SetIndicatorStatus(idx, indicatorStatus[idx]);
+	previousIndicatorStatus[idx] = indicatorStatus[idx];
+	idx += 1;
+
+	// FIRE RETRO
+	if ((FailureMode != LOWGDEACTIVE && VesselStatus == REENTRY && vesselAcceleration > 0.05 * G) || AutopilotStatus == LOWG) indicatorStatus[idx] = GRAY; // Disable if LOWG light is on
+	else if ((retroStartTime != 0.0 && retroStartTime < simt) || (VesselStatus == FLIGHT && (retroCoverSeparated[0] || retroCoverSeparated[1] || retroCoverSeparated[2]))) indicatorStatus[idx] = GREEN; // green if retro is fired
+	else if (retroStartTime == 0.0) indicatorStatus[idx] = GRAY;
+	else if (retroStartTime != 0.0 && retroStartTime - 15.0 < simt) indicatorStatus[idx] = RED; // red 15 sec before retrofire
+	else if (VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE || VesselStatus == ABORTNORETRO) indicatorStatus[idx] = GREEN; // green until LOWG
+	else indicatorStatus[idx] = GRAY;
+	if (indicatorStatus[idx] != previousIndicatorStatus[idx]) SetIndicatorStatus(idx, indicatorStatus[idx]);
+	previousIndicatorStatus[idx] = indicatorStatus[idx];
+	idx += 1;
+
+	// JETT RETRO
+	if ((FailureMode != LOWGDEACTIVE && VesselStatus == REENTRY && vesselAcceleration > 0.05 * G) || AutopilotStatus == LOWG) indicatorStatus[idx] = GRAY; // Disable if LOWG light is on //else if (retroStartTime == 0.0) indicatorStatus[idx] = GRAY; // uninitialised
+	else if (VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE || VesselStatus == ABORTNORETRO) indicatorStatus[idx] = GREEN; // Green until LOWG
+	else if (retroStartTime != 0.0 && retroStartTime - 28.0 < simt) indicatorStatus[idx] = RED;
+	else indicatorStatus[idx] = GRAY;
+	if (indicatorStatus[idx] != previousIndicatorStatus[idx]) SetIndicatorStatus(idx, indicatorStatus[idx]);
+	previousIndicatorStatus[idx] = indicatorStatus[idx];
+	idx += 1;
+
+	// RETRACT SCOPE
+	if (PeriscopeStatus != P_CLOSED && (VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE || VesselStatus == ABORTNORETRO) && simt - retroStartTime > (60.0 + 40.0) && retroStartTime != 0.0) indicatorStatus[idx] = RED;
+	else if (PeriscopeStatus != P_CLOSED && (VesselStatus == FLIGHT || VesselStatus == REENTRYNODROGUE || (VesselStatus == LAUNCH && GroundContact()))) indicatorStatus[idx] = GREEN;
+	else if (PeriscopeStatus == P_CLOSED) indicatorStatus[idx] = GRAY;
+	else indicatorStatus[idx] = RED;
+	if (indicatorStatus[idx] != previousIndicatorStatus[idx]) SetIndicatorStatus(idx, indicatorStatus[idx]);
+	previousIndicatorStatus[idx] = indicatorStatus[idx];
+	idx += 1;
+
+	// .05 G
+	if (FailureMode != LOWGDEACTIVE && VesselStatus == REENTRY && vesselAcceleration > 0.05 * G) indicatorStatus[idx] = GREEN;
+	else if (AutopilotStatus == LOWG) indicatorStatus[idx] = GREEN;
+	else indicatorStatus[idx] = GRAY;
+	if (indicatorStatus[idx] != previousIndicatorStatus[idx]) SetIndicatorStatus(idx, indicatorStatus[idx]);
+	previousIndicatorStatus[idx] = indicatorStatus[idx];
+	idx += 1;
+
+	// MAIN
+	if (mainChuteDeployed && simt > mainChuteDeployTime + 2.0) indicatorStatus[idx] = GREEN;
+	else if (!mainChuteDeployed) indicatorStatus[idx] = GRAY;
+	else indicatorStatus[idx] = RED;
+	if (indicatorStatus[idx] != previousIndicatorStatus[idx]) SetIndicatorStatus(idx, indicatorStatus[idx]);
+	previousIndicatorStatus[idx] = indicatorStatus[idx];
+	idx += 1;
+
+	// LANDING BAG
+	if (landingBagDeployed) indicatorStatus[idx] = GREEN;
+	else if (mainChuteDeployed && simt - mainChuteDeployTime > 10.0) indicatorStatus[idx] = RED;
+	else if (!landingBagDeployed) indicatorStatus[idx] = GRAY;
+	else indicatorStatus[idx] = RED;
+	if (indicatorStatus[idx] != previousIndicatorStatus[idx]) SetIndicatorStatus(idx, indicatorStatus[idx]);
+	previousIndicatorStatus[idx] = indicatorStatus[idx];
+	idx += 1;
+
+	// FUEL QUAN
+	double autoLevel = GetPropellantMass(fuel_auto) / MERCURY_FUEL_MASS_AUTO;
+	double manualLevel = GetPropellantMass(fuel_manual) / MERCURY_FUEL_MASS_MAN;
+	if (!attitudeFuelAuto) // swap (just how I've defined it)
+	{
+		autoLevel = GetPropellantMass(fuel_manual) / MERCURY_FUEL_MASS_AUTO;
+		manualLevel = GetPropellantMass(fuel_auto) / MERCURY_FUEL_MASS_MAN;
+	}
+	// Old addon had limit 0.25. Familiarization manual says "The pressure swich is set to actuate at a pre-determined low fuel level".
+	// However, on MA-7 Carpenter said at 01 34 37: "Fuel is 62 and 68 %, ..., fuel quantity light is on".
+	// MA-6  flightOps manual notes under fuel dial: "65 % - minimum auto control fuel for retrograde and reentry". This is in agreeing with MA-7 communications.
+	// So we now set 0.65 to be limit.
+	if (autoLevel < 0.65 || manualLevel < 0.65) indicatorStatus[idx] = RED;
+	else indicatorStatus[idx] = GRAY;
+	if (indicatorStatus[idx] != previousIndicatorStatus[idx]) SetIndicatorStatus(idx, indicatorStatus[idx]);
+	previousIndicatorStatus[idx] = indicatorStatus[idx];
+	idx += 1;
+
+	// RETRO WARN
+	if (VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE) indicatorStatus[idx] = GRAY;
+	else if (retroWarnLight) indicatorStatus[idx] = RED;
+	else indicatorStatus[idx] = GRAY;
+	if (indicatorStatus[idx] != previousIndicatorStatus[idx]) SetIndicatorStatus(idx, indicatorStatus[idx]);
+	previousIndicatorStatus[idx] = indicatorStatus[idx];
+	idx += 1;
+
+	indicatorButtonFirstGroup = idx;
+	// Set all button lights. Works so that button is switched to active on click inside clbkPanelMouseEvent, and we here dim it
+	double buttonLightTime = 0.05;
+	for (int i = 0; i < 5; i++)
+	{
+		if (indicatorButtonPressState[i] != -1 && simt > indicatorButtonPressTime[i] + buttonLightTime) SetIndicatorButtonStatus(indicatorButtonFirstGroup + i, -1); // extinguish
+		idx += 1;
+
+		// It seems like I have to do something here, or else Orbiter fails to correctly place vertices. So call a stupid function or something.
+		//double uselessValue = GetPitch();
+		//uselessValue *= GGRAV;
+	}
+
+	physicalSwitchFirstGroup = idx;
+	// Set all switch positions. Is switched every frame to the current relevant state
+	if (attitudeFuelAuto) SetPhysicalSwitchStatus(physicalSwitchFirstGroup + 0, -1);
+	else SetPhysicalSwitchStatus(physicalSwitchFirstGroup + 0, 1);
+	idx += 1;
+
+	if (autoPilot) SetPhysicalSwitchStatus(physicalSwitchFirstGroup + 1, -1);
+	else SetPhysicalSwitchStatus(physicalSwitchFirstGroup + 1, 1);
+	idx += 1;
+
+	if (RcsStatus == AUTOHIGH) SetPhysicalSwitchStatus(physicalSwitchFirstGroup + 2, -1);
+	else if (RcsStatus == MANUAL) SetPhysicalSwitchStatus(physicalSwitchFirstGroup + 2, 0);
+	else SetPhysicalSwitchStatus(physicalSwitchFirstGroup + 2, 1); // AUTOLOW
+	idx += 1;
+}
+
+inline void ProjectMercury::SetIndicatorStatus(int indicatorNr, int status)
+{
+	GROUPEDITSPEC ges;
+	NTVERTEX newVertex[41]; // up to 41 vertices in a group (either 4 for rectangle or 41 for circle)
+
+	ges.flags = GRPEDIT_VTXTEXU | GRPEDIT_VTXTEXV;
+
+	if (indicatorNr == 0) // circular abort
+	{
+		ges.nVtx = 41; // circle
+
+		WORD vertexIndex[41];
+
+		// Centre
+		newVertex[0].tu = (538.0f + float(status) * 486.0f) / 2048.0f;
+		newVertex[0].tv = 1703.0f / 2048.0f;
+
+		vertexIndex[0] = 0;
+
+		// Perimeter
+		for (int i = 0; i < 40; i++)
+		{
+			vertexIndex[i + 1] = i + 1;
+
+			double angle = double(i) * PI2 / 40.0;
+			float x0 = 538.0f + 486.0f * float(status);
+			float y0 = 1703.0f;
+			
+			newVertex[i + 1].tu = (150.0f * float(sin(angle)) + x0) / 2048.0f;
+			newVertex[i + 1].tv = (150.0f * float(cos(angle)) + y0) / 2048.0f;
+
+			// It seems like I have to do something here, or else Orbiter fails to correctly place vertices. So call a stupid function or something.
+			double uselessValue = GetPitch();
+			uselessValue *= GGRAV;
+		}
+
+		ges.vIdx = vertexIndex;
+	}
+	else // rectangle
+	{
+		ges.nVtx = 4; // rectangle
+
+		// Create vertex idx array
+		WORD vertexIndex[4] = { 0, 1, 2, 3 };
+		ges.vIdx = vertexIndex;
+
+		// Source 2048*2048 px^2
+		float texX0 = (363.0f + float(status) * 486.0f) / 2048.0f; 
+		float texX1 = (714.0f + float(status) * 486.0f) / 2048.0f;
+		float texY0 = (185.0f + (12.0f - float(indicatorNr)) * 113.27f) / 2048.0f;
+		float texY1 = (277.0f + (12.0f - float(indicatorNr)) * 113.27f) / 2048.0f;
+
+		newVertex[0].tu = texX0;	newVertex[0].tv = texY0;
+		newVertex[1].tu = texX1;	newVertex[1].tv = texY0;
+		newVertex[2].tu = texX0;	newVertex[2].tv = texY1;
+		newVertex[3].tu = texX1;	newVertex[3].tv = texY1;
+
+		// It seems like I have to do something here, or else Orbiter fails to correctly place vertices. So call a stupid function or something.
+		double uselessValue = GetPitch();
+		uselessValue *= GGRAV;
+	}
+
+	ges.Vtx = newVertex;
+	oapiEditMeshGroup(cockpitPanelMesh, abortIndicatorGroup + indicatorNr, &ges);
+}
+
+inline void ProjectMercury::SetIndicatorButtonStatus(int buttonNr, int status)
+{
+	GROUPEDITSPEC ges;
+	NTVERTEX newVertex[4]; // verticies per group, 4 for rectangle
+
+	ges.flags = GRPEDIT_VTXTEXU; // just switch x pos, as constant y
+
+	ges.nVtx = 4; // rectangle
+
+	// Create vertex idx array
+	WORD vertexIndex[4] = { 0, 1, 2, 3 };
+	ges.vIdx = vertexIndex;
+
+	// Source 256*256 px^2
+	float butRad = 0.2;
+	float butOfs = 57.0f / 256.0f;
+	float texX0 = 0.5f + float(status) * butOfs - butRad;
+	float texX1 = 0.5f + float(status) * butOfs + butRad;
+
+	newVertex[0].tu = texX0;
+	newVertex[1].tu = texX1;
+	newVertex[2].tu = texX0;
+	newVertex[3].tu = texX1;
+
+	// It seems like I have to do something here, or else Orbiter fails to correctly place vertices. So call a stupid function or something.
+	//double uselessValue = GetPitch();
+	//uselessValue *= GGRAV;
+
+	ges.Vtx = newVertex;
+	oapiEditMeshGroup(cockpitPanelMesh, abortIndicatorGroup + buttonNr, &ges);
+
+	indicatorButtonPressState[buttonNr - indicatorButtonFirstGroup] = status;
+}
+
+inline void ProjectMercury::SetPhysicalSwitchStatus(int switchNr, int status)
+{
+	GROUPEDITSPEC ges;
+	NTVERTEX newVertex[4]; // verticies per group, 4 for rectangle
+
+	ges.flags = GRPEDIT_VTXTEXU; // just switch x pos, as constant y
+
+	ges.nVtx = 4; // rectangle
+
+	// Create vertex idx array
+	WORD vertexIndex[4] = { 0, 1, 2, 3 };
+	ges.vIdx = vertexIndex;
+
+	// Source 2048*1024 px^2
+	float butWidth = 350.0f / 2048.0f;
+	float aspectRatio = 0.5f;
+	float butHeight = (350.0f * aspectRatio) / 1024.0f;
+	float switchOffset = 349.0f / 2048.0f;
+	float texX0 = 0.5f + float(status) * switchOffset - butWidth / 2.0f;
+	float texX1 = 0.5f + float(status) * switchOffset + butWidth / 2.0f;
+
+	newVertex[0].tu = texX0;
+	newVertex[1].tu = texX1;
+	newVertex[2].tu = texX0;
+	newVertex[3].tu = texX1;
+
+	// It seems like I have to do something here, or else Orbiter fails to correctly place vertices. So call a stupid function or something.
+	//double uselessValue = GetPitch();
+	//uselessValue *= GGRAV;
+
+	ges.Vtx = newVertex;
+	oapiEditMeshGroup(cockpitPanelMesh, abortIndicatorGroup + switchNr, &ges);
+
+	physicalSwitchState[switchNr - physicalSwitchFirstGroup] = status;
+}
+
+inline void ProjectMercury::clbkFocusChanged(bool getfocus, OBJHANDLE hNewVessel, OBJHANDLE hOldVessel)
+{
+	if (getfocus) // we gained focus (if else, we lost focus, and then don't need to update)
+	{
+		for (int i = 0; i < 13; i++)
+			previousIndicatorStatus[i] = -1; // reset. If this is not done, a panel will inherit the state of the previously viewed panel.
+
+		for (int i = 0; i < 20; i++)
+			indicatorButtonPressState[i] = 0; // reset. (-1 is default off)
+	}
 }

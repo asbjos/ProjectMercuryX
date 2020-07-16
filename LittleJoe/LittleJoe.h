@@ -211,6 +211,7 @@ public:
 	void clbkRenderHUD(int mode, const HUDPAINTSPEC* hps, SURFHANDLE hDefaultTex);
 	bool clbkLoadPanel2D(int id, PANELHANDLE hPanel, DWORD viewW, DWORD viewH);
 	void clbkVisualCreated(VISHANDLE vis, int refcount);
+	void clbkFocusChanged(bool getfocus, OBJHANDLE hNewVessel, OBJHANDLE hOldVessel);
 	bool clbkLoadGenericCockpit(void);
 	bool clbkPanelMouseEvent(int id, int event, int mx, int my, void* context);
 	//bool clbkLoadVC(int id);
@@ -220,13 +221,13 @@ public:
 	void VersionDependentTouchdown(VECTOR3 touch1, VECTOR3 touch2, VECTOR3 touch3, VECTOR3 touch4, double stiff, double damp, double mu);
 	void VersionDependentPanelClick(int id, const RECT& pos, int texidx, int draw_event, int mouse_event, PANELHANDLE hPanel, const RECT& texpos, int bkmode);
 	void VersionDependentPadHUD(oapi::Sketchpad* skp, double simt, int* yIndexUpdate, char* cbuf, VESSEL* v);
-	/*double normangle(double angle);
+	double normangle(double angle);
 	void oapiWriteLogV(const char* format, ...);
 	double GetGroundspeed(void);
 	double GetAnimation(UINT anim);
 	void GetGroundspeedVector(int frame, VECTOR3& v);
 	double length2(VECTOR3 vec);
-	void GetAirspeedVector(int frame, VECTOR3& v);*/
+	void GetAirspeedVector(int frame, VECTOR3& v);
 
 	void AimEulerAngle(double pitch, double yaw);
 	void DisableAutopilot(bool turnOff);
@@ -242,6 +243,7 @@ public:
 	//void LowTorqueAttAuto(double simt, double simdt);
 	//void PitchAttAuto(double simt, double simdt);
 	void GRollAuto(double simt, double simdt);
+	void InitiateRetroSequence(void); // Actually for manned capsules that carried retro, but must include for Little Joe to run. We're ensuring that it will never be run.
 
 	double EmptyMass(void);
 	void TowerSeparation(void);
@@ -311,6 +313,10 @@ public:
 	float ValueToAngle(float value, float minValue, float maxValue, float minAngle, float maxAngle);
 	void RotateGlobe(float angularResolution, float viewAngularRadius, float longitude0, float latitude0, float rotationAngle = 0.0f);
 	void ChangePanelNumber(int group, int num);
+	void ChangeIndicatorStatus(void);
+	void SetIndicatorStatus(int indicatorNr, int status);
+	void SetIndicatorButtonStatus(int buttonNr, int status);
+	void SetPhysicalSwitchStatus(int switchNr, int status);
 
 	void GetPanelRetroTimes(double met, int* rH, int* rM, int* rS, int* dH, int* dM, int* dS);
 
@@ -330,8 +336,9 @@ public:
 	void CapsuleGenericPostCreation(void);
 	void DeleteRogueVessels(void);
 	void CapsuleAutopilotControl(double simt, double simdt);
-	void FlightReentryAbortControl(double simt, double simdt, double latit, double longit, double getAlt);
+	void MercuryCapsuleGenericTimestep(double simt, double simdt, double latit, double longit, double getAlt);
 	void WriteHUDAutoFlightReentry(oapi::Sketchpad* skp, double simt, int* yIndexUpdate, char* cbuf);
+	void WriteHUDIndicators(oapi::Sketchpad* skp, double simt, int* yIndexUpdate, char* cbuf);
 	void LoadCapsule(const char* cbuf);
 	void ReadCapsuleTextureReplacement(const char* cbuf);
 	bool ReadTextureString(const char* cbuf, const int len, char* texturePath, int* textureWidth, int* textureHeight);
@@ -540,10 +547,10 @@ private:
 	bool landingBagEndAnimation = false;
 	double destabiliserProgress = 0.0;
 
+
 	bool periscope = false;
 	double oldFOV = 20.0 * RAD;
 	bool narrowField = false;
-	int oldHUDMode = HUD_SURFACE;
 	double periscopeProgress = 0.0;
 	double periscopeAltitude = 160.0;
 	bool rocketCam = false;
@@ -558,6 +565,36 @@ private:
 	int globeVertices = NULL;
 	float previousDialAngle[200] = { 0.0f }; // must be longer than total mesh group number
 	float dialAngularSpeed = float(180.0 * RAD); // Degrees per second
+	int abortIndicatorGroup = NULL;
+	int previousIndicatorStatus[13] = { 0 };
+	bool retroWarnLight = false;
+	double indicatorButtonPressTime[20]; // right now support 20 buttons, but this limit is arbitrary. Increase if needed
+	int indicatorButtonPressState[20] = { -1 };
+	int indicatorButtonFirstGroup = 13; // right now it's 13, but doesn't matter what we set to, as it will be correctly assigned every frame
+	int physicalSwitchState[3] = { -2 }; // -1 left, 0 centre, 1 right. -2 is reset
+	int physicalSwitchFirstGroup = 17; // right now it's 17, but doesn't matter what we set to, as it will be correctly assigned every frame
+
+	//bool periscope = false;
+	//double oldFOV = 20.0 * RAD;
+	//bool narrowField = false;
+	//int oldHUDMode = HUD_SURFACE;
+	//double periscopeProgress = 0.0;
+	//double periscopeAltitude = 160.0;
+	//bool rocketCam = false;
+	//int rocketCamMode = 0;
+	//// Include panel, although technically Little Joe was never manned
+	//bool panelView = false;
+	//int armGroups[50] = { NULL }; // Support up to 50 for now. Real number more like 15
+	//int totalArmGroups = 0;
+	//int panelMeshGroupSide[100] = { 0 }; // 0 empty, 1 left, 2 right, -1 ignore
+	//float addScreenWidthValue = 0.0;
+	//int globeGroup = NULL;
+	//int globeVertices = NULL;
+	//float previousDialAngle[200] = { 0.0f }; // must be longer than total mesh group number
+	//float dialAngularSpeed = float(180.0 * RAD); // Degrees per second
+	//int abortIndicatorGroup = NULL;
+	//int previousIndicatorStatus[13] = { 0 };
+	//bool retroWarnLight = false;
 
 	double vesselAcceleration;
 	double longitudinalAcc;
