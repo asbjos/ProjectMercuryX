@@ -13,7 +13,7 @@
 // 
 // ==============================================================
 
-FILEHANDLE pitchDataLogFile;
+//FILEHANDLE pitchDataLogFile;
 
 // ==============================================================
 // Some vessel parameters
@@ -197,13 +197,13 @@ public:
 	void VersionDependentTouchdown(VECTOR3 touch1, VECTOR3 touch2, VECTOR3 touch3, VECTOR3 touch4, double stiff, double damp, double mu);
 	void VersionDependentPanelClick(int id, const RECT& pos, int texidx, int draw_event, int mouse_event, PANELHANDLE hPanel, const RECT& texpos, int bkmode);
 	void VersionDependentPadHUD(oapi::Sketchpad* skp, double simt, int* yIndexUpdate, char* cbuf, VESSEL* v);
-	double normangle(double angle);
-	void oapiWriteLogV(const char* format, ...);
-	double GetGroundspeed(void);
-	double GetAnimation(UINT anim);
-	void GetGroundspeedVector(int frame, VECTOR3& v);
-	double length2(VECTOR3 vec);
-	void GetAirspeedVector(int frame, VECTOR3& v);
+	//double normangle(double angle);
+	//void oapiWriteLogV(const char* format, ...);
+	//double GetGroundspeed(void);
+	//double GetAnimation(UINT anim);
+	//void GetGroundspeedVector(int frame, VECTOR3& v);
+	//double length2(VECTOR3 vec);
+	//void GetAirspeedVector(int frame, VECTOR3& v);
 
 	void CreateAirfoilsScout(void);
 

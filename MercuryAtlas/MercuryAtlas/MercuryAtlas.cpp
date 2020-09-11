@@ -1,6 +1,6 @@
-// ==============================================================
+﻿// ==============================================================
 //				Source file for Mercury Atlas.
-//				Created by Asbj�rn "asbjos" Kr�ger
+//				Created by Asbjørn "asbjos" Krüger
 //					asbjorn.kruger@gmail.com
 //						Made in 2019-2020
 // 
@@ -44,6 +44,8 @@ ProjectMercury::ProjectMercury(OBJHANDLE hVessel, int flightmodel)
 ProjectMercury::~ProjectMercury()
 {
 	WriteFlightParameters();
+
+	//oapiCloseFile(PIDdebug, FILE_OUT);
 }
 
 // --------------------------------------------------------------
@@ -158,9 +160,9 @@ void ProjectMercury::clbkSetClassCaps(FILEHANDLE cfg)
 	{
 		conceptPropellant = CreatePropellantResource(CONCEPT_POSIGRADE_FUEL_MASS);
 
-		COLOUR4 col_d = { (float)(0.5),(float)(0.4),0.6,0 };
-		COLOUR4 col_s = { (float)(0.6),(float)(0.4),0.6,0 };
-		COLOUR4 col_a = { 0,0,0,0 };
+		COLOUR4 col_d = { 0.5f, 0.4f, 0.6f, 0.0f };
+		COLOUR4 col_s = { 0.6f, 0.4f, 0.6f, 0.0f };
+		COLOUR4 col_a = { 0.0f, 0.0f, 0.0f, 0.0f };
 		double a0 = 1;
 		double a1 = 1;
 		double a2 = 1;
@@ -199,6 +201,9 @@ void ProjectMercury::clbkSetClassCaps(FILEHANDLE cfg)
 
 	escape_tank = CreatePropellantResource(ABORT_MASS_FUEL); // need to create escape tank afterwards, as it's removed before Atlas prop
 	//SetPropellantMass(redstone_propellant, STAGE1_FUEL_MASS);
+
+	// This must be last, as to not make Orbiter spawn an old scenario with this index taking another, and thus make e.g. 1 retro without fuel
+	dummyControllerFuel = CreatePropellantResource(1e-3); // create a 1 gram fuel supply for control stick, to always have ability to use dummy thrusters on control stick.
 
 	SetDefaultPropellantResource(atlas_propellant);
 
@@ -1024,6 +1029,26 @@ void ProjectMercury::clbkPreStep(double simt, double simdt, double mjd)
 	}
 	AnimatePeriscope(simt, simdt);
 	AnimateAntennaDestabiliser(simt, simdt);
+	if (fireflyBangTime + 0.25 < simt || simt < fireflyBangTime) fireflyLevel = 0.0; // reset fireflies. Second condition if we jump back in time immediately after a bang.
+
+	//OBJHANDLE earthHandle = oapiGetGbodyByName("Earth");
+	//if (GetSurfaceRef() == earthHandle)
+	//{
+	//	VECTOR3 earthPos, sunPos, sunVel;
+	//	GetRelativePos(earthHandle, earthPos);
+	//	GetRelativePos(oapiGetGbodyByIndex(0), sunPos); // Sun must be index 0.
+	//	double sunAngle = acos(dotp(earthPos, sunPos) / length(earthPos) / length(sunPos)) - PI05;
+	//	double horizonAngle = acos(oapiGetSize(earthHandle) / length(earthPos));
+
+	//	GetRelativeVel(oapiGetGbodyByIndex(0), sunVel);
+
+	//	double sunVelAngle = acos(dotp(sunPos, sunVel) / length(sunPos) / length(sunVel)); // due to flipped directions of vectors, the angle is 0 if going away, and PI if towards.
+
+	//	if (sunVelAngle > PI05 && sunAngle + horizonAngle > 0.0 && sunAngle + horizonAngle < 5.0 * RAD && oapiGetTimeAcceleration() <= 1.0)
+	//	{
+	//		fireflyLevel = 1.0;
+	//	}
+	//}
 }
 
 void ProjectMercury::clbkPostStep(double simt, double simdt, double mjd)
@@ -1177,7 +1202,7 @@ void ProjectMercury::clbkPostStep(double simt, double simdt, double mjd)
 	}
 	else
 	{
-		CapsuleAutopilotControl(simt, simdt);
+		CapsuleAttitudeControl(simt, simdt);
 	}
 
 	if ((VesselStatus == LAUNCH || VesselStatus == TOWERSEP || VesselStatus == LAUNCHCORE || VesselStatus == LAUNCHCORETOWERSEP) && !autoPilot) // not autopilot
@@ -1474,10 +1499,10 @@ int ProjectMercury::clbkConsumeBufferedKey(DWORD key, bool down, char* kstate)
 				autoPilot = true;
 				AutopilotStatus = AUTOLAUNCH;
 			}
-			else if (VesselStatus == FLIGHT || VesselStatus == REENTRY) // switch fuel tank for attitude control
-			{
-				SwitchPropellantSource();
-			}
+			//else if (VesselStatus == FLIGHT || VesselStatus == REENTRY) // switch fuel tank for attitude control
+			//{
+			//	SwitchPropellantSource();
+			//}
 			else if (VesselStatus == REENTRYNODROGUE)
 			{
 				engageFuelDump = true;
@@ -1522,7 +1547,7 @@ int ProjectMercury::clbkConsumeBufferedKey(DWORD key, bool down, char* kstate)
 			{
 				separateTowerAction = true;
 			}
-			else if (VesselStatus == FLIGHT) // engage retro attitude
+			/*else if (VesselStatus == FLIGHT) // engage retro attitude
 			{
 				//PMIcheck = true;
 				//// Test of PMI
@@ -1539,40 +1564,40 @@ int ProjectMercury::clbkConsumeBufferedKey(DWORD key, bool down, char* kstate)
 			{
 				AutopilotStatus = REENTRYATT;
 				autoPilot = true;
-			}
+			}*/
 			else if (VesselStatus == ABORT)
 			{
 				separateTowerAction = true;
 			}
 
 			return 1;
-		case OAPI_KEY_G:
-			if (VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE)
-			{
-				if (RcsStatus == AUTOLOW)
-				{
-					RcsStatus = MANUAL;
-					SwitchPropellantSource();
-				}
-				else if (RcsStatus == MANUAL)
-				{
-					RcsStatus = AUTOHIGH;
-					SwitchPropellantSource();
-				}
-				else
-					RcsStatus = AUTOLOW; // don't switch propellant, as we're from Autohigh->Autolow
+		//case OAPI_KEY_G:
+		//	if (VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE)
+		//	{
+		//		if (RcsStatus == AUTOLOW)
+		//		{
+		//			RcsStatus = MANUAL;
+		//			SwitchPropellantSource();
+		//		}
+		//		else if (RcsStatus == MANUAL)
+		//		{
+		//			RcsStatus = AUTOHIGH;
+		//			SwitchPropellantSource();
+		//		}
+		//		else
+		//			RcsStatus = AUTOLOW; // don't switch propellant, as we're from Autohigh->Autolow
 
-				SwitchAttitudeMode();
+		//		SwitchAttitudeMode();
 
-				if (conceptManouverUnit) SetAttitudeMode(RCS_ROT);
-			}
-			return 1;
+		//		if (conceptManouverUnit) SetAttitudeMode(RCS_ROT);
+		//	}
+		//	return 1;
 		case OAPI_KEY_M: // turn on manual mode
 			if (enableAbortConditions)
 				oapiWriteLog("Automatic abort turned off by key");
 			enableAbortConditions = false;
 			DisableAutopilot(true);
-			abortDamping = false;
+			//abortDamping = false;
 			engageFuelDump = false;
 
 			if (VesselStatus == LAUNCH || VesselStatus == LAUNCHCORE || VesselStatus == LAUNCHCORETOWERSEP || VesselStatus == TOWERSEP)
@@ -1886,21 +1911,21 @@ bool ProjectMercury::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketch
 			skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
 			yIndex += 1;
 		}
-		else if (VesselStatus == FLIGHT || VesselStatus == REENTRY) // switch fuel tank for attitude control
-		{
-			if (attitudeFuelAuto)
-			{
-				sprintf(cbuf, "P:     Set propellant source MANUAL");
-				skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-				yIndex += 1;
-			}
-			else
-			{
-				sprintf(cbuf, "P:     Set propellant source AUTO");
-				skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-				yIndex += 1;
-			}
-		}
+		//else if (VesselStatus == FLIGHT || VesselStatus == REENTRY) // switch fuel tank for attitude control
+		//{
+		//	if (attitudeFuelAuto)
+		//	{
+		//		sprintf(cbuf, "P:     Set propellant source MANUAL");
+		//		skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
+		//		yIndex += 1;
+		//	}
+		//	else
+		//	{
+		//		sprintf(cbuf, "P:     Set propellant source AUTO");
+		//		skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
+		//		yIndex += 1;
+		//	}
+		//}
 		else if (VesselStatus == REENTRYNODROGUE)
 		{
 			if (!engageFuelDump)
@@ -1932,28 +1957,28 @@ bool ProjectMercury::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketch
 			yIndex += 1;
 		}
 
-		// Key G
-		if (VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE)
-		{
-			if (RcsStatus == AUTOLOW)
-			{
-				sprintf(cbuf, "G:     Switch to attitude MANUAL");
-				skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-				yIndex += 1;
-			}
-			else if (RcsStatus == MANUAL)
-			{
-				sprintf(cbuf, "G:     Switch to attitude AUTOHIGH");
-				skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-				yIndex += 1;
-			}
-			else
-			{
-				sprintf(cbuf, "G:     Switch to attitude AUTOLOW");
-				skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-				yIndex += 1;
-			}
-		}
+		//// Key G
+		//if (VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE)
+		//{
+		//	if (RcsStatus == AUTOLOW)
+		//	{
+		//		sprintf(cbuf, "G:     Switch to attitude MANUAL");
+		//		skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
+		//		yIndex += 1;
+		//	}
+		//	else if (RcsStatus == MANUAL)
+		//	{
+		//		sprintf(cbuf, "G:     Switch to attitude AUTOHIGH");
+		//		skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
+		//		yIndex += 1;
+		//	}
+		//	else
+		//	{
+		//		sprintf(cbuf, "G:     Switch to attitude AUTOLOW");
+		//		skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
+		//		yIndex += 1;
+		//	}
+		//}
 
 		// Key M
 		sprintf(cbuf, "M:     Disengage autopilot");
@@ -2187,6 +2212,7 @@ bool ProjectMercury::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketch
 				else if (minAngDistTime != 0.0)
 				{
 					double metRetroTime = minAngDistTime - 30.0 + metAbs - 6.6; // -30 to account for retroseq to retroburn. -6.6 is empirical, mostly from retroburn not being instantanious
+					if (switchRetroDelay == 1) metRetroTime += 30.0; // instentanious retro, so add the 30 seconds back
 					int ret3H = (int)floor(metRetroTime / 3600.0);
 					int ret3M = (int)floor((metRetroTime - ret3H * 3600.0) / 60.0);
 					int ret3S = (int)floor((metRetroTime - ret3H * 3600.0 - ret3M * 60.0));
@@ -2228,7 +2254,7 @@ bool ProjectMercury::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketch
 			yIndex += 1;
 		}
 
-		if (attitudeFuelAuto && (VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE) && fuel_manual != NULL) // there's a pesky crash if one checks for propellant level of a non-created propellant source
+		if ((VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE) && fuel_manual != NULL) // there's a pesky crash if one checks for propellant level of a non-created propellant source
 		{
 			sprintf(cbuf, "Manual fuel: %.1f %%", GetPropellantMass(fuel_manual) / MERCURY_FUEL_MASS_MAN * 100.0);
 			skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
@@ -2238,7 +2264,7 @@ bool ProjectMercury::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketch
 			skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
 			yIndex += 1;
 		}
-		else if ((VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE) && fuel_manual != NULL)
+		/*else if ((VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE) && fuel_manual != NULL)
 		{
 			sprintf(cbuf, "Manual fuel: %.1f %%", GetPropellantMass(fuel_auto) / MERCURY_FUEL_MASS_MAN * 100.0);
 			skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
@@ -2247,7 +2273,7 @@ bool ProjectMercury::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketch
 			sprintf(cbuf, "Auto fuel: %.1f %%", GetPropellantMass(fuel_manual) / MERCURY_FUEL_MASS_AUTO * 100.0);
 			skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
 			yIndex += 1;
-		}
+		}*/
 
 		// Sensor dials
 		// Remove, as it's now displayed on the 2D panel
@@ -2398,7 +2424,7 @@ bool ProjectMercury::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketch
 
 		if (VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE)
 		{
-			if (attitudeFuelAuto)
+			/*if (attitudeFuelAuto)
 			{
 				sprintf(cbuf, "Attitude fuel AUTO");
 				skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
@@ -2409,26 +2435,83 @@ bool ProjectMercury::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketch
 				sprintf(cbuf, "Attitude fuel MANUAL");
 				skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
 				yIndex += 1;
+			}*/
+
+			if (switchASCSMode == -1 && switchControlMode == -1)
+			{
+				sprintf(cbuf, "ASCS auto attitude");
+				skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
+				yIndex += 1;
 			}
 
-			if (RcsStatus == MANUAL)
+			if (switchASCSMode == 0 && switchControlMode == -1)
 			{
-				sprintf(cbuf, "Attitude mode MANUAL");
+				sprintf(cbuf, "AUX damp");
 				skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
 				yIndex += 1;
 			}
-			else if (RcsStatus == AUTOHIGH)
+
+			if (switchASCSMode == 1)
 			{
-				sprintf(cbuf, "Attitude mode AUTOHIGH");
+				sprintf(cbuf, "Fly By Wire");
 				skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
 				yIndex += 1;
 			}
-			else
+
+			if (!tHandlePitchPushed)
 			{
-				sprintf(cbuf, "Attitude mode AUTOLOW");
+				sprintf(cbuf, "  Auto pitch thrusters OFF");
+				skp->Text(secondColumnHUDx* TextX0, yIndex* LineSpacing + TextY0, cbuf, strlen(cbuf));
+				yIndex += 1;
+			}
+			if (!tHandleYawPushed)
+			{
+				sprintf(cbuf, "  Auto yaw thrusters OFF");
+				skp->Text(secondColumnHUDx* TextX0, yIndex* LineSpacing + TextY0, cbuf, strlen(cbuf));
+				yIndex += 1;
+			}
+
+			if (!tHandleRollPushed)
+			{
+				sprintf(cbuf, "  Auto roll thrusters OFF");
+				skp->Text(secondColumnHUDx* TextX0, yIndex* LineSpacing + TextY0, cbuf, strlen(cbuf));
+				yIndex += 1;
+			}
+
+			if (!tHandleManualPushed)
+			{
+				sprintf(cbuf, "Manual direct");
 				skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
 				yIndex += 1;
 			}
+
+			if (tHandleManualPushed && switchControlMode == 1)
+			{
+				sprintf(cbuf, "Rate command (RSCS)");
+				skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
+				yIndex += 1;
+			}
+
+
+
+			//if (RcsStatus == MANUAL)
+			//{
+			//	sprintf(cbuf, "Attitude mode MANUAL");
+			//	skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
+			//	yIndex += 1;
+			//}
+			//else if (RcsStatus == AUTOHIGH)
+			//{
+			//	sprintf(cbuf, "Attitude mode AUTOHIGH");
+			//	skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
+			//	yIndex += 1;
+			//}
+			//else
+			//{
+			//	sprintf(cbuf, "Attitude mode AUTOLOW");
+			//	skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
+			//	yIndex += 1;
+			//}
 
 			if (engageFuelDump)
 			{
@@ -2581,6 +2664,42 @@ void ProjectMercury::clbkLoadStateEx(FILEHANDLE scn, void* status)
 		{
 			conceptCoverAttached = bool(atoi(cbuf + 12)); // 0 is false, anything else true
 		}
+		else if (!_strnicmp(cbuf, "SWITCHAUTRETJET", 15))
+		{
+			switchAutoRetroJet = atoi(cbuf + 15);
+		}
+		else if (!_strnicmp(cbuf, "SWITCHRETRODELA", 15))
+		{
+			switchRetroDelay = atoi(cbuf + 15);
+		}
+		else if (!_strnicmp(cbuf, "SWITCHRETROATTI", 15))
+		{
+			switchRetroAttitude = atoi(cbuf + 15);
+		}
+		else if (!_strnicmp(cbuf, "SWITCHASCSMODE", 14))
+		{
+			switchASCSMode = atoi(cbuf + 14);
+		}
+		else if (!_strnicmp(cbuf, "SWITCHCONTRMODE", 15))
+		{
+			switchControlMode = atoi(cbuf + 15);
+		}
+		else if (!_strnicmp(cbuf, "THANDLEMANUAL", 13))
+		{
+			tHandleManualPushed = bool(atoi(cbuf + 13));
+		}
+		else if (!_strnicmp(cbuf, "THANDLEPITCH", 12))
+		{
+			tHandlePitchPushed = bool(atoi(cbuf + 12));
+		}
+		else if (!_strnicmp(cbuf, "THANDLEYAW", 10))
+		{
+			tHandleYawPushed = bool(atoi(cbuf + 10));
+		}
+		else if (!_strnicmp(cbuf, "THANDLEROLL", 11))
+		{
+			tHandleRollPushed = bool(atoi(cbuf + 11));
+		}
 		else ParseScenarioLineEx(cbuf, status);
 	}
 }
@@ -2707,16 +2826,7 @@ void ProjectMercury::LoadRocketTextureReplacement(void)
 
 void ProjectMercury::clbkSaveState(FILEHANDLE scn)
 {
-	bool attitudeFuelSwitched = false;
-	if (!attitudeFuelAuto) // switch back, so that the correct propellant is saved to scenario. If this check is not done, we risk manual and auto swapping for every current state load.
-	{
-		SwitchPropellantSource();
-		attitudeFuelSwitched = true;
-	}
-
 	VESSELVER::clbkSaveState(scn); // write default parameters (orbital elements etc.)
-
-	if (attitudeFuelSwitched) SwitchPropellantSource(); // Switch back to previous, as scenario may be saved during a running simulation. (Ctrl+S, StateSaver, ScenarioEditor...)
 
 	oapiWriteScenario_int(scn, "STATE", VesselStatus);
 
@@ -2745,6 +2855,17 @@ void ProjectMercury::clbkSaveState(FILEHANDLE scn)
 	{
 		oapiWriteScenario_string(scn, "HARDMODE", "");
 	}
+
+	oapiWriteScenario_int(scn, "SWITCHAUTRETJET", switchAutoRetroJet);
+	oapiWriteScenario_int(scn, "SWITCHRETRODELA", switchRetroDelay);
+	oapiWriteScenario_int(scn, "SWITCHRETROATTI", switchRetroAttitude);
+	oapiWriteScenario_int(scn, "SWITCHASCSMODE", switchASCSMode);
+	oapiWriteScenario_int(scn, "SWITCHCONTRMODE", switchControlMode);
+
+	oapiWriteScenario_int(scn, "THANDLEMANUAL", (int)tHandleManualPushed);
+	oapiWriteScenario_int(scn, "THANDLEPITCH", (int)tHandlePitchPushed);
+	oapiWriteScenario_int(scn, "THANDLEYAW", (int)tHandleYawPushed);
+	oapiWriteScenario_int(scn, "THANDLEROLL", (int)tHandleRollPushed);
 
 	int i = 0;
 	while (scenarioTextureUserEnable && i < numTextures)
@@ -2895,10 +3016,6 @@ bool ProjectMercury::SetNumberOfOrbits(char* rstr)
 
 void ProjectMercury::AtlasAutopilot(double simt, double simdt)
 {
-//	//// Debug
-//	if (pitchDataLogFile == NULL)
-//		pitchDataLogFile = oapiOpenFile("MA-6_PitchLog.txt", FILE_OUT, ROOT); // debug
-
 	SetADCtrlMode(0); // disable adc
 
 	double pitch = integratedPitch;
@@ -3023,18 +3140,30 @@ void ProjectMercury::AtlasAutopilot(double simt, double simdt)
 		}
 		else // not time acc, so use organic rocket mechanics
 		{
-			if (abs(currentAngAcc.x) < 0.75 * RAD && currentAngRate.x > pitchRate + 0.0005)
-			{
-				SetControlSurfaceLevel(AIRCTRL_ELEVATOR, -(currentAngRate.x * DEG * currentAngRate.x * DEG * ampFactor + ampAdder));
-			}
-			else if (abs(currentAngAcc.x) < 0.75 * RAD && currentAngRate.x < pitchRate - 0.0005) // hello Kuddel! Thanks a lot! https://www.orbiter-forum.com/showthread.php?p=606147&postcount=100
-			{
-				SetControlSurfaceLevel(AIRCTRL_ELEVATOR, (currentAngRate.x * DEG * currentAngRate.x * DEG * ampFactor + ampAdder));
-			}
-			else
-			{
-				SetControlSurfaceLevel(AIRCTRL_ELEVATOR, 0.0);
-			}
+
+			const double proportionalGainConstant = 3.0; // Kp
+			const double integralGainConstant = 0.0; // Ki
+			const double derivativeGainConstant = 0.0; // Kd
+			double PIDerror = pitchRate - currentAngRate.x; // setpoint - measured_value
+			PIDintegral += PIDerror * simdt; // integral + error * dt
+			double PIDderivative = (PIDerror - PIDpreviousError) / simdt;
+			double PIDoutput = proportionalGainConstant * PIDerror + integralGainConstant * PIDintegral + derivativeGainConstant * PIDderivative;
+			PIDpreviousError = PIDerror;
+
+			SetControlSurfaceLevel(AIRCTRL_ELEVATOR, PIDoutput);
+
+			//if (abs(currentAngAcc.x) < 0.75 * RAD && currentAngRate.x > pitchRate + 0.0005)
+			//{
+			//	SetControlSurfaceLevel(AIRCTRL_ELEVATOR, -(currentAngRate.x * DEG * currentAngRate.x * DEG * ampFactor + ampAdder));
+			//}
+			//else if (abs(currentAngAcc.x) < 0.75 * RAD && currentAngRate.x < pitchRate - 0.0005) // hello Kuddel! Thanks a lot! https://www.orbiter-forum.com/showthread.php?p=606147&postcount=100
+			//{
+			//	SetControlSurfaceLevel(AIRCTRL_ELEVATOR, (currentAngRate.x * DEG * currentAngRate.x * DEG * ampFactor + ampAdder));
+			//}
+			//else
+			//{
+			//	SetControlSurfaceLevel(AIRCTRL_ELEVATOR, 0.0);
+			//}
 		}
 
 		// Autopilot for heading. Either target an inclination or a specific position after N orbits
@@ -3087,18 +3216,30 @@ void ProjectMercury::AtlasAutopilot(double simt, double simdt)
 		}
 		else // not time acc, so use organic rocket mechanics
 		{
-			if (currentAngRate.y > yawRate + 0.0005)
-			{
-				SetControlSurfaceLevel(AIRCTRL_RUDDER, (currentAngRate.y * DEG * currentAngRate.y * DEG * ampFactor + ampAdder));
-			}
-			else if (currentAngRate.y < yawRate - 0.0005)
-			{
-				SetControlSurfaceLevel(AIRCTRL_RUDDER, -(currentAngRate.y * DEG * currentAngRate.y * DEG * ampFactor + ampAdder));
-			}
-			else
-			{
-				SetControlSurfaceLevel(AIRCTRL_RUDDER, 0.0);
-			}
+
+			const double proportionalGainConstant = 3.0; // Kp
+			const double integralGainConstant = 0.0; // Ki
+			const double derivativeGainConstant = 0.0; // Kd
+			double PIDerror = yawRate - currentAngRate.y; // setpoint - measured_value
+			PIDintegral += PIDerror * simdt; // integral + error * dt
+			double PIDderivative = (PIDerror - PIDpreviousError) / simdt;
+			double PIDoutput = proportionalGainConstant * PIDerror + integralGainConstant * PIDintegral + derivativeGainConstant * PIDderivative;
+			PIDpreviousError = PIDerror;
+
+			SetControlSurfaceLevel(AIRCTRL_RUDDER, -PIDoutput);
+
+			//if (currentAngRate.y > yawRate + 0.0005)
+			//{
+			//	SetControlSurfaceLevel(AIRCTRL_RUDDER, (currentAngRate.y * DEG * currentAngRate.y * DEG * ampFactor + ampAdder));
+			//}
+			//else if (currentAngRate.y < yawRate - 0.0005)
+			//{
+			//	SetControlSurfaceLevel(AIRCTRL_RUDDER, -(currentAngRate.y * DEG * currentAngRate.y * DEG * ampFactor + ampAdder));
+			//}
+			//else
+			//{
+			//	SetControlSurfaceLevel(AIRCTRL_RUDDER, 0.0);
+			//}
 		}
 
 		//currentYawAim = -targetSlipAngle; // the reading is flipped, nut sure why
@@ -3119,20 +3260,38 @@ void ProjectMercury::AtlasAutopilot(double simt, double simdt)
 		}
 		else // not time acc, so use organic rocket mechanics
 		{
-			if (abs(currentAngAcc.x) < 0.75 * RAD && currentAngRate.x > pitchRate + 0.0005)
-			{
-				//thrusterAngle = 0.00075;
-				SetControlSurfaceLevel(AIRCTRL_ELEVATOR, -(currentAngRate.x * DEG * currentAngRate.x * DEG * ampFactor + ampAdder));
-			}
-			else if (abs(currentAngAcc.x) < 0.75 * RAD && currentAngRate.x < pitchRate - 0.0005)
-			{
-				//thrusterAngle = -0.00075;
-				SetControlSurfaceLevel(AIRCTRL_ELEVATOR, (currentAngRate.x * DEG * currentAngRate.x * DEG * ampFactor + ampAdder));
-			}
-			else
-			{
-				SetControlSurfaceLevel(AIRCTRL_ELEVATOR, 0.0);
-			}
+
+			const double proportionalGainConstant = 3.0; // Kp
+			const double integralGainConstant = 1.0; // Ki
+			const double derivativeGainConstant = 0.0; // Kd
+			double PIDerror = pitchRate - currentAngRate.x; // setpoint - measured_value
+			PIDintegral += PIDerror * simdt; // integral + error * dt
+			double PIDderivative = (PIDerror - PIDpreviousError) / simdt;
+			double PIDoutput = proportionalGainConstant * PIDerror + integralGainConstant * PIDintegral + derivativeGainConstant * PIDderivative;
+			PIDpreviousError = PIDerror;
+
+			//if (PIDdebug == NULL) PIDdebug = oapiOpenFile("PIDdebug.txt", FILE_OUT);
+
+			//char PIDline[200];
+			//sprintf(PIDline, "%.4f\t%.4f\t%.4f\t%.4f\t%.4f\t%.4f", met, pitchRate * DEG, currentAngRate.x * DEG, PIDoutput, currentPitchAim, GetPitch() * DEG);
+			//if (!GroundContact()) oapiWriteLine(PIDdebug, PIDline);
+
+			SetControlSurfaceLevel(AIRCTRL_ELEVATOR, PIDoutput);
+
+			//if (abs(currentAngAcc.x) < 0.75 * RAD && currentAngRate.x > pitchRate + 0.0005)
+			//{
+			//	//thrusterAngle = 0.00075;
+			//	SetControlSurfaceLevel(AIRCTRL_ELEVATOR, -(currentAngRate.x * DEG * currentAngRate.x * DEG * ampFactor + ampAdder));
+			//}
+			//else if (abs(currentAngAcc.x) < 0.75 * RAD && currentAngRate.x < pitchRate - 0.0005)
+			//{
+			//	//thrusterAngle = -0.00075;
+			//	SetControlSurfaceLevel(AIRCTRL_ELEVATOR, (currentAngRate.x * DEG * currentAngRate.x * DEG * ampFactor + ampAdder));
+			//}
+			//else
+			//{
+			//	SetControlSurfaceLevel(AIRCTRL_ELEVATOR, 0.0);
+			//}
 		}
 	}
 	else if (met > 2.0) // roll program, time from 19930074071 page 54
@@ -3160,7 +3319,12 @@ void ProjectMercury::AtlasAutopilot(double simt, double simdt)
 		double targetRoll = initialHeading - targetHeading;
 		currentRollAim = targetRoll;
 
-		rollProgram = true; // is this doing anything?
+		if (!rollProgram)
+		{
+			PIDintegral = 0.0; // integral + error * dt
+			PIDpreviousError = 0.0;
+			rollProgram = true; // is this doing anything?
+		}
 
 		double rollRate;
 
@@ -3172,7 +3336,7 @@ void ProjectMercury::AtlasAutopilot(double simt, double simdt)
 		double lowLimit = 0.1;
 		double lowerLimit = 0.01;
 		double highRate = 4.0 * RAD;
-		double medRate = 2.0 * RAD;
+		double medRate = 4.0 * RAD;
 		double lowRate = 1.0 * RAD;
 		double lowerRate = 0.05 * RAD;
 
@@ -3203,7 +3367,19 @@ void ProjectMercury::AtlasAutopilot(double simt, double simdt)
 		VECTOR3 currentAngAcc;
 		GetAngularAcc(currentAngAcc);
 
-		if (abs(currentAngAcc.z) < 2.0 * RAD && currentAngRate.z > rollRate + 0.0005)
+		// PID control
+		const double proportionalGainConstant = 3.0; // Kp
+		const double integralGainConstant = 0.0; // Ki
+		const double derivativeGainConstant = 0.0; // Kd
+		double PIDerror = rollRate - currentAngRate.z; // setpoint − measured_value
+		PIDintegral += PIDerror * simdt; // integral + error * dt
+		double PIDderivative = (PIDerror - PIDpreviousError) / simdt;
+		double PIDoutput = proportionalGainConstant * PIDerror + integralGainConstant * PIDintegral + derivativeGainConstant * PIDderivative;
+		PIDpreviousError = PIDerror;
+
+		SetControlSurfaceLevel(AIRCTRL_AILERON, PIDoutput);
+
+		/*if (abs(currentAngAcc.z) < 2.0 * RAD && currentAngRate.z > rollRate + 0.0005)
 		{
 			SetControlSurfaceLevel(AIRCTRL_AILERON, -(currentAngRate.z * DEG * currentAngRate.z * DEG * ampFactor + ampAdder));
 		}
@@ -3214,7 +3390,7 @@ void ProjectMercury::AtlasAutopilot(double simt, double simdt)
 		else
 		{
 			SetControlSurfaceLevel(AIRCTRL_AILERON, 0.0);
-		}
+		}*/
 
 		// Check if roll program is finished
 		if (rollDiff < 0.1 && currentAngRate.z * DEG < 0.05)
@@ -3245,20 +3421,31 @@ void ProjectMercury::AtlasAutopilot(double simt, double simdt)
 		else
 			pitchRate = 0.0;
 
-		if (currentAngRate.x > pitchRate + 0.0005)
-		{
-			//thrusterAngle = 0.00075;
-			SetControlSurfaceLevel(AIRCTRL_ELEVATOR, -(currentAngRate.x * DEG * currentAngRate.x * DEG * ampFactor + ampAdder));
-		}
-		else if (currentAngRate.x < pitchRate - 0.0005)
-		{
-			//thrusterAngle = -0.00075;
-			SetControlSurfaceLevel(AIRCTRL_ELEVATOR, (currentAngRate.x * DEG * currentAngRate.x * DEG * ampFactor + ampAdder));
-		}
-		else
-		{
-			SetControlSurfaceLevel(AIRCTRL_ELEVATOR, 0.0);
-		}
+		const double proportionalGainConstant = 3.0; // Kp
+		const double integralGainConstant = 0.0; // Ki
+		const double derivativeGainConstant = 0.0; // Kd
+		double PIDerror = pitchRate - currentAngRate.x; // setpoint - measured_value
+		PIDintegral += PIDerror * simdt; // integral + error * dt
+		double PIDderivative = (PIDerror - PIDpreviousError) / simdt;
+		double PIDoutput = proportionalGainConstant * PIDerror + integralGainConstant * PIDintegral + derivativeGainConstant * PIDderivative;
+		PIDpreviousError = PIDerror;
+
+		SetControlSurfaceLevel(AIRCTRL_ELEVATOR, PIDoutput);
+
+		//if (currentAngRate.x > pitchRate + 0.0005)
+		//{
+		//	//thrusterAngle = 0.00075;
+		//	SetControlSurfaceLevel(AIRCTRL_ELEVATOR, -(currentAngRate.x * DEG * currentAngRate.x * DEG * ampFactor + ampAdder));
+		//}
+		//else if (currentAngRate.x < pitchRate - 0.0005)
+		//{
+		//	//thrusterAngle = -0.00075;
+		//	SetControlSurfaceLevel(AIRCTRL_ELEVATOR, (currentAngRate.x * DEG * currentAngRate.x * DEG * ampFactor + ampAdder));
+		//}
+		//else
+		//{
+		//	SetControlSurfaceLevel(AIRCTRL_ELEVATOR, 0.0);
+		//}
 	}
 
 	// Automatically null yaw
@@ -3280,20 +3467,32 @@ void ProjectMercury::AtlasAutopilot(double simt, double simdt)
 		}
 		else // not time acc, so use organic rocket mechanics
 		{
-			if (currentAngRate.y > yawRate + 0.0005)
-			{
-				//thrusterAngle = 0.00075;
-				SetControlSurfaceLevel(AIRCTRL_RUDDER, (currentAngRate.y * DEG * currentAngRate.y * DEG * ampFactor + ampAdder));
-			}
-			else if (currentAngRate.y < yawRate - 0.0005)
-			{
-				//thrusterAngle = -0.00075;
-				SetControlSurfaceLevel(AIRCTRL_RUDDER, -(currentAngRate.y * DEG * currentAngRate.y * DEG * ampFactor + ampAdder));
-			}
-			else
-			{
-				SetControlSurfaceLevel(AIRCTRL_RUDDER, 0.0);
-			}
+
+			const double proportionalGainConstant = 3.0; // Kp
+			const double integralGainConstant = 0.0; // Ki
+			const double derivativeGainConstant = 0.0; // Kd
+			double PIDerror = yawRate - currentAngRate.y; // setpoint - measured_value
+			PIDintegral += PIDerror * simdt; // integral + error * dt
+			double PIDderivative = (PIDerror - PIDpreviousError) / simdt;
+			double PIDoutput = proportionalGainConstant * PIDerror + integralGainConstant * PIDintegral + derivativeGainConstant * PIDderivative;
+			PIDpreviousError = PIDerror;
+
+			SetControlSurfaceLevel(AIRCTRL_RUDDER, -PIDoutput);
+
+			//if (currentAngRate.y > yawRate + 0.0005)
+			//{
+			//	//thrusterAngle = 0.00075;
+			//	SetControlSurfaceLevel(AIRCTRL_RUDDER, (currentAngRate.y * DEG * currentAngRate.y * DEG * ampFactor + ampAdder));
+			//}
+			//else if (currentAngRate.y < yawRate - 0.0005)
+			//{
+			//	//thrusterAngle = -0.00075;
+			//	SetControlSurfaceLevel(AIRCTRL_RUDDER, -(currentAngRate.y * DEG * currentAngRate.y * DEG * ampFactor + ampAdder));
+			//}
+			//else
+			//{
+			//	SetControlSurfaceLevel(AIRCTRL_RUDDER, 0.0);
+			//}
 		}
 	}
 
@@ -3332,9 +3531,9 @@ void ProjectMercury::AtlasAutopilot(double simt, double simdt)
 	}
 
 	//// Debug
-	/*char pitchLog[256];
-	sprintf(pitchLog, "%.3f\t%.3f", simt - launchTime, GetPitch() * DEG);
-	oapiWriteLine(pitchDataLogFile, pitchLog);*/
+	//char pitchLog[256];
+	//sprintf(pitchLog, "%.3f\t%.3f", simt - launchTime, GetPitch() * DEG);
+	//oapiWriteLine(pitchDataLogFile, pitchLog);
 }
 
 double ProjectMercury::PitchProgramAim(double met)
@@ -4046,14 +4245,10 @@ void ProjectMercury::SeparateTower(bool noAbortSep)
 	{
 		vs.fuel->idx = 1;
 		vs.fuel->level = 0.0;
-		abortDamping = true; // we have abort, so dampen any movement
+		AutopilotStatus = REENTRYATTITUDE;
+		//abortDamping = true; // we have abort, so dampen any movement
 
 		createdVessel[stuffCreated] = oapiCreateVesselEx(name, "ProjectMercury\\Mercury_Abort", &vs);
-	}
-
-	if (GetAltitude() > 5e4)
-	{
-		createdAbove50km[stuffCreated] = true;
 	}
 
 	stuffCreated += 1;
@@ -4110,8 +4305,6 @@ void ProjectMercury::SeparateAtlasBooster(bool noAbortSep)
 		strcat(name, " Atlas booster");
 
 		createdVessel[stuffCreated] = oapiCreateVesselEx(name, "ProjectMercury\\Mercury_atlas_booster", &vs);
-		if (GetAltitude() > 5e4)
-			createdAbove50km[stuffCreated] = true;
 		stuffCreated += 1;
 
 		char buff[256];
@@ -4237,8 +4430,6 @@ void ProjectMercury::SeparateAtlasCore(void)
 		DelMesh(AtlasBooster); // Remove booster mesh as we're in LAUNCH or TOWERSEP, and therefore had it attached
 	}
 
-	if (GetAltitude() > 5e4)
-		createdAbove50km[stuffCreated] = true;
 	stuffCreated += 1;
 
 	char buff[256];
@@ -4300,8 +4491,6 @@ void ProjectMercury::SeparateRingsAndAdapters(double offZ)
 	strcpy(name, GetName());
 	strcat(name, " Adapter Cover 1");
 	createdVessel[stuffCreated] = oapiCreateVesselEx(name, "ProjectMercury\\Mercury_AdaptCover1", &vs);
-	if (GetAltitude() > 5e4)
-		createdAbove50km[stuffCreated] = true;
 	stuffCreated += 1;
 	DelMesh(Adaptcover1);
 
@@ -4315,8 +4504,6 @@ void ProjectMercury::SeparateRingsAndAdapters(double offZ)
 	strcpy(name, GetName());
 	strcat(name, " Adapter Cover 2");
 	createdVessel[stuffCreated] = oapiCreateVesselEx(name, "ProjectMercury\\Mercury_AdaptCover2", &vs);
-	if (GetAltitude() > 5e4)
-		createdAbove50km[stuffCreated] = true;
 	stuffCreated += 1;
 	DelMesh(Adaptcover2);
 
@@ -4330,8 +4517,6 @@ void ProjectMercury::SeparateRingsAndAdapters(double offZ)
 	strcpy(name, GetName());
 	strcat(name, " Adapter Cover 3");
 	createdVessel[stuffCreated] = oapiCreateVesselEx(name, "ProjectMercury\\Mercury_AdaptCover3", &vs);
-	if (GetAltitude() > 5e4)
-		createdAbove50km[stuffCreated] = true;
 	stuffCreated += 1;
 	DelMesh(Adaptcover3);
 
@@ -4345,8 +4530,6 @@ void ProjectMercury::SeparateRingsAndAdapters(double offZ)
 	strcpy(name, GetName());
 	strcat(name, " Adapter Ring 1");
 	createdVessel[stuffCreated] = oapiCreateVesselEx(name, "ProjectMercury\\Mercury_AdaptRing1", &vs);
-	if (GetAltitude() > 5e4)
-		createdAbove50km[stuffCreated] = true;
 	stuffCreated += 1;
 	DelMesh(Adaptring1);
 
@@ -4360,8 +4543,6 @@ void ProjectMercury::SeparateRingsAndAdapters(double offZ)
 	strcpy(name, GetName());
 	strcat(name, " Adapter Ring 2");
 	createdVessel[stuffCreated] = oapiCreateVesselEx(name, "ProjectMercury\\Mercury_AdaptRing2", &vs);
-	if (GetAltitude() > 5e4)
-		createdAbove50km[stuffCreated] = true;
 	stuffCreated += 1;
 	DelMesh(Adaptring2);
 
@@ -4375,8 +4556,6 @@ void ProjectMercury::SeparateRingsAndAdapters(double offZ)
 	strcpy(name, GetName());
 	strcat(name, " Adapter Ring 3");
 	createdVessel[stuffCreated] = oapiCreateVesselEx(name, "ProjectMercury\\Mercury_AdaptRing3", &vs);
-	if (GetAltitude() > 5e4)
-		createdAbove50km[stuffCreated] = true;
 	stuffCreated += 1;
 	DelMesh(Adaptring3);
 
@@ -4411,8 +4590,6 @@ void ProjectMercury::SeparateConceptAdapter(void)
 		strcpy(name, GetName());
 		strcat(name, " Concept Adapter");
 		createdVessel[stuffCreated] = oapiCreateVesselEx(name, "ProjectMercury\\ConceptAdapter", &vs);
-		if (GetAltitude() > 5e4)
-			createdAbove50km[stuffCreated] = true;
 		stuffCreated += 1;
 
 		// Delete thrusters
@@ -4463,8 +4640,6 @@ void ProjectMercury::SeparateConceptCovers(void)
 	strcpy(name, GetName());
 	strcat(name, " Concept Cover 1");
 	createdVessel[stuffCreated] = oapiCreateVesselEx(name, "ProjectMercury\\ConceptCover1", &vs);
-	if (GetAltitude() > 5e4)
-		createdAbove50km[stuffCreated] = true;
 	stuffCreated += 1;
 
 	// Create cover vessel2
@@ -4476,8 +4651,6 @@ void ProjectMercury::SeparateConceptCovers(void)
 	strcpy(name, GetName());
 	strcat(name, " Concept Cover 2");
 	createdVessel[stuffCreated] = oapiCreateVesselEx(name, "ProjectMercury\\ConceptCover2", &vs);
-	if (GetAltitude() > 5e4)
-		createdAbove50km[stuffCreated] = true;
 	stuffCreated += 1;
 
 	// Update bool
@@ -4660,6 +4833,7 @@ inline void ProjectMercury::GetPanelRetroTimes(double met, int* rH, int* rM, int
 	if (retroStartTime != 0.0)
 	{
 		double metRetroTime = retroStartTime - 30.0 - launchTime; // -30 to account for retroseq to retroburn. -6.6 is empirical
+		if (switchRetroDelay == 1) metRetroTime += 30.0; // instentanious retro burn, so add 30 seconds back
 		double timeToRetro = metRetroTime - met;
 
 		if (metRetroTime > (100.0 * 3600.0 - 1.0)) metRetroTime = fmod(metRetroTime, 100.0 * 3600.0); // overflow
@@ -4763,6 +4937,7 @@ inline void ProjectMercury::GetPanelRetroTimes(double met, int* rH, int* rM, int
 		}
 
 		double metRetroTime = minAngDistTime - 30.0 + met - 6.6; // -30 to account for retroseq to retroburn. -6.6 is empirical, mostly from retroburn not being instantanious
+		if (switchRetroDelay == 1) metRetroTime += 30.0; // instentanious retro burn, so add 30 seconds back
 		double timeToRetro = metRetroTime - met;
 
 		if (metRetroTime > (100.0 * 3600.0 - 1.0)) metRetroTime = fmod(metRetroTime, 100.0 * 3600.0); // overflow

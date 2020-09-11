@@ -1,5 +1,3 @@
-//#include "MercuryAtlas\MercuryAtlas\MercuryAtlas.h"
-//#include "MercuryAtlas\MercuryAtlas\MercuryAtlas.h"
 #pragma once
 
 // ==============================================================
@@ -23,9 +21,16 @@ const VECTOR3 VC_FRAME_OFS = _V(0.0, -1.5, 5.0) + VC_INTERNAL_OFS;
 // Create panel ID's as enum, as we don't care about the value, only that it's an unique ID. This way, they get autoassigned in increasing order. We don't need any variable.
 const enum PANEL_ID { PANEL_ID_PERISCOPE_FILTER_SWITCH , PANEL_ID_LOAD_RESET, 
 PANEL_ID_TOWJET_BUTTON, PANEL_ID_CAPSEP_BUTTON, PANEL_ID_RETSEQ_BUTTON, PANEL_ID_RETJET_BUTTON, PANEL_ID_TIMZER_BUTTON,
-PANEL_ID_FUELSRC_SWITCH_L, PANEL_ID_FUELSRC_SWITCH_R, 
-PANEL_ID_AUTOSTATE_SWITCH_L, PANEL_ID_AUTOSTATE_SWITCH_R,
-PANEL_ID_THRUSTER_SWITCH_L, PANEL_ID_THRUSTER_SWITCH_R
+// Physical switches:
+PANEL_ID_AUTORETJET_SWITCH_L, PANEL_ID_AUTORETJET_SWITCH_R,
+PANEL_ID_RETDELAY_SWITCH_L, PANEL_ID_RETDELAY_SWITCH_R,
+PANEL_ID_RETATT_SWITCH_L, PANEL_ID_RETATT_SWITCH_R,
+PANEL_ID_ASCSMODE_SWITCH_L, PANEL_ID_ASCSMODE_SWITCH_R,
+PANEL_ID_CNTRLMODE_SWITCH_L, PANEL_ID_CNTRLMODE_SWITCH_R,
+// THandles:
+PANEL_ID_MANUAL_THANDLE, PANEL_ID_ROLL_THANDLE, PANEL_ID_YAW_THANDLE, PANEL_ID_PITCH_THANDLE,
+// Fireflies
+PANEL_ID_FIREFLY
 };
 
 //
@@ -64,8 +69,16 @@ bool ProjectMercury::clbkLoadPanel2D(int id, PANELHANDLE hPanel, DWORD viewW, DW
 	const int loadX = 190, loadY = 850;
 	const int butX = 45, towjetY = 150, capsepY = 240, retseqY = 330, retjetY = 600;
 	const int butRad = 30;
-	const int switchX = 2060, fuelsrcY = 100, autostateY = 200, thrusterY = 300;
-	const int switchW = 200, switchH = 100;
+	const int autRetJet[2] = { 2060, 100 };
+	const int retDel[2] = { 2060, 200 };
+	const int retAtt[2] = { 2060, 300 };
+	const int ASCSmde[2] = { 830, 1070 };
+	const int ctrlMde[2] = { 830, 1170 };
+	const int tHandleManual[2] = { 1330, 1140 };
+	const int tHandleRoll[2] = { 830, 1340 };
+	const int tHandleYaw[2] = { 1080, 1340 };
+	const int tHandlePitch[2] = { 1330, 1340 };
+	//const int switchX = 2060, fuelsrcY = 100, autostateY = 200, thrusterY = 300;
 
 	if (id == 1 && (VesselStatus != FLIGHT && VesselStatus != REENTRY && VesselStatus != REENTRYNODROGUE && !(VesselStatus == LAUNCH && GroundContact()))) // must be in capsule mode
 	{
@@ -122,13 +135,26 @@ bool ProjectMercury::clbkLoadPanel2D(int id, PANELHANDLE hPanel, DWORD viewW, DW
 		VersionDependentPanelClick(PANEL_ID_TIMZER_BUTTON, _R(1875 - butRad, 340 - butRad, 1875 + butRad, 340 + butRad), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN | PANEL_MOUSE_LBPRESSED, hPanel, _R(0, 0, 0, 0), NULL);
 
 		// Click to set swtiches. Left box and right box
-		VersionDependentPanelClick(PANEL_ID_FUELSRC_SWITCH_L, _R(switchX - switchW / 2, fuelsrcY - switchH / 2, switchX, fuelsrcY + switchH / 2), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN, hPanel, _R(0, 0, 0, 0), NULL);
-		VersionDependentPanelClick(PANEL_ID_FUELSRC_SWITCH_R, _R(switchX, fuelsrcY - switchH / 2, switchX + switchW / 2, fuelsrcY + switchH / 2), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN, hPanel, _R(0, 0, 0, 0), NULL);
-		VersionDependentPanelClick(PANEL_ID_AUTOSTATE_SWITCH_L, _R(switchX - switchW / 2, autostateY - switchH / 2, switchX, autostateY + switchH / 2), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN, hPanel, _R(0, 0, 0, 0), NULL);
-		VersionDependentPanelClick(PANEL_ID_AUTOSTATE_SWITCH_R, _R(switchX, autostateY - switchH / 2, switchX + switchW / 2, autostateY + switchH / 2), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN, hPanel, _R(0, 0, 0, 0), NULL);
+		CreatePanelSwitchClick(PANEL_ID_AUTORETJET_SWITCH_L, PANEL_ID_AUTORETJET_SWITCH_R, autRetJet[0], autRetJet[1], hPanel);
+		CreatePanelSwitchClick(PANEL_ID_RETDELAY_SWITCH_L, PANEL_ID_RETDELAY_SWITCH_R, retDel[0], retDel[1], hPanel);
+		CreatePanelSwitchClick(PANEL_ID_RETATT_SWITCH_L, PANEL_ID_RETATT_SWITCH_R, retAtt[0], retAtt[1], hPanel);
+		CreatePanelSwitchClick(PANEL_ID_ASCSMODE_SWITCH_L, PANEL_ID_ASCSMODE_SWITCH_R, ASCSmde[0], ASCSmde[1], hPanel);
+		CreatePanelSwitchClick(PANEL_ID_CNTRLMODE_SWITCH_L, PANEL_ID_CNTRLMODE_SWITCH_R, ctrlMde[0], ctrlMde[1], hPanel);
+		/*VersionDependentPanelClick(PANEL_ID_AUTORETJET_SWITCH_L, _R(autRetJet[0] - switchW / 2, autRetJet[1] - switchH / 2, autRetJet[0], autRetJet[1] + switchH / 2), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN, hPanel, _R(0, 0, 0, 0), NULL);
+		VersionDependentPanelClick(PANEL_ID_AUTORETJET_SWITCH_R, _R(autRetJet[0], autRetJet[1] - switchH / 2, autRetJet[0] + switchW / 2, autRetJet[1] + switchH / 2), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN, hPanel, _R(0, 0, 0, 0), NULL);
+		VersionDependentPanelClick(PANEL_ID_RETDELAY_SWITCH_L, _R(retDel[0] - switchW / 2, retDel[1] - switchH / 2, retDel[0], retDel[1] + switchH / 2), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN, hPanel, _R(0, 0, 0, 0), NULL);
+		VersionDependentPanelClick(PANEL_ID_RETDELAY_SWITCH_R, _R(retDel[0], retDel[1] - switchH / 2, retDel[0] + switchW / 2, retDel[1] + switchH / 2), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN, hPanel, _R(0, 0, 0, 0), NULL);
 		VersionDependentPanelClick(PANEL_ID_THRUSTER_SWITCH_L, _R(switchX - switchW / 2, thrusterY - switchH / 2, switchX, thrusterY + switchH / 2), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN, hPanel, _R(0, 0, 0, 0), NULL);
-		VersionDependentPanelClick(PANEL_ID_THRUSTER_SWITCH_R, _R(switchX, thrusterY - switchH / 2, switchX + switchW / 2, thrusterY + switchH / 2), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN, hPanel, _R(0, 0, 0, 0), NULL);
+		VersionDependentPanelClick(PANEL_ID_THRUSTER_SWITCH_R, _R(switchX, thrusterY - switchH / 2, switchX + switchW / 2, thrusterY + switchH / 2), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN, hPanel, _R(0, 0, 0, 0), NULL);*/
 
+		// Click left mouse to push, click right mouse to push, T handles
+		CreatePanelTHandleClick(PANEL_ID_MANUAL_THANDLE, tHandleManual[0], tHandleManual[1], hPanel);
+		CreatePanelTHandleClick(PANEL_ID_ROLL_THANDLE, tHandleRoll[0], tHandleRoll[1], hPanel);
+		CreatePanelTHandleClick(PANEL_ID_YAW_THANDLE, tHandleYaw[0], tHandleYaw[1], hPanel);
+		CreatePanelTHandleClick(PANEL_ID_PITCH_THANDLE, tHandlePitch[0], tHandlePitch[1], hPanel);
+
+		VersionDependentPanelClick(PANEL_ID_FIREFLY, _R(1080 - 250, 325 - 325, 1080 + 250, 325 + 325), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN, hPanel, _R(0, 0, 0, 0), NULL);
+		
 		return true; // always available
 	case 1: // periscope
 		if (VesselStatus != FLIGHT && VesselStatus != REENTRY && VesselStatus != REENTRYNODROGUE && !(VesselStatus == LAUNCH && GroundContact())) // must be in capsule mode
@@ -314,62 +340,108 @@ inline bool ProjectMercury::clbkPanelMouseEvent(int id, int event, int mx, int m
 
 		launchTime = simt; // Set this instant to T+0. Useful for when launching on a Fred18 Multistage booster, where we don't have contact with launcher.
 		return true;
-	case PANEL_ID_FUELSRC_SWITCH_L:
-		if (!attitudeFuelAuto) // if in man, switch to auto
+	case PANEL_ID_AUTORETJET_SWITCH_L:
+		if (switchAutoRetroJet == 1) // if in OFF, switch to ARM
+			switchAutoRetroJet = -1;
+		return true;
+	case PANEL_ID_AUTORETJET_SWITCH_R:
+		if (switchAutoRetroJet == -1) // if in ARM, switch to OFF
+			switchAutoRetroJet = 1;
+		return true;
+	case PANEL_ID_RETDELAY_SWITCH_L:
+		if (switchRetroDelay == 1) // if INST, then NORM
+			switchRetroDelay = -1;
+		return true;
+	case PANEL_ID_RETDELAY_SWITCH_R:
+		if (switchRetroDelay == -1) // if NORM, then INST
+			switchRetroDelay = 1;
+		return true;
+	case PANEL_ID_RETATT_SWITCH_L:
+		if (switchRetroAttitude == 1) // if MAN, then AUTO
+			switchRetroAttitude = -1;
+		return true;
+	case PANEL_ID_RETATT_SWITCH_R:
+		if (switchRetroAttitude == -1) // if AUTO, then MAN
+			switchRetroAttitude = 1;
+		return true;
+	case PANEL_ID_ASCSMODE_SWITCH_L:
+		if (switchASCSMode == 1) // if FLY BY WIRE, then AUX DAMP
+			switchASCSMode = 0;
+		else if (switchASCSMode == 0) // if AUX DAMP, then NORM
 		{
-			SwitchPropellantSource();
-		}
+			switchASCSMode = -1;
 
+			// Also set autopilotmode to high torque if in FLIGHT
+			if (VesselStatus == FLIGHT && AutopilotStatus != RETROATTITUDE) AutopilotStatus = TURNAROUND; // if in retroattitude, it's important that we stay there.
+		}
 		return true;
-	case PANEL_ID_FUELSRC_SWITCH_R:
-		if (attitudeFuelAuto) // if in auto, switch to man
+	case PANEL_ID_ASCSMODE_SWITCH_R:
+		if (switchASCSMode == -1) // if NORM, then AUX DAMP
+			switchASCSMode = 0;
+		else if (switchASCSMode == 0) // if AUX DAMP, then FLY BY WIRE
+			switchASCSMode = 1;
+		return true;
+	case PANEL_ID_CNTRLMODE_SWITCH_L:
+		if (switchControlMode == 1) // if RATE COMD, then AUTO
+			switchControlMode = -1;
+		return true;
+	case PANEL_ID_CNTRLMODE_SWITCH_R:
+		if (switchControlMode == -1) // if AUTO, then RATE COMD
+			switchControlMode = 1;
+		return true;
+	case PANEL_ID_MANUAL_THANDLE:
+		if (event == PANEL_MOUSE_RBDOWN || event == PANEL_MOUSE_RBPRESSED) // pull
+			tHandleManualPushed = false;
+		else if (event == PANEL_MOUSE_LBDOWN || event == PANEL_MOUSE_LBPRESSED) // push
+			tHandleManualPushed = true;
+		return true;
+	case PANEL_ID_ROLL_THANDLE:
+		if (event == PANEL_MOUSE_RBDOWN || event == PANEL_MOUSE_RBPRESSED) // pull
+			tHandleRollPushed = false;
+		else if (event == PANEL_MOUSE_LBDOWN || event == PANEL_MOUSE_LBPRESSED) // push
+			tHandleRollPushed = true;
+		return true;
+	case PANEL_ID_YAW_THANDLE:
+		if (event == PANEL_MOUSE_RBDOWN || event == PANEL_MOUSE_RBPRESSED) // pull
+			tHandleYawPushed = false;
+		else if (event == PANEL_MOUSE_LBDOWN || event == PANEL_MOUSE_LBPRESSED) // push
+			tHandleYawPushed = true;
+		return true;
+	case PANEL_ID_PITCH_THANDLE:
+		if (event == PANEL_MOUSE_RBDOWN || event == PANEL_MOUSE_RBPRESSED) // pull
+			tHandlePitchPushed = false;
+		else if (event == PANEL_MOUSE_LBDOWN || event == PANEL_MOUSE_LBPRESSED) // push
+			tHandlePitchPushed = true;
+		return true;
+	case PANEL_ID_FIREFLY:
+		if (event == PANEL_MOUSE_LBDOWN && oapiGetTimeAcceleration() <= 10.0)
 		{
-			SwitchPropellantSource();
+			OBJHANDLE earthHandle = oapiGetGbodyByName("Earth");
+			if (GetSurfaceRef() == earthHandle)
+			{
+				VECTOR3 earthPos, sunPos, sunVel;
+				GetRelativePos(earthHandle, earthPos);
+				GetRelativePos(oapiGetGbodyByIndex(0), sunPos); // Sun must be index 0.
+				double sunAngle = acos(dotp(earthPos, sunPos) / length(earthPos) / length(sunPos)) - PI05;
+				double horizonAngle = acos(oapiGetSize(earthHandle) / length(earthPos));
+
+				GetRelativeVel(oapiGetGbodyByIndex(0), sunVel);
+
+				double sunVelAngle = acos(dotp(sunPos, sunVel) / length(sunPos) / length(sunVel)); // due to flipped directions of vectors, the angle is 0 if going away, and PI if towards.
+
+				if (sunAngle + horizonAngle > 0.0 && sunAngle + horizonAngle < 5.0 * RAD && sunVelAngle > PI05) // sun is above horizon, but less than 5 degrees, so release fireflies
+				{
+					fireflyLevel = 1.0; // bang
+					fireflyBangTime = simt;
+					//sprintf(oapiDebugString(), "Bang. sunAng: %.2f\u00B0, horAng: %.2f\u00B0, sunHorAng: %.2f\u00B0", sunAngle * DEG, horizonAngle * DEG, (sunAngle + horizonAngle) * DEG);
+				}
+			}
 		}
-
-		return true;
-	case PANEL_ID_AUTOSTATE_SWITCH_L:
-		autoPilot = true;
-
-		if (VesselStatus == FLIGHT)
-		{
-			AutopilotStatus = TURNAROUND;
-		}
-		else if (VesselStatus == REENTRY)
-		{
-			AutopilotStatus = REENTRYATT;
-		}
-
-		return true;
-	case PANEL_ID_AUTOSTATE_SWITCH_R:
-		// Turn off autopilot
-		DisableAutopilot(true);
-		abortDamping = false;
-		engageFuelDump = false;
-
-		return true;
-	case PANEL_ID_THRUSTER_SWITCH_L:
-		if (RcsStatus == MANUAL) RcsStatus = AUTOHIGH;
-		else if (RcsStatus == AUTOLOW) RcsStatus = MANUAL;
-
-		if (VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE) SwitchAttitudeMode(); // need to have thruster groups defined prior
-
-		if (conceptManouverUnit && VesselStatus == FLIGHT) SetAttitudeMode(RCS_ROT);
-
-		return true;
-	case PANEL_ID_THRUSTER_SWITCH_R:
-		if (RcsStatus == MANUAL) RcsStatus = AUTOLOW;
-		else if (RcsStatus == AUTOHIGH) RcsStatus = MANUAL;
-
-		if (VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE) SwitchAttitudeMode(); // need to have thruster groups defined prior
-
-		if (conceptManouverUnit && VesselStatus == FLIGHT) SetAttitudeMode(RCS_ROT);
 
 		return true;
 	default:
 		return false;
 	}
-
 	return false;
 }
 
@@ -464,7 +536,23 @@ inline void ProjectMercury::SetPeriscopeAltitude(double inputAltitude)
 	}
 }
 
-// Fit the current panel mesh (1.5 ratio) to any screen ratio, by pushing elements to screen border
+inline void ProjectMercury::CreatePanelSwitchClick(int ID_L, int ID_R, int x, int y, PANELHANDLE hPanel)
+{
+	const int switchW = 200, switchH = 100;
+
+	VersionDependentPanelClick(ID_L, _R(x - switchW / 2, y - switchH / 2, x, y + switchH / 2), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN, hPanel, _R(0, 0, 0, 0), NULL);
+	VersionDependentPanelClick(ID_R, _R(x, y - switchH / 2, x + switchW / 2, y + switchH / 2), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN, hPanel, _R(0, 0, 0, 0), NULL);
+}
+
+inline void ProjectMercury::CreatePanelTHandleClick(int ID, int x, int y, PANELHANDLE hPanel)
+{
+	const int tHandleRad = 100;
+
+	VersionDependentPanelClick(ID, _R(x - tHandleRad, y - tHandleRad, x + tHandleRad, y + tHandleRad), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_RBDOWN | PANEL_MOUSE_RBPRESSED | PANEL_MOUSE_LBDOWN | PANEL_MOUSE_LBPRESSED, hPanel, _R(0, 0, 0, 0), NULL);
+}
+
+// Fit the current panel mesh (1.5 ratio) to any screen ratio, by pushing elements to screen border.
+// Well, that was a previous version. Now, it's simply recording group indecies.
 void ProjectMercury::FitPanelToScreen(int w, int h)
 {
 	// Get panel mesh information
@@ -522,7 +610,7 @@ void ProjectMercury::FitPanelToScreen(int w, int h)
 
 	// Edit mesh
 	double defaultScale = (double)h / 1440;
-	addScreenWidthValue =float((w / defaultScale - 2160.0) / 2.0); // add or subtract offset value
+	addScreenWidthValue = float((w / defaultScale - 2160.0) / 2.0); // add or subtract offset value
 	//for (int k = 0; k < totalGroupNumber; k++) // for every group
 	//{
 	//	GROUPEDITSPEC ges;
@@ -582,6 +670,16 @@ void ProjectMercury::FitPanelToScreen(int w, int h)
 
 inline void ProjectMercury::AnimateDials(void)
 {
+	bool includeLatency = true;
+	double simt = oapiGetSimTime();
+
+	if (simt - animateDialsPreviousSimt > 1.0)
+	{
+		includeLatency = false; // a relatively long time since last animation step, so force no latency to show current value. This is to omit the clock jumping around for every small periscope/F8-switch.
+
+		oapiWriteLogV("Panel simt: %.2f, prev: %.2f, diff: %.2f", simt, animateDialsPreviousSimt, simt - animateDialsPreviousSimt);
+	}
+
 	int idx = 0;
 
 	// positions:
@@ -590,12 +688,12 @@ inline void ProjectMercury::AnimateDials(void)
 	float descentPos[2] =	{525, 1290};
 	float altPos[2] =		{190, 1250};
 	float clockPos[2] =		{1820, 540};
-	float earthPos[2] = { 1820, 1140 };
+	float earthPos[2] =		{ 1820, 1140 };
 	float attitudeCenter[2] = { 1080, 800 };
 	float pitchPos[2] =		{attitudeCenter[0] + 250, attitudeCenter[1]};
 	float rollPos[2] =		{attitudeCenter[0] - 250, attitudeCenter[1]};
 	float yawPos[2] =		{attitudeCenter[0], attitudeCenter[1] + 270};
-	float attitudePos[2] = { attitudeCenter[0] - 1.0f, attitudeCenter[1] + 0.5f}; // additional small fixes to perfectly centre crosshairs.
+	float attitudePos[2] =	{ attitudeCenter[0] - 1.0f, attitudeCenter[1] + 0.5f}; // additional small fixes to perfectly centre crosshairs.
 
 	// Longitudinal acceleration
 	float load = float(longitudinalAcc / G);
@@ -613,11 +711,6 @@ inline void ProjectMercury::AnimateDials(void)
 	// Fuel
 	float fuelAuto = float(GetPropellantMass(fuel_auto) / MERCURY_FUEL_MASS_AUTO);
 	float fuelManual = float(GetPropellantMass(fuel_manual) / MERCURY_FUEL_MASS_MAN);
-	if (!attitudeFuelAuto) // swap (just how I've defined it)
-	{
-		fuelAuto = float(GetPropellantMass(fuel_manual) / MERCURY_FUEL_MASS_AUTO);
-		fuelManual = float(GetPropellantMass(fuel_auto) / MERCURY_FUEL_MASS_MAN);
-	}
 
 	// Fuel auto
 	RotateArmGroup(armGroups[idx], fuelPos[0] - 72, fuelPos[1], 60.0f, 8.0f, ValueToAngle(fuelAuto, 0.0f, 1.0f, 50.0f, -50.0f), 0.1f);
@@ -677,14 +770,17 @@ inline void ProjectMercury::AnimateDials(void)
 	float minute = float((decimal - floor(hour) / 24.0) * 1440.0);
 	float second = float((decimal - floor(hour) / 24.0 - floor(minute) / 1440.0) * 86400.0);
 
+	// But the second hand ticks 5 steps per second (https://youtu.be/YiVoc6oPZbI?t=81), so truncate seconds to steps of 0.2 (=1/5).
+	second = floor(second * 5.0f) / 5.0f;
+
 	// Clock hour
-	RotateArmGroup(armGroups[idx], clockPos[0] - 173, clockPos[1] - 116, 55.0f, 10.0f, ValueToAngle(hour, 0.0f, 24.0f, -90.0f, 270.0f), 0.7f, 0.0f, false); // Note that the hour dial did one revolution per day!
+	RotateArmGroup(armGroups[idx], clockPos[0] - 173, clockPos[1] - 116, 55.0f, 10.0f, ValueToAngle(hour, 0.0f, 24.0f, -90.0f, 270.0f), 0.7f, 0.0f, includeLatency); // Note that the hour dial did one revolution per day!
 	idx += 1;
 	// Clock minute
-	RotateArmGroup(armGroups[idx], clockPos[0] - 173, clockPos[1] - 116, 70.0f, 10.0f, ValueToAngle(minute, 0.0f, 60.0f, -90.0f, 270.0f), 0.8f, 0.0f, false);
+	RotateArmGroup(armGroups[idx], clockPos[0] - 173, clockPos[1] - 116, 70.0f, 10.0f, ValueToAngle(minute, 0.0f, 60.0f, -90.0f, 270.0f), 0.8f, 0.0f, includeLatency);
 	idx += 1;
 	// Clock second
-	RotateArmGroup(armGroups[idx], clockPos[0] - 173, clockPos[1] - 116, 110.0f, 3.0f, ValueToAngle(second, 0.0f, 60.0f, -90.0f, 270.0f), 0.95f, 0.0f, false);
+	RotateArmGroup(armGroups[idx], clockPos[0] - 173, clockPos[1] - 116, 110.0f, 3.0f, ValueToAngle(second, 0.0f, 60.0f, -90.0f, 270.0f), 0.95f, 0.0f, includeLatency);
 	idx += 1;
 
 	// Attitude rate
@@ -741,7 +837,6 @@ inline void ProjectMercury::AnimateDials(void)
 	RotateGlobe(5.0f, 60.0f, float(posLong), float(posLat), float(heading - PI05));
 
 	// Clock numerals
-	double simt = oapiGetSimTime();
 	double met = simt - launchTime;
 	double metFlow = met; // keep met unchanged, as it's used for retrotime
 	if (metFlow > (100.0 * 3600.0 - 1.0)) metFlow = fmod(metFlow, 100.0 * 3600.0); // overflow
@@ -784,6 +879,8 @@ inline void ProjectMercury::AnimateDials(void)
 	digitGrpNum += 2;
 
 	ChangeIndicatorStatus();
+
+	animateDialsPreviousSimt = simt;
 }
 
 inline void ProjectMercury::RotateArmGroup(int groupNum, float x0, float y0, float length, float width, float angleR, float pointiness, float negLength, bool includeLatency)
@@ -803,13 +900,13 @@ inline void ProjectMercury::RotateArmGroup(int groupNum, float x0, float y0, flo
 	if (includeLatency)
 	{
 		float simdt = (float)oapiGetSimStep();
-		if (abs(normangle(angleR - previousDialAngle[groupNum])) > simdt* dialAngularSpeed)
+		if (abs(normangle(angleR - previousDialAngle[groupNum])) > simdt * dialAngularSpeed)
 		{
 			float signDirection = (angleR - previousDialAngle[groupNum]) / abs(angleR - previousDialAngle[groupNum]);
 			angleR = previousDialAngle[groupNum] + simdt * dialAngularSpeed * signDirection;
 		}
-		previousDialAngle[groupNum] = angleR;
 	}
+	previousDialAngle[groupNum] = angleR; // save outside of the latency adding, as clock has dynamic latency, and thus always needs to be saved
 
 	float armInner0x = -negLength * cos(angleR) + width / 2.0f * sin(-angleR) + x0 + xTraOffset;
 	float armInner0y = -negLength * sin(angleR) + width / 2.0f * cos(angleR) + y0;
@@ -909,7 +1006,7 @@ inline void ProjectMercury::RotateGlobe(float angularResolution, float viewAngul
 				double pointLong = longitude0 + atan2(sin(dk * angResR + rotationAngle) * sin(ip1 * angResR) * cos(latitude0), cos(ip1 * angResR) - sin(latitude0) * sin(pointLat));
 
 				newVertex[idx].tu = float((fmod(pointLong + PI2, PI2)) / PI2 + 0.5) / 1.5f; // squeze by 1.5 as we now have a map covering 540 deg (3PI), and not 360 deg (2PI), and also add full rotation of Earth
-				newVertex[idx].tv = -pointLat / PI + 0.5; // latitude is normal
+				newVertex[idx].tv = float(-pointLat / PI + 0.5); // latitude is normal
 			}
 		}
 	}
@@ -934,7 +1031,7 @@ inline void ProjectMercury::RotateGlobe(float angularResolution, float viewAngul
 				double pointLong = longitude0 + atan2(sin(dk * angResR + rotationAngle) * sin(ip1 * angResR) * cos(latitude0), cos(ip1 * angResR) - sin(latitude0) * sin(pointLat));
 
 				newVertex[idx].tu = float(((fmod(pointLong + PI2, PI2) + PI2) / PI2) / 1.5 - 1.0/3.0); // squeze by 1.5 as we now have a map covering 540 deg (3PI), and not 360 deg (2PI), and also let flow over
-				newVertex[idx].tv = -pointLat / PI + 0.5; // latitude is normal
+				newVertex[idx].tv = float(-pointLat / PI + 0.5); // latitude is normal
 			}
 		}
 	}
@@ -959,7 +1056,7 @@ inline void ProjectMercury::RotateGlobe(float angularResolution, float viewAngul
 				double pointLong = longitude0 + atan2(sin(dk * angResR + rotationAngle) * sin(ip1 * angResR) * cos(latitude0), cos(ip1 * angResR) - sin(latitude0) * sin(pointLat));
 
 				newVertex[idx].tu = float((fmod(pointLong + PI * 3.0, PI2) - PI) / PI2 + 0.5) / 1.5f; // squeze by 1.5 as we now have a map covering 540 deg (3PI), and not 360 deg (2PI)
-				newVertex[idx].tv = -pointLat / PI + 0.5; // latitude is normal
+				newVertex[idx].tv = float(-pointLat / PI + 0.5); // latitude is normal
 			}
 		}
 	}
@@ -970,8 +1067,8 @@ inline void ProjectMercury::RotateGlobe(float angularResolution, float viewAngul
 
 inline void ProjectMercury::ChangePanelNumber(int group, int num)
 {
-	float digitToShow1 = int(num / 10); // 24 -> 2
-	float digitToShow2 = num - int(num / 10) * 10; // 24 -> 4
+	float digitToShow1 = float(int(num / 10)); // 24 -> 2
+	float digitToShow2 = float(num - int(num / 10) * 10); // 24 -> 4
 
 	GROUPEDITSPEC ges;
 	NTVERTEX newVertex[4]; // rectangle
@@ -1028,6 +1125,7 @@ inline void ProjectMercury::ChangeIndicatorStatus(void)
 	idx += 1;
 
 	// JETT TOWER
+	// JETT TOWER and SEP CAPSULE telelights seem to go out 5 minutes after capsule separation, according to MA6_FlightPlan2.pdf page 38. But have found no other source saying the same.
 	if (towerJettisoned) indicatorStatus[idx] = GREEN; // I don't implement any failures of tower sep, so don't implement any failure light. This may change when fuses are added
 	else indicatorStatus[idx] = GRAY;
 	if (indicatorStatus[idx] != previousIndicatorStatus[idx]) SetIndicatorStatus(idx, indicatorStatus[idx]);
@@ -1035,6 +1133,7 @@ inline void ProjectMercury::ChangeIndicatorStatus(void)
 	idx += 1;
 
 	// SEP CAPSULE
+	// JETT TOWER and SEP CAPSULE telelights seem to go out 5 minutes after capsule separation, according to MA6_FlightPlan2.pdf page 38. But have found no other source saying the same.
 	if (VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE || VesselStatus == ABORT || VesselStatus == ABORTNORETRO) indicatorStatus[idx] = GREEN;
 	else if (boosterShutdownTime == 0.0) indicatorStatus[idx] = GRAY; // time between shutdown and sep is red, so gray if not shutdown yet
 	else indicatorStatus[idx] = RED;
@@ -1119,11 +1218,11 @@ inline void ProjectMercury::ChangeIndicatorStatus(void)
 	// FUEL QUAN
 	double autoLevel = GetPropellantMass(fuel_auto) / MERCURY_FUEL_MASS_AUTO;
 	double manualLevel = GetPropellantMass(fuel_manual) / MERCURY_FUEL_MASS_MAN;
-	if (!attitudeFuelAuto) // swap (just how I've defined it)
-	{
-		autoLevel = GetPropellantMass(fuel_manual) / MERCURY_FUEL_MASS_AUTO;
-		manualLevel = GetPropellantMass(fuel_auto) / MERCURY_FUEL_MASS_MAN;
-	}
+	//if (!attitudeFuelAuto) // swap (just how I've defined it)
+	//{
+	//	autoLevel = GetPropellantMass(fuel_manual) / MERCURY_FUEL_MASS_AUTO;
+	//	manualLevel = GetPropellantMass(fuel_auto) / MERCURY_FUEL_MASS_MAN;
+	//}
 	// Old addon had limit 0.25. Familiarization manual says "The pressure swich is set to actuate at a pre-determined low fuel level".
 	// However, on MA-7 Carpenter said at 01 34 37: "Fuel is 62 and 68 %, ..., fuel quantity light is on".
 	// MA-6  flightOps manual notes under fuel dial: "65 % - minimum auto control fuel for retrograde and reentry". This is in agreeing with MA-7 communications.
@@ -1157,17 +1256,35 @@ inline void ProjectMercury::ChangeIndicatorStatus(void)
 
 	physicalSwitchFirstGroup = idx;
 	// Set all switch positions. Is switched every frame to the current relevant state
-	if (attitudeFuelAuto) SetPhysicalSwitchStatus(physicalSwitchFirstGroup + 0, -1);
-	else SetPhysicalSwitchStatus(physicalSwitchFirstGroup + 0, 1);
+	SetPhysicalSwitchStatus(physicalSwitchFirstGroup + 0, switchAutoRetroJet);
 	idx += 1;
 
-	if (autoPilot) SetPhysicalSwitchStatus(physicalSwitchFirstGroup + 1, -1);
-	else SetPhysicalSwitchStatus(physicalSwitchFirstGroup + 1, 1);
+	SetPhysicalSwitchStatus(physicalSwitchFirstGroup + 1, switchRetroDelay);
 	idx += 1;
 
-	if (RcsStatus == AUTOHIGH) SetPhysicalSwitchStatus(physicalSwitchFirstGroup + 2, -1);
-	else if (RcsStatus == MANUAL) SetPhysicalSwitchStatus(physicalSwitchFirstGroup + 2, 0);
-	else SetPhysicalSwitchStatus(physicalSwitchFirstGroup + 2, 1); // AUTOLOW
+	SetPhysicalSwitchStatus(physicalSwitchFirstGroup + 2, switchRetroAttitude);
+	idx += 1;
+
+	SetPhysicalSwitchStatus(physicalSwitchFirstGroup + 3, switchASCSMode);
+	idx += 1;
+
+	SetPhysicalSwitchStatus(physicalSwitchFirstGroup + 4, switchControlMode);
+	idx += 1;
+
+	// Then we have 8 labels which we skip.
+	idx += 8;
+
+	// And then the "T" handles.
+	SetTHandleState(abortIndicatorGroup + idx, tHandleManualPushed, 0);
+	idx += 1;
+
+	SetTHandleState(abortIndicatorGroup + idx, tHandleRollPushed, 1);
+	idx += 1;
+
+	SetTHandleState(abortIndicatorGroup + idx, tHandleYawPushed, 2);
+	idx += 1;
+
+	SetTHandleState(abortIndicatorGroup + idx, tHandlePitchPushed, 3);
 	idx += 1;
 }
 
@@ -1251,7 +1368,7 @@ inline void ProjectMercury::SetIndicatorButtonStatus(int buttonNr, int status)
 	ges.vIdx = vertexIndex;
 
 	// Source 256*256 px^2
-	float butRad = 0.2;
+	float butRad = 0.2f;
 	float butOfs = 57.0f / 256.0f;
 	float texX0 = 0.5f + float(status) * butOfs - butRad;
 	float texX1 = 0.5f + float(status) * butOfs + butRad;
@@ -1304,7 +1421,72 @@ inline void ProjectMercury::SetPhysicalSwitchStatus(int switchNr, int status)
 	ges.Vtx = newVertex;
 	oapiEditMeshGroup(cockpitPanelMesh, abortIndicatorGroup + switchNr, &ges);
 
-	physicalSwitchState[switchNr - physicalSwitchFirstGroup] = status;
+	//physicalSwitchState[switchNr - physicalSwitchFirstGroup] = status;
+}
+
+inline void ProjectMercury::SetTHandleState(int groupIdx, bool pushed, int handleNum)
+{
+	GROUPEDITSPEC ges;
+	NTVERTEX newVertex[4]; // verticies per group, 4 for rectangle
+
+	ges.flags = GRPEDIT_VTXTEXU | GRPEDIT_VTXTEXV; // edit both u and v coord
+
+	ges.nVtx = 4; // rectangle
+
+	// Create vertex idx array
+	WORD vertexIndex[4] = { 0, 1, 2, 3 };
+	ges.vIdx = vertexIndex;
+
+	// Source 1024*1024 px^2
+	float zoom = 0.9f;
+	if (!pushed) zoom *= 1.2f; // pulled towards pilot, so increase size
+
+	float imgX = 0.225f;
+	float imgY = 0.225f;
+	switch (handleNum)
+	{
+	case 0:
+		imgX = 0.5f - imgX + 0.05f;
+		imgY = 0.5f - imgY;
+		break;
+	case 1:
+		imgX = 0.5f - imgX + 0.05f;
+		imgY = 0.5f + imgY;
+		break;
+	case 2:
+		imgX = 0.5f + imgX + 0.05f;
+		imgY = 0.5f - imgY;
+		break;
+	case 3:
+		imgX = 0.5f + imgX + 0.05f;
+		imgY = 0.5f + imgY;
+		break;
+	default:
+		break;
+	}
+
+	/*float butWidth = 350.0f / 2048.0f;
+	float aspectRatio = 0.5f;
+	float butHeight = (350.0f * aspectRatio) / 1024.0f;
+	float switchOffset = 349.0f / 2048.0f;*/
+	float texX0 = imgX - 0.25f / zoom;
+	float texX1 = imgX + 0.25f / zoom;
+	float texY0 = imgY - 0.25f / zoom;
+	float texY1 = imgY + 0.25f / zoom;
+
+	newVertex[0].tu = texX0; newVertex[0].tv = texY0;
+	newVertex[1].tu = texX1; newVertex[1].tv = texY0;
+	newVertex[2].tu = texX0; newVertex[2].tv = texY1;
+	newVertex[3].tu = texX1; newVertex[3].tv = texY1;
+
+	// It seems like I have to do something here, or else Orbiter fails to correctly place vertices. So call a stupid function or something.
+	//double uselessValue = GetPitch();
+	//uselessValue *= GGRAV;
+
+	ges.Vtx = newVertex;
+	oapiEditMeshGroup(cockpitPanelMesh, groupIdx, &ges);
+
+	//physicalSwitchState[switchNr - physicalSwitchFirstGroup] = status;
 }
 
 inline void ProjectMercury::clbkFocusChanged(bool getfocus, OBJHANDLE hNewVessel, OBJHANDLE hOldVessel)

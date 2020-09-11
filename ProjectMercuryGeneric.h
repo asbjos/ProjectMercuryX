@@ -1,3 +1,4 @@
+#include "MercuryAtlas\MercuryAtlas\MercuryAtlas.h"
 #pragma once
 
 // ==============================================================
@@ -41,11 +42,11 @@ inline VECTOR3 ProjectMercury::SwapXY(VECTOR3 vIn)
 	return vOut;
 }
 
-inline double ProjectMercury::OrbitArea(double angle, double ecc)
-{
-	double AreaResult = (ecc * tan(angle / 2.0) / ((1.0 - ecc * ecc) * (ecc * tan(angle / 2.0) * tan(angle / 2.0) - tan(angle / 2.0) * tan(angle / 2.0) - ecc - 1.0)) - (-PI * floor(angle / PI2 + 0.5) + atan((ecc * tan(angle / 2.0) - tan(angle / 2.0)) / sqrt(1.0 - ecc * ecc))) / (sqrt(1 - ecc * ecc) * (1 - ecc * ecc)));
-	return AreaResult;
-}
+//inline double ProjectMercury::OrbitArea(double angle, double ecc)
+//{
+//	double AreaResult = (ecc * tan(angle / 2.0) / ((1.0 - ecc * ecc) * (ecc * tan(angle / 2.0) * tan(angle / 2.0) - tan(angle / 2.0) * tan(angle / 2.0) - ecc - 1.0)) - (-PI * floor(angle / PI2 + 0.5) + atan((ecc * tan(angle / 2.0) - tan(angle / 2.0)) / sqrt(1.0 - ecc * ecc))) / (sqrt(1 - ecc * ecc) * (1 - ecc * ecc)));
+//	return AreaResult;
+//}
 
 double ProjectMercury::OrbitalFrameSlipAngle(VECTOR3 pos, VECTOR3 vel)
 {
@@ -233,11 +234,8 @@ inline void ProjectMercury::DeleteRogueVessels(void)
 	// Delete created vessels that bounce off into infinity (hopefully this will reduce crashes). Maybe use this for Redstone too, although we don't do time acc there
 	for (int i = 0; i < stuffCreated; i++)
 	{
-		if (createdVessel[i] != NULL)
+		if (createdVessel[i] != NULL && oapiIsVessel(createdVessel[i]))
 		{
-			//VECTOR3 vesselPosition;
-			double vesselHeight;
-			oapiGetAltitude(createdVessel[i], &vesselHeight);
 			VECTOR3 vesselPosition;
 			GetRelativePos(createdVessel[i], vesselPosition);
 			double vesselDistance = length(vesselPosition);
@@ -252,18 +250,18 @@ inline void ProjectMercury::DeleteRogueVessels(void)
 				if (deleteResult)
 				{
 					char cbuf[256];
-					sprintf(cbuf, "Delete vessel %s due to distance %.2f km", vesselName, vesselHeight / 1000.0);
+					sprintf(cbuf, "Delete vessel %s due to distance %.2f km", vesselName, vesselDistance / 1000.0);
 					oapiWriteLog(cbuf);
 				}
 				else
 				{
 					char cbuf[256];
-					sprintf(cbuf, "Failed to delete vessel %s due to distance %.2f km", vesselName, vesselHeight / 1000.0);
+					sprintf(cbuf, "Failed to delete vessel %s due to distance %.2f km", vesselName, vesselDistance / 1000.0);
 					oapiWriteLog(cbuf);
 				}
 
 				createdVessel[i] = NULL;
-				createdAbove50km[i] = false;
+				//createdAbove50km[i] = false;
 			}
 		}
 	}

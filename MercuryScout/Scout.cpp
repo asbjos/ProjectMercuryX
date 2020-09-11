@@ -14,12 +14,12 @@
 
 #define STRICT
 #define ORBITER_MODULE
-#define VESSELVER VESSEL3
+#define VESSELVER VESSEL4
 
 #include "orbitersdk.h"
 
 #include "Scout.h"
-#include "..\FunctionsForOrbiter2010.h"
+#include "..\FunctionsForOrbiter2016.h"
 #include "..\ProjectMercuryGeneric.h"
 #include <time.h> // for seed in random function
 
@@ -381,14 +381,14 @@ void ProjectMercury::clbkPostStep(double simt, double simdt, double mjd)
 		integratedRoll += angvel.z * simdt;
 	}
 
-	if (!GroundContact() && stageShutdownTime[1] == NULL) // debug, pitchlog
-	{
-		if (pitchDataLogFile == NULL) pitchDataLogFile = oapiOpenFile("ScoutPitchLog.txt", FILE_OUT, ROOT); // debug
-		// Debug
-		char pitchLog[256];
-		sprintf(pitchLog, "%.3f\t%.3f", simt - launchTime, GetPitch() * DEG);
-		oapiWriteLine(pitchDataLogFile, pitchLog);
-	}
+	//if (!GroundContact() && stageShutdownTime[1] == NULL) // debug, pitchlog
+	//{
+	//	if (pitchDataLogFile == NULL) pitchDataLogFile = oapiOpenFile("ScoutPitchLog.txt", FILE_OUT, ROOT); // debug
+	//	// Debug
+	//	char pitchLog[256];
+	//	sprintf(pitchLog, "%.3f\t%.3f", simt - launchTime, GetPitch() * DEG);
+	//	oapiWriteLine(pitchDataLogFile, pitchLog);
+	//}
 
 	if (VesselStatus == STAGE1 && !autopilot) // not autopilot
 	{
@@ -1782,7 +1782,7 @@ DLLCLBK VESSEL* ovcInit(OBJHANDLE hvessel, int flightmodel)
 // --------------------------------------------------------------
 DLLCLBK void ovcExit(VESSEL* vessel)
 {
-	oapiCloseFile(pitchDataLogFile, FILE_OUT);
+	//oapiCloseFile(pitchDataLogFile, FILE_OUT);
 	if (vessel) delete (ProjectMercury*)vessel;
 }
 

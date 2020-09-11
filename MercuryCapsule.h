@@ -91,18 +91,12 @@ inline void ProjectMercury::DisableAutopilot(bool turnOff)
 	if (turnOff)
 	{
 		autoPilot = false;
-		abortDamping = false;
+		//abortDamping = false;
 	}
 
 	if (VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE) // RCS exists
 	{
-		if ((int)GetThrusterCount() < 18)
-		{
-			char cbuf[256];
-			sprintf(cbuf, "Won't disable autopilot, only has %i thrusters, i.e. no RCS created", (int)GetThrusterCount());
-			oapiWriteLog(cbuf);
-			return;
-		}
+		if (!rcsExists) return; // there are no RCS to disable
 
 		SetThrusterLevel(thruster_auto_py[0], 0.0);
 		SetThrusterLevel(thruster_auto_py[1], 0.0);
@@ -137,15 +131,8 @@ inline void ProjectMercury::DisableAutopilot(bool turnOff)
 void ProjectMercury::AuxDampingAuto(bool highThrust) // return number of active engines
 {
 	THRUSTER_HANDLE py0, py1, py2, py3, roll0, roll1;
-	double rateFactor = 1.0;
 
-	if ((int)GetThrusterCount() < 18)
-	{
-		char cbuf[256];
-		sprintf(cbuf, "Won't damp, only has %i thrusters, i.e. no RCS created", (int)GetThrusterCount());
-		oapiWriteLog(cbuf);
-		return;
-	}
+	if (!rcsExists) return; // no RCS, so not damping
 
 	if (highThrust)
 	{
@@ -164,120 +151,115 @@ void ProjectMercury::AuxDampingAuto(bool highThrust) // return number of active 
 		py3 = thruster_auto_py_1lb[3];
 		roll0 = thruster_auto_roll_1lb[0];
 		roll1 = thruster_auto_roll_1lb[1];
-		rateFactor = 0.1;
 	}
 
 	VECTOR3 angVel;
 	GetAngularVel(angVel);
 
-	double rateLimit = 0.5 * RAD;
+	const double rateLimit = 0.5 * RAD;
 
-	if (angVel.x > rateLimit)
-		SetThrusterLevel(py1, 1.0);
-	else
-		SetThrusterLevel(py1, 0.0);
+	if (tHandlePitchPushed)
+	{
+		if (angVel.x > rateLimit)
+			SetThrusterLevel(py1, 1.0);
+		else
+			SetThrusterLevel(py1, 0.0);
 
-	if (angVel.x < -rateLimit)
-		SetThrusterLevel(py0, 1.0);
+		if (angVel.x < -rateLimit)
+			SetThrusterLevel(py0, 1.0);
+		else
+			SetThrusterLevel(py0, 0.0);
+	}
 	else
-		SetThrusterLevel(py0, 0.0);
+	{
+		SetThrusterLevel(thruster_auto_py[0], 0.0);
+		SetThrusterLevel(thruster_auto_py[1], 0.0);
+		SetThrusterLevel(thruster_auto_py_1lb[0], 0.0);
+		SetThrusterLevel(thruster_auto_py_1lb[1], 0.0);
+	}
+	
+	if (tHandleYawPushed)
+	{
+		if (angVel.y > rateLimit)
+			SetThrusterLevel(py2, 1.0);
+		else
+			SetThrusterLevel(py2, 0.0);
 
-	if (angVel.y > rateLimit)
-		SetThrusterLevel(py2, 1.0);
+		if (angVel.y < -rateLimit)
+			SetThrusterLevel(py3, 1.0);
+		else
+			SetThrusterLevel(py3, 0.0);
+	}
 	else
-		SetThrusterLevel(py2, 0.0);
+	{
+		SetThrusterLevel(thruster_auto_py[2], 0.0);
+		SetThrusterLevel(thruster_auto_py[3], 0.0);
+		SetThrusterLevel(thruster_auto_py_1lb[2], 0.0);
+		SetThrusterLevel(thruster_auto_py_1lb[3], 0.0);
+	}
+	
+	if (tHandleRollPushed)
+	{
+		if (angVel.z > rateLimit)
+			SetThrusterLevel(roll1, 1.0);
+		else
+			SetThrusterLevel(roll1, 0.0);
 
-	if (angVel.y < -rateLimit)
-		SetThrusterLevel(py3, 1.0);
+		if (angVel.z < -rateLimit)
+			SetThrusterLevel(roll0, 1.0);
+		else
+			SetThrusterLevel(roll0, 0.0);
+	}
 	else
-		SetThrusterLevel(py3, 0.0);
-
-	if (angVel.z > rateLimit)
-		SetThrusterLevel(roll0, 1.0);
-	else
-		SetThrusterLevel(roll0, 0.0);
-
-	if (angVel.z < -rateLimit)
-		SetThrusterLevel(roll1, 1.0);
-	else
-		SetThrusterLevel(roll1, 0.0);
+	{
+		SetThrusterLevel(thruster_auto_roll[0], 0.0);
+		SetThrusterLevel(thruster_auto_roll[1], 0.0);
+		SetThrusterLevel(thruster_auto_roll_1lb[0], 0.0);
+		SetThrusterLevel(thruster_auto_roll_1lb[1], 0.0);
+	}
 }
 
-void ProjectMercury::RetroAttitudeAuto(double simt, double simdt, bool retroAtt) // finished
+void ProjectMercury::RetroAttitudeAuto(double simt, double simdt, bool highTorque) // finished
 {
-	bool highThrust = false;
-	if (oapiGetTimeAcceleration() < 1.5)
-		highThrust = true;
+	//bool highTorque = false;
 
-	if (autoPilot && oapiGetTimeAcceleration() < 15.0) // for high time acc things get unstable
+	if (oapiGetTimeAcceleration() < 15.0) // for high time acc things get unstable
 	{
 		bool result[3] = { false, false, false }; // If you want to log which attitudes are at target
 
-		if (retroAtt)
+		if (highTorque)
 		{
-			result[0] = SetPitchAuto(-34.0, highThrust);
-			result[1] = SetYawAuto(highThrust);
-			result[2] = SetRollAuto(highThrust);
+			result[0] = SetPitchAuto(-34.0, highTorque);
 		}
 		else
 		{
-			if (attitudeHold14deg)
-			{
-				result[0] = SetPitchAuto(-14.5, highThrust); // for periscope centering
-			}
-			else
-			{
-				result[0] = SetPitchAuto(-34.0, highThrust);
-			}
-
-			result[1] = SetYawAuto(highThrust);
-			result[2] = SetRollAuto(highThrust);
+			// Remember that highTorque here always will be false.
+			// But no. On MA-6, with lowTorque thruster failed, ASCS went into highTorque when passing more than 20 deg off-course
+			if (attitudeHold14deg) result[0] = SetPitchAuto(-14.5, highTorque); // for periscope centering
+			else result[0] = SetPitchAuto(-34.0, highTorque);
 		}
 
-		if (result[0] && result[1] && result[2] && (!attitudeHold14deg || retroAtt)) retroAttitude = true;
-		else retroAttitude = false;
+		result[1] = SetYawAuto(highTorque);
+		result[2] = SetRollAuto(highTorque);
+
+		if (result[0] && result[1] && result[2] && AutopilotStatus == TURNAROUND) AutopilotStatus = ORBITATTITUDE;
 	}
 	else // disable autopilot if time acc > 15x. This is especially needed for when flying two capsules, and forgetting that one has active attitude control.
 	{
 		DisableAutopilot(true); // eliminate stuck thrusters
 	}
-
 }
 
-bool ProjectMercury::SetPitchAuto(double targetPitch, bool highThrust)
+bool ProjectMercury::SetPitchAuto(double targetPitch, bool highTorque)
 {
-	THRUSTER_HANDLE py0, py1, py2, py3, roll0, roll1;
-	double rateFactor = 1.0;
-	bool returnValue = false;
-
-	if (highThrust)
-	{
-		py0 = thruster_auto_py[0];
-		py1 = thruster_auto_py[1];
-		py2 = thruster_auto_py[2];
-		py3 = thruster_auto_py[3];
-		roll0 = thruster_auto_roll[0];
-		roll1 = thruster_auto_roll[1];
-	}
-	else
-	{
-		py0 = thruster_auto_py_1lb[0];
-		py1 = thruster_auto_py_1lb[1];
-		py2 = thruster_auto_py_1lb[2];
-		py3 = thruster_auto_py_1lb[3];
-		roll0 = thruster_auto_roll_1lb[0];
-		roll1 = thruster_auto_roll_1lb[1];
-		rateFactor = 0.1;
-	}
-
 	VECTOR3 angVel;
 	GetAngularVel(angVel);
 	double pitch = normangle(GetPitch() + pitchOffset);
 	pitch -= targetPitch * RAD; // target pitch is -34 degrees, so that would give 0 deg if correct pitch
 	double autoVel = 0.0;
-	int sign = (pitch > 0) - (pitch < 0);
+	int sign = (pitch > 0.0) - (pitch < 0.0);
 	double lvlH, lvlL;
-	if (pitch > 0)
+	if (pitch > 0.0)
 	{
 		lvlH = 1.0;
 		lvlL = 0.0;
@@ -288,110 +270,113 @@ bool ProjectMercury::SetPitchAuto(double targetPitch, bool highThrust)
 		lvlL = 1.0;
 	}
 
-	int autoMode;
+	bool returnValue = false;
 
-	if (abs(pitch) > 1.0 * RAD)
+	// If hightorque, the regular ASCS functions, reducing attitude to +- 1 deg and +-0.5 deg/s.
+	// If lowTorque, the ASCS should be within +- 5.5 deg, and then moves at +- 0.05 deg/s
+
+	// If in lowTorque, but difference is more than 20 deg, highTorque is initiated (source: error on MA-6, 
+	// where lowTorque yaw thruster failed, and Glenn commented that it thus drifted to "about 20 deg", before
+	// highTorque pit him back on track)
+	// See ma-6-results.pdf page 169 (voice transcript at 01 33 52), and page 79 of same document .
+	if (!highTorque && abs(pitch) > 20.0 * RAD) AutopilotStatus = TURNAROUND;
+
+	if (highTorque)
+	{
+		if (abs(pitch) > 1.0 * RAD)
+		{
+			if (abs(pitch) > 5.5 * RAD)
+				autoVel = 10.0 * RAD;
+			else if (abs(pitch) > 3.0 * RAD)
+				autoVel = 2.0 * RAD;
+			else
+				autoVel = 0.5 * RAD;
+
+			if (sign * angVel.x > 0.0) // pitching away from target
+			{
+				SetThrusterLevel(thruster_auto_py[0], lvlL);
+				SetThrusterLevel(thruster_auto_py[1], lvlH);
+			}
+			else if (abs(angVel.x) < autoVel) // pitching towards target, and too slow
+			{
+				SetThrusterLevel(thruster_auto_py[0], lvlL);
+				SetThrusterLevel(thruster_auto_py[1], lvlH);
+			}
+			else // coast
+			{
+				SetThrusterLevel(thruster_auto_py[0], 0.0);
+				SetThrusterLevel(thruster_auto_py[1], 0.0);
+			}
+		}
+		else // Damp
+		{
+			if (angVel.x > 0.5 * RAD)
+			{
+				SetThrusterLevel(thruster_auto_py[0], lvlL);
+				SetThrusterLevel(thruster_auto_py[1], lvlH);
+			}
+			else if (angVel.x < -0.5 * RAD)
+			{
+				SetThrusterLevel(thruster_auto_py[0], lvlH);
+				SetThrusterLevel(thruster_auto_py[1], lvlL);
+			}
+			else
+			{
+				SetThrusterLevel(thruster_auto_py[0], 0.0);
+				SetThrusterLevel(thruster_auto_py[1], 0.0);
+				returnValue = true; // successfully attained desired attitude, and within rate limits
+			}
+		}
+	}
+	else // low torque
 	{
 		if (abs(pitch) > 5.5 * RAD)
 		{
-			autoVel = 10.0 * RAD * rateFactor;
+			if (sign * angVel.x > 0.0) // pitching away from target
+			{
+				SetThrusterLevel(thruster_auto_py_1lb[0], lvlL);
+				SetThrusterLevel(thruster_auto_py_1lb[1], lvlH);
+			}
+			else if (abs(angVel.x) < 0.05 * RAD) // pitching towards target, and too slow
+			{
+				SetThrusterLevel(thruster_auto_py_1lb[0], lvlL);
+				SetThrusterLevel(thruster_auto_py_1lb[1], lvlH);
+			}
+			else // coast
+			{
+				SetThrusterLevel(thruster_auto_py_1lb[0], 0.0);
+				SetThrusterLevel(thruster_auto_py_1lb[1], 0.0);
+			}
 		}
-		else if (abs(pitch) > 3.0 * RAD)
-		{
-			autoVel = 2.0 * RAD * rateFactor;
-		}
-		else
-		{
-			autoVel = 0.5 * RAD;
-			returnValue = true;
-		}
-
-		SetThrusterLevel(thruster_auto_py_1lb[0], 0.0); // UP
-		SetThrusterLevel(thruster_auto_py_1lb[1], 0.0); // DOWN ... or maybe opposite
-
-		if (sign * angVel.x > 0.0) // pitching away from target
-		{
-			SetThrusterLevel(py0, lvlL); // double check
-			SetThrusterLevel(py1, lvlH);
-			autoMode = 11;
-		}
-		else if (abs(angVel.x) < autoVel) // pitching towards target, and too slow
-		{
-			SetThrusterLevel(py0, lvlL);
-			SetThrusterLevel(py1, lvlH);
-			autoMode = 12;
-		}
-		else // coast
-		{
-			SetThrusterLevel(py0, 0.0);
-			SetThrusterLevel(py1, 0.0);
-			autoMode = 14;
-		}
-	}
-	else
-	{
-		returnValue = true;
-
-		SetThrusterLevel(py0, 0.0);
-		SetThrusterLevel(py1, 0.0);
-
-		// Damp
-		if (angVel.x > 0.5 * RAD)
-		{
-			SetThrusterLevel(thruster_auto_py_1lb[0], lvlL);
-			SetThrusterLevel(thruster_auto_py_1lb[1], lvlH);
-			autoMode = 21;
-		}
-		else if (angVel.x < -0.5 * RAD)
-		{
-			SetThrusterLevel(thruster_auto_py_1lb[0], lvlH);
-			SetThrusterLevel(thruster_auto_py_1lb[1], lvlL);
-			autoMode = 22;
-		}
-		else
+		else // Damp
 		{
 			SetThrusterLevel(thruster_auto_py_1lb[0], 0.0);
 			SetThrusterLevel(thruster_auto_py_1lb[1], 0.0);
-			autoMode = 23;
-			return true; // success
+			returnValue = true; // successfully attained desired attitude, and within rate limits
 		}
 	}
-	return returnValue;
+	
+
+	if (!tHandlePitchPushed) // must be activated to function
+	{
+		SetThrusterLevel(thruster_auto_py[0], 0.0);
+		SetThrusterLevel(thruster_auto_py[1], 0.0);
+		SetThrusterLevel(thruster_auto_py_1lb[0], 0.0);
+		SetThrusterLevel(thruster_auto_py_1lb[1], 0.0);
+	}
+	
+	return returnValue; // default false
 }
 
-bool ProjectMercury::SetYawAuto(bool highThrust)
+bool ProjectMercury::SetYawAuto(bool highTorque)
 {
-	THRUSTER_HANDLE py0, py1, py2, py3, roll0, roll1;
-	double rateFactor = 1.0;
-	bool returnValue = false;
-
-	if (highThrust)
-	{
-		py0 = thruster_auto_py[0];
-		py1 = thruster_auto_py[1];
-		py2 = thruster_auto_py[2];
-		py3 = thruster_auto_py[3];
-		roll0 = thruster_auto_roll[0];
-		roll1 = thruster_auto_roll[1];
-	}
-	else
-	{
-		py0 = thruster_auto_py_1lb[0];
-		py1 = thruster_auto_py_1lb[1];
-		py2 = thruster_auto_py_1lb[2];
-		py3 = thruster_auto_py_1lb[3];
-		roll0 = thruster_auto_roll_1lb[0];
-		roll1 = thruster_auto_roll_1lb[1];
-		rateFactor = 0.1;
-	}
-
 	VECTOR3 angVel;
 	GetAngularVel(angVel);
 	double yaw = normangle(GetSlipAngle() + yawOffset);
 	double autoVel = 0.0;
-	int sign = (yaw > 0) - (yaw < 0);
+	int sign = (yaw > 0.0) - (yaw < 0.0);
 	double lvlH, lvlL;
-	if (yaw > 0)
+	if (yaw > 0.0)
 	{
 		lvlH = 1.0;
 		lvlL = 0.0;
@@ -402,110 +387,111 @@ bool ProjectMercury::SetYawAuto(bool highThrust)
 		lvlL = 1.0;
 	}
 
-	int autoMode;
+	bool returnValue = false;
 
-	if (abs(yaw) < 179.0 * RAD)
+	// If in lowTorque, but difference is more than 20 deg, highTorque is initiated (source: error on MA-6, 
+	// where lowTorque yaw thruster failed, and Glenn commented that it thus drifted to "about 20 deg", before
+	// highTorque pit him back on track)
+	// See ma-6-results.pdf page 169 (voice transcript at 01 33 52), and page 79 of same document .
+	if (!highTorque && abs(yaw) < 160.0 * RAD) AutopilotStatus = TURNAROUND;
+
+	if (highTorque)
+	{
+		if (abs(yaw) < 179.0 * RAD)
+		{
+			if (abs(yaw) < 174.5 * RAD)
+				autoVel = 10.0 * RAD;
+			else if (abs(yaw) < 177.0 * RAD)
+				autoVel = 2.0 * RAD;
+			else
+				autoVel = 0.5 * RAD;
+
+			if (sign * angVel.y > 0.0) // yawing away from target
+			{
+				SetThrusterLevel(thruster_auto_py[2], lvlH);
+				SetThrusterLevel(thruster_auto_py[3], lvlL);
+			}
+			else if (abs(angVel.y) < autoVel) // yawing towards target, and too slow
+			{
+				SetThrusterLevel(thruster_auto_py[2], lvlH);
+				SetThrusterLevel(thruster_auto_py[3], lvlL);
+			}
+			else // coast
+			{
+				SetThrusterLevel(thruster_auto_py[2], 0.0);
+				SetThrusterLevel(thruster_auto_py[3], 0.0);
+			}
+		}
+		else
+		{
+			if (angVel.y > 0.5 * RAD)
+			{
+				SetThrusterLevel(thruster_auto_py[2], lvlH); // RIGHT
+				SetThrusterLevel(thruster_auto_py[3], lvlL); // LEFT
+			}
+			else if (angVel.y < -0.5 * RAD)
+			{
+				SetThrusterLevel(thruster_auto_py[2], lvlL); // RIGHT
+				SetThrusterLevel(thruster_auto_py[3], lvlH); // LEFT
+			}
+			else
+			{
+				SetThrusterLevel(thruster_auto_py[2], 0.0); // RIGHT
+				SetThrusterLevel(thruster_auto_py[3], 0.0); // LEFT
+				returnValue = true; // success
+			}
+		}
+	}
+	else // Low torque.
 	{
 		if (abs(yaw) < 174.5 * RAD)
 		{
-			autoVel = 10.0 * RAD * rateFactor;
+			if (sign * angVel.y > 0.0) // yawing away from target
+			{
+				SetThrusterLevel(thruster_auto_py_1lb[2], lvlH);
+				SetThrusterLevel(thruster_auto_py_1lb[3], lvlL);
+			}
+			else if (abs(angVel.y) < 0.05 * RAD) // yawing towards target, and too slow
+			{
+				SetThrusterLevel(thruster_auto_py_1lb[2], lvlH);
+				SetThrusterLevel(thruster_auto_py_1lb[3], lvlL);
+			}
+			else // coast
+			{
+				SetThrusterLevel(thruster_auto_py_1lb[2], 0.0);
+				SetThrusterLevel(thruster_auto_py_1lb[3], 0.0);
+			}
 		}
-		else if (abs(yaw) < 177.0 * RAD)
-		{
-			autoVel = 2.0 * RAD * rateFactor;
-		}
-		else
-		{
-			returnValue = true;
-			autoVel = 0.5 * RAD;
-		}
-
-		SetThrusterLevel(thruster_auto_py_1lb[2], 0.0); // RIGHT
-		SetThrusterLevel(thruster_auto_py_1lb[3], 0.0); // LEFT ... or maybe opposite
-
-		if (sign * angVel.y > 0.0) // yawing away from target
-		{
-			SetThrusterLevel(py2, lvlH); // double check
-			SetThrusterLevel(py3, lvlL);
-			autoMode = 11;
-		}
-		else if (abs(angVel.y) < autoVel) // yawing towards target, and too slow
-		{
-			SetThrusterLevel(py2, lvlH);
-			SetThrusterLevel(py3, lvlL);
-			autoMode = 12;
-		}
-		else // coast
-		{
-			SetThrusterLevel(py2, 0.0);
-			SetThrusterLevel(py3, 0.0);
-			autoMode = 14;
-		}
-	}
-	else
-	{
-		returnValue = true;
-
-		SetThrusterLevel(py2, 0.0);
-		SetThrusterLevel(py3, 0.0);
-
-		if (angVel.y > 0.5 * RAD)
-		{
-			SetThrusterLevel(thruster_auto_py_1lb[2], lvlH); // RIGHT
-			SetThrusterLevel(thruster_auto_py_1lb[3], lvlL); // LEFT
-			autoMode = 21;
-		}
-		else if (angVel.y < -0.5 * RAD)
-		{
-			SetThrusterLevel(thruster_auto_py_1lb[2], lvlL); // RIGHT
-			SetThrusterLevel(thruster_auto_py_1lb[3], lvlH); // LEFT
-			autoMode = 22;
-		}
-		else
+		else // Damp
 		{
 			SetThrusterLevel(thruster_auto_py_1lb[2], 0.0); // RIGHT
 			SetThrusterLevel(thruster_auto_py_1lb[3], 0.0); // LEFT
-			autoMode = 23;
-			return true; // success
+			returnValue = true; // success
 		}
 	}
-	return returnValue;
+	
+
+	if (!tHandleYawPushed) // must be activated to function
+	{
+		SetThrusterLevel(thruster_auto_py[2], 0.0); // RIGHT
+		SetThrusterLevel(thruster_auto_py[3], 0.0); // LEFT
+		SetThrusterLevel(thruster_auto_py_1lb[2], 0.0); // RIGHT
+		SetThrusterLevel(thruster_auto_py_1lb[3], 0.0); // LEFT
+	}
+
+	return returnValue; // default false;
 }
 
-bool ProjectMercury::SetRollAuto(bool highThrust)
+bool ProjectMercury::SetRollAuto(bool highTorque)
 {
-	THRUSTER_HANDLE py0, py1, py2, py3, roll0, roll1;
-	double rateFactor = 1.0;
-	bool returnValue = false;
-
-	if (highThrust)
-	{
-		py0 = thruster_auto_py[0];
-		py1 = thruster_auto_py[1];
-		py2 = thruster_auto_py[2];
-		py3 = thruster_auto_py[3];
-		roll0 = thruster_auto_roll[0];
-		roll1 = thruster_auto_roll[1];
-	}
-	else
-	{
-		py0 = thruster_auto_py_1lb[0];
-		py1 = thruster_auto_py_1lb[1];
-		py2 = thruster_auto_py_1lb[2];
-		py3 = thruster_auto_py_1lb[3];
-		roll0 = thruster_auto_roll_1lb[0];
-		roll1 = thruster_auto_roll_1lb[1];
-		rateFactor = 0.1;
-	}
-
 	VECTOR3 angVel;
 	GetAngularVel(angVel);
 	angVel.z *= -1.0; // WARNING: ORBITER IS LEFT-HANDED, SO WE HAVE TO FLIP THE SIGN FOR ANGVELZ
 	double roll = normangle(GetBank() + rollOffset);
 	double autoVel = 0.0;
-	int sign = (roll > 0) - (roll < 0);
+	int sign = (roll > 0.0) - (roll < 0.0);
 	double lvlH, lvlL;
-	if (roll > 0)
+	if (roll > 0.0)
 	{
 		lvlH = 1.0;
 		lvlL = 0.0;
@@ -516,98 +502,122 @@ bool ProjectMercury::SetRollAuto(bool highThrust)
 		lvlL = 1.0;
 	}
 
-	int autoMode;
+	bool returnValue = false;
 
-	if (abs(roll) > 0.5 * RAD)
+	// If in lowTorque, but difference is more than 20 deg, highTorque is initiated (source: error on MA-6, 
+	// where lowTorque yaw thruster failed, and Glenn commented that it thus drifted to "about 20 deg", before
+	// highTorque pit him back on track)
+	// See ma-6-results.pdf page 169 (voice transcript at 01 33 52), and page 79 of same document .
+	if (!highTorque && abs(roll) > 20.0 * RAD) AutopilotStatus = TURNAROUND;
+
+	if (highTorque)
 	{
-		if (abs(roll) > 5.5 * RAD)
+		if (abs(roll) > 0.5 * RAD)
 		{
-			autoVel = 10.0 / 4.0 * RAD * rateFactor; // divided by 4 as roll is a fourth of the power of yaw/pitch
-		}
-		else if (abs(roll) > 3.0 * RAD)
-		{
-			autoVel = 2.0 / 4.0 * RAD * rateFactor; // divided by 4 as roll is a fourth of the power of yaw/pitch
+			if (abs(roll) > 5.5 * RAD)
+				autoVel = 10.0 / 4.0 * RAD; // divided by 4 as roll is a fourth of the power of yaw/pitch
+			else if (abs(roll) > 3.0 * RAD)
+				autoVel = 2.0 / 4.0 * RAD; // divided by 4 as roll is a fourth of the power of yaw/pitch
+			else
+				autoVel = 0.5 * RAD;
+
+			if (sign * angVel.z > 0.0) // rolling away from target
+			{
+				SetThrusterLevel(thruster_auto_roll[0], lvlH);
+				SetThrusterLevel(thruster_auto_roll[1], lvlL);
+			}
+			else if (abs(angVel.z) < autoVel) // rolling towards target, and too slow
+			{
+				SetThrusterLevel(thruster_auto_roll[0], lvlH);
+				SetThrusterLevel(thruster_auto_roll[1], lvlL);
+			}
+			else // coast
+			{
+				SetThrusterLevel(thruster_auto_roll[0], 0.0);
+				SetThrusterLevel(thruster_auto_roll[1], 0.0);
+			}
 		}
 		else
 		{
-			returnValue = true;
-			autoVel = 0.5 * RAD;
-		}
-
-		SetThrusterLevel(thruster_auto_roll_1lb[0], 0.0); // ROLL RIGHT
-		SetThrusterLevel(thruster_auto_roll_1lb[1], 0.0); // ROLL LEFT ... or maybe opposite
-
-		if (sign * angVel.z > 0.0) // rolling away from target
-		{
-			SetThrusterLevel(roll0, lvlH); // double check
-			SetThrusterLevel(roll1, lvlL);
-			autoMode = 11;
-		}
-		else if (abs(angVel.z) < autoVel) // rolling towards target, and too slow
-		{
-			SetThrusterLevel(roll0, lvlH);
-			SetThrusterLevel(roll1, lvlL);
-			autoMode = 12;
-		}
-		else // coast
-		{
-			SetThrusterLevel(roll0, 0.0);
-			SetThrusterLevel(roll1, 0.0);
-			autoMode = 14;
+			if (angVel.z > 0.5 * RAD)
+			{
+				SetThrusterLevel(thruster_auto_roll[0], lvlH);
+				SetThrusterLevel(thruster_auto_roll[1], lvlL);
+			}
+			else if (angVel.z < -0.5 * RAD)
+			{
+				SetThrusterLevel(thruster_auto_roll[0], lvlL);
+				SetThrusterLevel(thruster_auto_roll[1], lvlH);
+			}
+			else
+			{
+				SetThrusterLevel(thruster_auto_roll[0], 0.0);
+				SetThrusterLevel(thruster_auto_roll[1], 0.0);
+				returnValue = true; // success
+			}
 		}
 	}
-	else
+	else // Low torque
 	{
-		returnValue = true;
-
-		SetThrusterLevel(roll0, 0.0);
-		SetThrusterLevel(roll1, 0.0);
-
-		if (angVel.z > 0.5 * RAD)
+		if (abs(roll) > 5.5 * RAD)
 		{
-			SetThrusterLevel(thruster_auto_roll_1lb[0], lvlH);
-			SetThrusterLevel(thruster_auto_roll_1lb[1], lvlL);
-			autoMode = 21;
-		}
-		else if (angVel.z < -0.5 * RAD)
-		{
-			SetThrusterLevel(thruster_auto_roll_1lb[0], lvlL);
-			SetThrusterLevel(thruster_auto_roll_1lb[1], lvlH);
-			autoMode = 22;
+			if (sign * angVel.z > 0.0) // rolling away from target
+			{
+				SetThrusterLevel(thruster_auto_roll_1lb[0], lvlH);
+				SetThrusterLevel(thruster_auto_roll_1lb[1], lvlL);
+			}
+			else if (abs(angVel.z) < 0.05 * RAD) // rolling towards target, and too slow
+			{
+				SetThrusterLevel(thruster_auto_roll_1lb[0], lvlH);
+				SetThrusterLevel(thruster_auto_roll_1lb[1], lvlL);
+			}
+			else // coast
+			{
+				SetThrusterLevel(thruster_auto_roll_1lb[0], 0.0);
+				SetThrusterLevel(thruster_auto_roll_1lb[1], 0.0);
+			}
 		}
 		else
 		{
 			SetThrusterLevel(thruster_auto_roll_1lb[0], 0.0);
 			SetThrusterLevel(thruster_auto_roll_1lb[1], 0.0);
-			autoMode = 23;
-			return true; // success
+			returnValue = true; // success
 		}
 	}
-	return returnValue;
+
+	if (!tHandleRollPushed) // must be activated to function
+	{
+		SetThrusterLevel(thruster_auto_roll[0], 0.0);
+		SetThrusterLevel(thruster_auto_roll[1], 0.0);
+		SetThrusterLevel(thruster_auto_roll_1lb[0], 0.0);
+		SetThrusterLevel(thruster_auto_roll_1lb[1], 0.0);
+	}
+
+	return returnValue; // default false
 }
 
 void ProjectMercury::ReentryAttitudeAuto(double simt, double simdt)
 {
-	bool highThrust = false;
+	bool highTorque = true; // always high torque ...
 
-	if (oapiGetTimeAcceleration() < 1.5)
+	if (oapiGetTimeAcceleration() >= 2.0) // ... unless in TimeAcc
 	{
-		highThrust = true;
+		highTorque = false;
 	}
 
-	if (autoPilot && oapiGetTimeAcceleration() < 15.0) // for high time acc things get unstable
+	if (oapiGetTimeAcceleration() < 15.0) // for high time acc things get unstable
 	{
 		if (suborbitalMission) // Do suborbital reentry attitude (40 deg pitch)
 		{
-			SetPitchAuto(40.0, highThrust);
-			SetYawAuto(highThrust);
-			SetRollAuto(highThrust);
+			SetPitchAuto(40.0, highTorque);
+			SetYawAuto(highTorque);
+			SetRollAuto(highTorque);
 		}
 		else // Do orbital reentry attitude (1.5 degree pitch)
 		{
-			SetPitchAuto(1.5, highThrust);
-			SetYawAuto(highThrust);
-			SetRollAuto(highThrust);
+			SetPitchAuto(1.5, highTorque);
+			SetYawAuto(highTorque);
+			SetRollAuto(highTorque);
 		}
 	}
 	else
@@ -622,12 +632,12 @@ void ProjectMercury::GRollAuto(double simt, double simdt)
 	GetAngularVel(angVel);
 
 	// Roll between 10 and 12 deg/s
-	if (angVel.z > 12.0 * RAD)
+	if (angVel.z > 12.0 * RAD && tHandleRollPushed)
 	{
 		SetThrusterLevel(thruster_auto_roll[1], 1.0);
 		SetThrusterLevel(thruster_auto_roll[0], 0.0); // ensure not stuck
 	}
-	else if (angVel.z < 10.0 * RAD)
+	else if (angVel.z < 10.0 * RAD && tHandleRollPushed)
 	{
 		SetThrusterLevel(thruster_auto_roll[0], 1.0);
 		SetThrusterLevel(thruster_auto_roll[1], 0.0); // ensure not stuck
@@ -639,22 +649,22 @@ void ProjectMercury::GRollAuto(double simt, double simdt)
 	}
 
 	// Dampen pitch and yaw to 2 deg/s each
-	if (angVel.x > 2.0 * RAD)
+	if (angVel.x > 2.0 * RAD && tHandlePitchPushed)
 		SetThrusterLevel(thruster_auto_py[1], 1.0);
 	else
 		SetThrusterLevel(thruster_auto_py[1], 0.0);
 
-	if (angVel.x < -2.0 * RAD)
+	if (angVel.x < -2.0 * RAD && tHandlePitchPushed)
 		SetThrusterLevel(thruster_auto_py[0], 1.0);
 	else
 		SetThrusterLevel(thruster_auto_py[0], 0.0);
 
-	if (angVel.y > 2.0 * RAD)
+	if (angVel.y > 2.0 * RAD && tHandleYawPushed)
 		SetThrusterLevel(thruster_auto_py[2], 1.0);
 	else
 		SetThrusterLevel(thruster_auto_py[2], 0.0);
 
-	if (angVel.y < -2.0 * RAD)
+	if (angVel.y < -2.0 * RAD && tHandleYawPushed)
 		SetThrusterLevel(thruster_auto_py[3], 1.0);
 	else
 		SetThrusterLevel(thruster_auto_py[3], 0.0);
@@ -663,14 +673,38 @@ void ProjectMercury::GRollAuto(double simt, double simdt)
 inline void ProjectMercury::InitiateRetroSequence(void)
 {
 	engageRetro = true;
-	retroStartTime = oapiGetSimTime() + 30.0; // retrosequence starts 30 sec before firing
+	if (switchRetroDelay == -1) retroStartTime = oapiGetSimTime() + 30.0; // retrosequence starts 30 sec before firing
+	else if (switchRetroDelay == 1) retroStartTime = oapiGetSimTime(); // start retrosequence immediately
 	//char cbuf[256];
 	//sprintf(cbuf, "Retrosequence initiated at T+%.0f, simt: %.0f", retroStartTime - launchTime - 30.0, retroStartTime - 30.0);
 	//oapiWriteLog(cbuf);
 
-	AutopilotStatus = PITCHHOLD;
-	autoPilot = true;
+	AutopilotStatus = RETROATTITUDE;
+	//autoPilot = true;
 	attitudeHold14deg = false;
+}
+
+inline void ProjectMercury::FireRetroRocket(int rckNum)
+{
+	double currP = GetPitch() + pitchOffset;
+	double currY = GetSlipAngle() + yawOffset;
+	double currR = GetBank() + rollOffset;
+
+	if (FailureMode == RETROSTUCKOFF && retroErrorNum == rckNum)
+	{
+		// Do nothing, as the rocket failed
+	}
+	else if ((abs(currP + 34.0 * RAD) < 12.5 * RAD && abs(normangle(currY + PI)) < 30.0 * RAD && abs(currR) < 30.0 * RAD) || switchRetroAttitude == 1) // (1) for RETRO ATT switch auto, must be green to fire. Same check as for indicator. (2) Or be in RETRO ATT man
+	{
+		SetThrusterLevel(thruster_retro[rckNum], 1.0);
+	}
+
+	RETRO_THRUST_LEVEL[rckNum] = GetThrusterLevel(thruster_retro[rckNum]); // For local lights
+
+	if (!retroCoverSeparated[rckNum] && RETRO_THRUST_LEVEL[rckNum] > 0.0) // only blow away cover if actually fired
+	{
+		separateRetroCoverAction[rckNum] = true;
+	}
 }
 
 void ProjectMercury::CreateAbortThrusters(void)
@@ -810,8 +844,7 @@ void ProjectMercury::PrepareReentry()
 
 void ProjectMercury::CreateRCS(void)
 {
-	if (rcsExists)
-		return;
+	if (rcsExists) return;
 
 	rcsExists = true;
 	VECTOR3 att_ref;
@@ -830,7 +863,7 @@ void ProjectMercury::CreateRCS(void)
 
 	att_ref = _V(0.0, -0.41, 1.05);
 	att_dir = _V(0, 1.0, 0);
-	thruster_man_py[0] = CreateThruster(att_ref, att_dir, MERCURY_THRUST_ATT, fuel_auto, MERCURY_ISP_ATT);
+	thruster_man_py[0] = CreateThruster(att_ref, att_dir, MERCURY_THRUST_ATT, fuel_manual, MERCURY_ISP_ATT);
 	att_ref = _V(-0.06, -.41, 1.05);
 	att_dir = _V(0, -1, 0);
 	//AddExhaust(thruster_man_py[0], .2, .02, att_ref, att_dir);
@@ -838,7 +871,7 @@ void ProjectMercury::CreateRCS(void)
 
 	att_ref = _V(0.0, .41, 1.05);
 	att_dir = _V(0, -1, 0);
-	thruster_man_py[1] = CreateThruster(att_ref, att_dir, MERCURY_THRUST_ATT, fuel_auto, MERCURY_ISP_ATT);
+	thruster_man_py[1] = CreateThruster(att_ref, att_dir, MERCURY_THRUST_ATT, fuel_manual, MERCURY_ISP_ATT);
 	att_ref = _V(0.06, .41, 1.05);
 	att_dir = _V(0, 1, 0);
 	// AddExhaust(thruster_man_py[1], .2, .02, att_ref, att_dir);
@@ -846,7 +879,7 @@ void ProjectMercury::CreateRCS(void)
 
 	att_ref = _V(-.41, 0.0, 1.05);
 	att_dir = _V(1, 0, 0);
-	thruster_man_py[2] = CreateThruster(att_ref, att_dir, MERCURY_THRUST_ATT, fuel_auto, MERCURY_ISP_ATT);
+	thruster_man_py[2] = CreateThruster(att_ref, att_dir, MERCURY_THRUST_ATT, fuel_manual, MERCURY_ISP_ATT);
 	att_ref = _V(-.41, 0.06, 1.05);
 	att_dir = _V(-1, 0, 0);
 	// AddExhaust(thruster_man_py[2], .2, .02, att_ref, att_dir);
@@ -854,7 +887,7 @@ void ProjectMercury::CreateRCS(void)
 
 	att_ref = _V(.41, 0.0, 1.05);
 	att_dir = _V(-1, 0, 0);
-	thruster_man_py[3] = CreateThruster(att_ref, att_dir, MERCURY_THRUST_ATT, fuel_auto, MERCURY_ISP_ATT);
+	thruster_man_py[3] = CreateThruster(att_ref, att_dir, MERCURY_THRUST_ATT, fuel_manual, MERCURY_ISP_ATT);
 	att_ref = _V(.41, -0.06, 1.05);
 	att_dir = _V(1, 0, 0);
 	// AddExhaust(thruster_man_py[3], .2, .02, att_ref, att_dir);
@@ -862,7 +895,7 @@ void ProjectMercury::CreateRCS(void)
 
 	att_ref = _V(0.80, .05, 0.0);
 	att_dir = _V(0, -1, 0);
-	thruster_man_roll[0] = CreateThruster(att_ref, att_dir, MERCURY_THRUST_ROLL_ATT, fuel_auto, MERCURY_ISP_ATT);
+	thruster_man_roll[0] = CreateThruster(att_ref, att_dir, MERCURY_THRUST_ROLL_ATT, fuel_manual, MERCURY_ISP_ATT);
 	att_ref = _V(0.80, .05, -.6);
 	att_dir = _V(0, 1, 0);
 	// AddExhaust(thruster_man_roll[0], .2, .02, att_ref, att_dir);
@@ -870,19 +903,19 @@ void ProjectMercury::CreateRCS(void)
 
 	att_ref = _V(0.80, -.05, 0.0);
 	att_dir = _V(0, 1, 0);
-	thruster_man_roll[1] = CreateThruster(att_ref, att_dir, MERCURY_THRUST_ROLL_ATT, fuel_auto, MERCURY_ISP_ATT);
+	thruster_man_roll[1] = CreateThruster(att_ref, att_dir, MERCURY_THRUST_ROLL_ATT, fuel_manual, MERCURY_ISP_ATT);
 	att_ref = _V(0.80, -.05, -.6);
 	att_dir = _V(0, -1, 0);
 	// AddExhaust(thruster_man_roll[1], .2, .02, att_ref, att_dir);
 	rcsStream[5] = AddExhaustStream(thruster_man_roll[1], att_ref, &RCSHigh);
 
-	// Manual groups
-	CreateThrusterGroup(&thruster_man_py[0], 1, THGROUP_ATT_PITCHUP);
-	CreateThrusterGroup(&thruster_man_py[1], 1, THGROUP_ATT_PITCHDOWN);
-	CreateThrusterGroup(&thruster_man_py[2], 1, THGROUP_ATT_YAWRIGHT);
-	CreateThrusterGroup(&thruster_man_py[3], 1, THGROUP_ATT_YAWLEFT);
-	CreateThrusterGroup(&thruster_man_roll[0], 1, THGROUP_ATT_BANKRIGHT);
-	CreateThrusterGroup(&thruster_man_roll[1], 1, THGROUP_ATT_BANKLEFT);
+	//// Manual groups
+	//CreateThrusterGroup(&thruster_man_py[0], 1, THGROUP_ATT_PITCHUP);
+	//CreateThrusterGroup(&thruster_man_py[1], 1, THGROUP_ATT_PITCHDOWN);
+	//CreateThrusterGroup(&thruster_man_py[2], 1, THGROUP_ATT_YAWRIGHT);
+	//CreateThrusterGroup(&thruster_man_py[3], 1, THGROUP_ATT_YAWLEFT);
+	//CreateThrusterGroup(&thruster_man_roll[0], 1, THGROUP_ATT_BANKRIGHT);
+	//CreateThrusterGroup(&thruster_man_roll[1], 1, THGROUP_ATT_BANKLEFT);
 
 	PROPELLANT_HANDLE fuel = fuel_auto;
 	if (FailureMode == ATTMODEOFF)
@@ -984,17 +1017,32 @@ void ProjectMercury::CreateRCS(void)
 	// AddExhaust(thruster_auto_roll_1lb[1], .07, .02, att_ref, att_dir);
 	rcsStream[17] = AddExhaustStream(thruster_auto_roll_1lb[1], att_ref, &RCSLow);
 
-	// Auto groups
-	pitchup = CreateThrusterGroup(&thruster_auto_py[0], 1, THGROUP_ATT_PITCHUP);
-	pitchdown = CreateThrusterGroup(&thruster_auto_py[1], 1, THGROUP_ATT_PITCHDOWN);
-	yawright = CreateThrusterGroup(&thruster_auto_py[2], 1, THGROUP_ATT_YAWRIGHT);
-	yawleft = CreateThrusterGroup(&thruster_auto_py[3], 1, THGROUP_ATT_YAWLEFT);
-	bankright = CreateThrusterGroup(&thruster_auto_roll[0], 1, THGROUP_ATT_BANKRIGHT);
-	bankleft = CreateThrusterGroup(&thruster_auto_roll[1], 1, THGROUP_ATT_BANKLEFT);
+	//// Auto groups
+	//pitchup = CreateThrusterGroup(&thruster_auto_py[0], 1, THGROUP_ATT_PITCHUP);
+	//pitchdown = CreateThrusterGroup(&thruster_auto_py[1], 1, THGROUP_ATT_PITCHDOWN);
+	//yawright = CreateThrusterGroup(&thruster_auto_py[2], 1, THGROUP_ATT_YAWRIGHT);
+	//yawleft = CreateThrusterGroup(&thruster_auto_py[3], 1, THGROUP_ATT_YAWLEFT);
+	//bankright = CreateThrusterGroup(&thruster_auto_roll[0], 1, THGROUP_ATT_BANKRIGHT);
+	//bankleft = CreateThrusterGroup(&thruster_auto_roll[1], 1, THGROUP_ATT_BANKLEFT);
 
-	RcsStatus = AUTOHIGH;
-	SetDefaultPropellantResource(fuel_auto);
+	//RcsStatus = AUTOHIGH;
+	//SetDefaultPropellantResource(fuel_auto);
 
+	// Create the thrusters for capsule control. Dummy thrusters, and we map the levels onto the actual thrusters, everything dependent on which mode we are in (ASCS, rate cmd, etc.)
+	controllerPitchup = CreateThruster(_V(0, 0, 0), _V(0, 0, 1), 0, dummyControllerFuel, 0, 0);
+	controllerPitchdown = CreateThruster(_V(0, 0, 0), _V(0, 0, 1), 0, dummyControllerFuel, 0, 0);
+	controllerYawleft = CreateThruster(_V(0, 0, 0), _V(0, 0, 1), 0, dummyControllerFuel, 0, 0);
+	controllerYawright = CreateThruster(_V(0, 0, 0), _V(0, 0, 1), 0, dummyControllerFuel, 0, 0);
+	controllerBankright = CreateThruster(_V(0, 0, 0), _V(0, 0, 1), 0, dummyControllerFuel, 0, 0);
+	controllerBankleft = CreateThruster(_V(0, 0, 0), _V(0, 0, 1), 0, dummyControllerFuel, 0, 0);
+	CreateThrusterGroup(&controllerPitchup, 1, THGROUP_ATT_PITCHUP);
+	CreateThrusterGroup(&controllerPitchdown, 1, THGROUP_ATT_PITCHDOWN);
+	CreateThrusterGroup(&controllerYawleft, 1, THGROUP_ATT_YAWLEFT);
+	CreateThrusterGroup(&controllerYawright, 1, THGROUP_ATT_YAWRIGHT);
+	CreateThrusterGroup(&controllerBankright, 1, THGROUP_ATT_BANKRIGHT);
+	CreateThrusterGroup(&controllerBankleft, 1, THGROUP_ATT_BANKLEFT);
+
+	// And if we have the concept unit, then create the linear groups:
 	if (conceptManouverUnit && conceptManouverUnitAttached)
 	{
 		SetDefaultPropellantResource(conceptPropellant);
@@ -1007,6 +1055,16 @@ void ProjectMercury::CreateRCS(void)
 		CreateThrusterGroup(conceptPosigrade, 2, THGROUP_ATT_FORWARD); // doppelt gemoppelt from th-main and th-retro, but why not?
 		CreateThrusterGroup(conceptRetrograde, 2, THGROUP_ATT_BACK); // doppelt gemoppelt
 	}
+
+	// Fireflies
+	PARTICLESTREAMSPEC fireflies = {
+		0, 0.01, 100, 0.3, 0.75, 10.0, 0.0, 0.0, PARTICLESTREAMSPEC::DIFFUSE,
+		PARTICLESTREAMSPEC::LVL_SQRT, 0, 1,
+		PARTICLESTREAMSPEC::ATM_FLAT, 1, 1,
+		oapiRegisterParticleTexture("ProjectMercury\\fireflies")
+	};
+
+	AddParticleStream(&fireflies, _V(0, 0.5, 0), _V(0, 0, 1), &fireflyLevel);
 }
 
 void ProjectMercury::CreateAirfoils(void)
@@ -1025,72 +1083,72 @@ void ProjectMercury::CreateAirfoilsEscape(void)
 	CreateAirfoil3(LIFT_HORIZONTAL, _V(0, 0, -4.91), hliftEscape, NULL, 1.89, 1.89 * 1.89 * PI / 4.0, 1.0); // spherical symmetric
 }
 
-void ProjectMercury::SwitchAttitudeMode(void)
-{
-	if (RcsStatus == AUTOHIGH)
-	{
-		DelThrusterGroup(pitchup);
-		DelThrusterGroup(pitchdown);
-		DelThrusterGroup(yawright);
-		DelThrusterGroup(yawleft);
-		DelThrusterGroup(bankleft);
-		DelThrusterGroup(bankright);
+//void ProjectMercury::SwitchAttitudeMode(void)
+//{
+//	if (RcsStatus == AUTOHIGH)
+//	{
+//		DelThrusterGroup(pitchup);
+//		DelThrusterGroup(pitchdown);
+//		DelThrusterGroup(yawright);
+//		DelThrusterGroup(yawleft);
+//		DelThrusterGroup(bankleft);
+//		DelThrusterGroup(bankright);
+//
+//		pitchup = CreateThrusterGroup(&thruster_auto_py[0], 1, THGROUP_ATT_PITCHUP);
+//		pitchdown = CreateThrusterGroup(&thruster_auto_py[1], 1, THGROUP_ATT_PITCHDOWN);
+//		yawright = CreateThrusterGroup(&thruster_auto_py[2], 1, THGROUP_ATT_YAWRIGHT);
+//		yawleft = CreateThrusterGroup(&thruster_auto_py[3], 1, THGROUP_ATT_YAWLEFT);
+//		bankright = CreateThrusterGroup(&thruster_auto_roll[0], 1, THGROUP_ATT_BANKRIGHT);
+//		bankleft = CreateThrusterGroup(&thruster_auto_roll[1], 1, THGROUP_ATT_BANKLEFT);
+//	}
+//	else if (RcsStatus == MANUAL)
+//	{
+//		DelThrusterGroup(pitchup);
+//		DelThrusterGroup(pitchdown);
+//		DelThrusterGroup(yawright);
+//		DelThrusterGroup(yawleft);
+//		DelThrusterGroup(bankleft);
+//		DelThrusterGroup(bankright);
+//
+//		pitchup = CreateThrusterGroup(&thruster_man_py[0], 1, THGROUP_ATT_PITCHUP);
+//		pitchdown = CreateThrusterGroup(&thruster_man_py[1], 1, THGROUP_ATT_PITCHDOWN);
+//		yawright = CreateThrusterGroup(&thruster_man_py[2], 1, THGROUP_ATT_YAWRIGHT);
+//		yawleft = CreateThrusterGroup(&thruster_man_py[3], 1, THGROUP_ATT_YAWLEFT);
+//		bankright = CreateThrusterGroup(&thruster_man_roll[0], 1, THGROUP_ATT_BANKRIGHT);
+//		bankleft = CreateThrusterGroup(&thruster_man_roll[1], 1, THGROUP_ATT_BANKLEFT);
+//	}
+//	else
+//	{
+//		DelThrusterGroup(pitchup);
+//		DelThrusterGroup(pitchdown);
+//		DelThrusterGroup(yawright);
+//		DelThrusterGroup(yawleft);
+//		DelThrusterGroup(bankleft);
+//		DelThrusterGroup(bankright);
+//
+//		pitchup = CreateThrusterGroup(&thruster_auto_py_1lb[0], 1, THGROUP_ATT_PITCHUP);
+//		pitchdown = CreateThrusterGroup(&thruster_auto_py_1lb[1], 1, THGROUP_ATT_PITCHDOWN);
+//		yawright = CreateThrusterGroup(&thruster_auto_py_1lb[2], 1, THGROUP_ATT_YAWRIGHT);
+//		yawleft = CreateThrusterGroup(&thruster_auto_py_1lb[3], 1, THGROUP_ATT_YAWLEFT);
+//		bankright = CreateThrusterGroup(&thruster_auto_roll_1lb[0], 1, THGROUP_ATT_BANKRIGHT);
+//		bankleft = CreateThrusterGroup(&thruster_auto_roll_1lb[1], 1, THGROUP_ATT_BANKLEFT);
+//	}
+//}
 
-		pitchup = CreateThrusterGroup(&thruster_auto_py[0], 1, THGROUP_ATT_PITCHUP);
-		pitchdown = CreateThrusterGroup(&thruster_auto_py[1], 1, THGROUP_ATT_PITCHDOWN);
-		yawright = CreateThrusterGroup(&thruster_auto_py[2], 1, THGROUP_ATT_YAWRIGHT);
-		yawleft = CreateThrusterGroup(&thruster_auto_py[3], 1, THGROUP_ATT_YAWLEFT);
-		bankright = CreateThrusterGroup(&thruster_auto_roll[0], 1, THGROUP_ATT_BANKRIGHT);
-		bankleft = CreateThrusterGroup(&thruster_auto_roll[1], 1, THGROUP_ATT_BANKLEFT);
-	}
-	else if (RcsStatus == MANUAL)
-	{
-		DelThrusterGroup(pitchup);
-		DelThrusterGroup(pitchdown);
-		DelThrusterGroup(yawright);
-		DelThrusterGroup(yawleft);
-		DelThrusterGroup(bankleft);
-		DelThrusterGroup(bankright);
-
-		pitchup = CreateThrusterGroup(&thruster_man_py[0], 1, THGROUP_ATT_PITCHUP);
-		pitchdown = CreateThrusterGroup(&thruster_man_py[1], 1, THGROUP_ATT_PITCHDOWN);
-		yawright = CreateThrusterGroup(&thruster_man_py[2], 1, THGROUP_ATT_YAWRIGHT);
-		yawleft = CreateThrusterGroup(&thruster_man_py[3], 1, THGROUP_ATT_YAWLEFT);
-		bankright = CreateThrusterGroup(&thruster_man_roll[0], 1, THGROUP_ATT_BANKRIGHT);
-		bankleft = CreateThrusterGroup(&thruster_man_roll[1], 1, THGROUP_ATT_BANKLEFT);
-	}
-	else
-	{
-		DelThrusterGroup(pitchup);
-		DelThrusterGroup(pitchdown);
-		DelThrusterGroup(yawright);
-		DelThrusterGroup(yawleft);
-		DelThrusterGroup(bankleft);
-		DelThrusterGroup(bankright);
-
-		pitchup = CreateThrusterGroup(&thruster_auto_py_1lb[0], 1, THGROUP_ATT_PITCHUP);
-		pitchdown = CreateThrusterGroup(&thruster_auto_py_1lb[1], 1, THGROUP_ATT_PITCHDOWN);
-		yawright = CreateThrusterGroup(&thruster_auto_py_1lb[2], 1, THGROUP_ATT_YAWRIGHT);
-		yawleft = CreateThrusterGroup(&thruster_auto_py_1lb[3], 1, THGROUP_ATT_YAWLEFT);
-		bankright = CreateThrusterGroup(&thruster_auto_roll_1lb[0], 1, THGROUP_ATT_BANKRIGHT);
-		bankleft = CreateThrusterGroup(&thruster_auto_roll_1lb[1], 1, THGROUP_ATT_BANKLEFT);
-	}
-}
-
-void ProjectMercury::SwitchPropellantSource(void)
-{
-	double currentAuto = GetPropellantMass(fuel_auto);
-	double currentManual = GetPropellantMass(fuel_manual);
-	double currentAutoMax = GetPropellantMaxMass(fuel_auto);
-	double currentManualMax = GetPropellantMaxMass(fuel_manual);
-
-	SetPropellantMaxMass(fuel_manual, currentAutoMax);
-	SetPropellantMaxMass(fuel_auto, currentManualMax);
-	SetPropellantMass(fuel_manual, currentAuto);
-	SetPropellantMass(fuel_auto, currentManual);
-
-	attitudeFuelAuto = !attitudeFuelAuto;
-}
+//void ProjectMercury::SwitchPropellantSource(void)
+//{
+//	double currentAuto = GetPropellantMass(fuel_auto);
+//	double currentManual = GetPropellantMass(fuel_manual);
+//	double currentAutoMax = GetPropellantMaxMass(fuel_auto);
+//	double currentManualMax = GetPropellantMaxMass(fuel_manual);
+//
+//	SetPropellantMaxMass(fuel_manual, currentAutoMax);
+//	SetPropellantMaxMass(fuel_auto, currentManualMax);
+//	SetPropellantMass(fuel_manual, currentAuto);
+//	SetPropellantMass(fuel_auto, currentManual);
+//
+//	attitudeFuelAuto = !attitudeFuelAuto;
+//}
 
 void ProjectMercury::DumpFuelRCS(void)
 {
@@ -1115,10 +1173,10 @@ void ProjectMercury::DumpFuelRCS(void)
 	SetThrusterLevel(thruster_man_roll[0], 1.0);
 	SetThrusterLevel(thruster_man_roll[1], 1.0);
 
-	if (GetFuelMass() == 0.0 && (GetPropellantMass(fuel_manual) != 0.0 || GetPropellantMass(fuel_auto) != 0.0))
-	{
-		SwitchPropellantSource();
-	}
+	//if (GetFuelMass() == 0.0 && (GetPropellantMass(fuel_manual) != 0.0 || GetPropellantMass(fuel_auto) != 0.0))
+	//{
+	//	SwitchPropellantSource();
+	//}
 
 }
 
@@ -1148,8 +1206,8 @@ void ProjectMercury::SeparateRetroPack(bool deleteThrusters) // only false if no
 	strcpy(name, GetName());
 	strcat(name, " Retro");
 	createdVessel[stuffCreated] = oapiCreateVesselEx(name, "ProjectMercury\\Mercury_Retro", &vs);
-	if (GetAltitude() > 5e4)
-		createdAbove50km[stuffCreated] = true;
+	//if (GetAltitude() > 5e4)
+	//	createdAbove50km[stuffCreated] = true;
 	stuffCreated += 1;
 	DelMesh(Retro);
 
@@ -1168,8 +1226,8 @@ void ProjectMercury::SeparateRetroPack(bool deleteThrusters) // only false if no
 	strcpy(name, GetName());
 	strcat(name, " Retrostrap 1");
 	createdVessel[stuffCreated] = oapiCreateVesselEx(name, "ProjectMercury\\Mercury_Retrostrap1", &vs);
-	if (GetAltitude() > 5e4)
-		createdAbove50km[stuffCreated] = true;
+	//if (GetAltitude() > 5e4)
+	//	createdAbove50km[stuffCreated] = true;
 	stuffCreated += 1;
 	DelMesh(Retrostrap1);
 
@@ -1188,8 +1246,8 @@ void ProjectMercury::SeparateRetroPack(bool deleteThrusters) // only false if no
 	strcpy(name, GetName());
 	strcat(name, " Retrostrap 2");
 	createdVessel[stuffCreated] = oapiCreateVesselEx(name, "ProjectMercury\\Mercury_Retrostrap2", &vs);
-	if (GetAltitude() > 5e4)
-		createdAbove50km[stuffCreated] = true;
+	//if (GetAltitude() > 5e4)
+	//	createdAbove50km[stuffCreated] = true;
 	stuffCreated += 1;
 	DelMesh(Retrostrap2);
 
@@ -1208,8 +1266,8 @@ void ProjectMercury::SeparateRetroPack(bool deleteThrusters) // only false if no
 	strcpy(name, GetName());
 	strcat(name, " Retrostrap 3");
 	createdVessel[stuffCreated] = oapiCreateVesselEx(name, "ProjectMercury\\Mercury_Retrostrap3", &vs);
-	if (GetAltitude() > 5e4)
-		createdAbove50km[stuffCreated] = true;
+	//if (GetAltitude() > 5e4)
+	//	createdAbove50km[stuffCreated] = true;
 	stuffCreated += 1;
 	DelMesh(Retrostrap3);
 
@@ -1282,8 +1340,8 @@ void ProjectMercury::SeparateRetroCoverN(int i) // int 1, 2, 3
 		vs.rvel += vel2;
 		sprintf(configName, "ProjectMercury\\Mercury_RetroCover%i", i);
 		createdVessel[stuffCreated] = oapiCreateVesselEx(name, configName, &vs);
-		if (GetAltitude() > 5e4)
-			createdAbove50km[stuffCreated] = true;
+		//if (GetAltitude() > 5e4)
+		//	createdAbove50km[stuffCreated] = true;
 		stuffCreated += 1;
 		DelMesh(meshToDelete);
 	}
@@ -1313,8 +1371,8 @@ void ProjectMercury::SeparateDrogueCover(void)
 		GlobalRot(vel, vel2);
 		vs.rvel += vel2;
 		createdVessel[stuffCreated] = oapiCreateVesselEx(name, "ProjectMercury\\Mercury_DrogueCover", &vs);
-		if (GetAltitude() > 5e4)
-			createdAbove50km[stuffCreated] = true;
+		//if (GetAltitude() > 5e4)
+		//	createdAbove50km[stuffCreated] = true;
 		stuffCreated += 1;
 		DelMesh(Droguecover);
 		drogueCoverSeparated = true;
@@ -1350,8 +1408,8 @@ void ProjectMercury::SeparateDrogue(void)
 		else if (CapsuleVersion == CAPSULEBD) createdVessel[stuffCreated] = oapiCreateVesselEx(name, "ProjectMercury\\Mercury_AntennaBD", &vs);
 		else createdVessel[stuffCreated] = oapiCreateVesselEx(name, "ProjectMercury\\Mercury_Antenna", &vs);
 
-		if (GetAltitude() > 5e4)
-			createdAbove50km[stuffCreated] = true;
+		//if (GetAltitude() > 5e4)
+		//	createdAbove50km[stuffCreated] = true;
 		stuffCreated += 1;
 		DelMesh(Drogue);
 		DelMesh(Antennahouse);
@@ -1472,8 +1530,8 @@ void ProjectMercury::SeparateMainChute(void)
 		strcat(name, " Main chute");
 
 		createdVessel[stuffCreated] = oapiCreateVesselEx(name, "ProjectMercury\\Mercury_Chute", &vs);
-		if (GetAltitude() > 5e4)
-			createdAbove50km[stuffCreated] = true;
+		//if (GetAltitude() > 5e4)
+		//	createdAbove50km[stuffCreated] = true;
 		stuffCreated += 1;
 		DelMesh(Mainchute);
 		mainChuteSeparated = true;
@@ -1484,8 +1542,8 @@ void ProjectMercury::SeparateMainChute(void)
 		strcat(name, " Reserve chute");
 
 		createdVessel[stuffCreated] = oapiCreateVesselEx(name, "ProjectMercury\\Mercury_Chute", &vs);
-		if (GetAltitude() > 5e4)
-			createdAbove50km[stuffCreated] = true;
+		//if (GetAltitude() > 5e4)
+		//	createdAbove50km[stuffCreated] = true;
 		stuffCreated += 1;
 		DelMesh(Mainchute);
 		reserveChuteSeparated = true;
@@ -1693,7 +1751,7 @@ inline void ProjectMercury::MercuryGenericConstructor(void)
 	PreviousVesselStatus = LAUNCH;
 	DrogueStatus = CLOSED;
 	MainChuteStatus = CLOSED;
-	RcsStatus = AUTOHIGH;
+	//RcsStatus = AUTOHIGH;
 	AutopilotStatus = AUTOLAUNCH;
 	CurrentFilter = CLEAR;
 
@@ -1759,13 +1817,23 @@ inline void ProjectMercury::WriteFlightParameters(void)
 	oapiWriteLogV(" > Earth-fixed velocity: %.0f m/s (%.0f ft/s)", historyMaxEarthSpeed, historyMaxEarthSpeed / 0.3048);
 	oapiWriteLogV(" > Space-fixed velocity: %.0f m/s (%.0f ft/s)", historyMaxSpaceSpeed, historyMaxSpaceSpeed / 0.3048);
 
-	// Also use the opportunity to destruct panel
-	//if (panelDynamicTexture) oapiDestroySurface(panelDynamicTexture); // Debug
-
+	// Spend the opportunity to destroy the panel mesh. If we don't do this, it will be buggy if we relaunch a scenario with panel.
+	//if (cockpitPanelMesh) oapiDeleteMesh(cockpitPanelMesh);
+	//if (periscopeMesh) oapiDeleteMesh(periscopeMesh);
 }
 
 inline void ProjectMercury::ReadConfigSettings(FILEHANDLE cfg)
 {
+	FILEHANDLE commonCfg = oapiOpenFile("Vessels\\ProjectMercury\\ProjectMercuryCommon.cfg", FILE_IN_ZEROONFAIL, CONFIG);
+	bool foundCommonFile = true;
+
+	if (commonCfg == 0)
+	{
+		oapiWriteLog("ProjectMercuryCommon config file missing!");
+		commonCfg = cfg; // maybe there's some data we can read from there, so use it as backup
+		foundCommonFile = false;
+	}
+
 	// Read height over ground from config
 	if (!oapiReadItem_float(cfg, "HeightOverGround", heightOverGround))
 	{
@@ -1803,31 +1871,43 @@ inline void ProjectMercury::ReadConfigSettings(FILEHANDLE cfg)
 	}
 
 	// Read HUD x-pos of second column
-	if (!oapiReadItem_int(cfg, "HUD2ndColumnPos", secondColumnHUDx))
+	if (!oapiReadItem_int(commonCfg, "HUD2ndColumnPos", secondColumnHUDx))
 	{
 		secondColumnHUDx = 28;
 		oapiWriteLog("Mercury could not read HUD column position config.");
 	}
 
-	if (!oapiReadItem_float(cfg, "TimeStepLimit", timeStepLimit))
+	if (!oapiReadItem_float(commonCfg, "TimeStepLimit", timeStepLimit))
 	{
 		timeStepLimit = 0.1;
 		oapiWriteLog("Mercury could not read time step limit config for authentic autopilot.");
 	}
 
-	if (!oapiReadItem_bool(cfg, "MercuryNetwork", MercuryNetwork))
+	if (!oapiReadItem_bool(commonCfg, "MercuryNetwork", MercuryNetwork))
 	{
 		MercuryNetwork = true;
 		oapiWriteLog("Mercury could not read network contact config.");
 	}
 
-	char caps[10][1000];
-	if (oapiReadItem_string(cfg, "DEFINENEWCAPSULE0", caps[0])) // Is defined
+	if (!oapiReadItem_float(commonCfg, "JoysticThrustThresholdLow", joystickThresholdLow))
+	{
+		joystickThresholdLow = 0.33;
+		oapiWriteLog("Mercury could not read joystick low threshold.");
+	}
+
+	if (!oapiReadItem_float(commonCfg, "JoysticThrustThresholdHigh", joystickThresholdHigh))
+	{
+		joystickThresholdHigh = 0.75;
+		oapiWriteLog("Mercury could not read joystick high threshold.");
+	}
+
+	char caps[NUMBER_SUPPORTED_CONFIG_CAPSULES][1000];
+	if (oapiReadItem_string(commonCfg, "DEFINENEWCAPSULE0", caps[0])) // Is defined
 	{
 		int newIndex = 0;
 
 		oapiWriteLogV("====BEGIN READ CONFIG CAPSULE %i=====", newIndex);
-		oapiWriteLog(caps[newIndex]); // DEBUG
+		oapiWriteLog(caps[newIndex]); // Write out what is stored in config file
 
 		// Read capsule number base
 		configTextureUserBasis[newIndex] = atoi(caps[newIndex]); // atoi disregards any charcters after integral number
@@ -1853,44 +1933,46 @@ inline void ProjectMercury::ReadConfigSettings(FILEHANDLE cfg)
 			ReadCapsuleTextureReplacement(TexString); // work with it
 		}
 
-		oapiWriteLog("====END READ CONFIG CAPSULE=====");
+		oapiWriteLogV("====END READ CONFIG CAPSULE %i=====", newIndex);
 	}
-	if (oapiReadItem_string(cfg, "DEFINENEWCAPSULE1", caps[1])) // Is defined
+	if (oapiReadItem_string(commonCfg, "DEFINENEWCAPSULE1", caps[1])) // Is defined, DEBUG
 	{
 
 	}
-	if (oapiReadItem_string(cfg, "DEFINENEWCAPSULE2", caps[2])) // Is defined
+	if (oapiReadItem_string(commonCfg, "DEFINENEWCAPSULE2", caps[2])) // Is defined
 	{
 
 	}
-	if (oapiReadItem_string(cfg, "DEFINENEWCAPSULE3", caps[3])) // Is defined
+	if (oapiReadItem_string(commonCfg, "DEFINENEWCAPSULE3", caps[3])) // Is defined
 	{
 
 	}
-	if (oapiReadItem_string(cfg, "DEFINENEWCAPSULE4", caps[4])) // Is defined
+	if (oapiReadItem_string(commonCfg, "DEFINENEWCAPSULE4", caps[4])) // Is defined
 	{
 
 	}
-	if (oapiReadItem_string(cfg, "DEFINENEWCAPSULE5", caps[5])) // Is defined
+	if (oapiReadItem_string(commonCfg, "DEFINENEWCAPSULE5", caps[5])) // Is defined
 	{
 
 	}
-	if (oapiReadItem_string(cfg, "DEFINENEWCAPSULE6", caps[6])) // Is defined
+	if (oapiReadItem_string(commonCfg, "DEFINENEWCAPSULE6", caps[6])) // Is defined
 	{
 
 	}
-	if (oapiReadItem_string(cfg, "DEFINENEWCAPSULE7", caps[7])) // Is defined
+	if (oapiReadItem_string(commonCfg, "DEFINENEWCAPSULE7", caps[7])) // Is defined
 	{
 
 	}
-	if (oapiReadItem_string(cfg, "DEFINENEWCAPSULE8", caps[8])) // Is defined
+	if (oapiReadItem_string(commonCfg, "DEFINENEWCAPSULE8", caps[8])) // Is defined
 	{
 
 	}
-	if (oapiReadItem_string(cfg, "DEFINENEWCAPSULE9", caps[9])) // Is defined
+	if (oapiReadItem_string(commonCfg, "DEFINENEWCAPSULE9", caps[9])) // Is defined
 	{
 
 	}
+
+	if (foundCommonFile) oapiCloseFile(commonCfg, FILE_IN_ZEROONFAIL); // don't close if the regular cfg file
 }
 
 inline void ProjectMercury::CreateCapsuleFuelTanks(void)
@@ -1902,7 +1984,7 @@ inline void ProjectMercury::CreateCapsuleFuelTanks(void)
 	fuel_auto = CreatePropellantResource(MERCURY_FUEL_MASS_AUTO);
 	//SetPropellantMass(fuel_auto, MERCURY_FUEL_MASS_AUTO);
 
-	attitudeFuelAuto = true;
+	//attitudeFuelAuto = true;
 
 	posigrade_propellant[0] = CreatePropellantResource(POSIGRADE_MASS_FUEL);
 	//SetPropellantMass(posigrade_propellant[0], POSIGRADE_MASS_FUEL);
@@ -1923,6 +2005,7 @@ inline void ProjectMercury::CreateCapsuleFuelTanks(void)
 	//SetPropellantMass(retro_propellant[2], RETRO_MASS_FUEL);
 
 	//SetPropellantMass(escape_tank, ABORT_MASS_FUEL);
+
 }
 
 inline void ProjectMercury::AddDefaultMeshes(void)
@@ -2059,88 +2142,312 @@ inline void ProjectMercury::CapsuleGenericPostCreation(void)
 	oapiWriteLog(errorMsg);
 }
 
-inline void ProjectMercury::CapsuleAutopilotControl(double simt, double simdt)
+// Control every attitude setting, from ASCS norm, to aux damp, to fly-by-wire, to rate command, to fully manual
+inline void ProjectMercury::CapsuleAttitudeControl(double simt, double simdt)
 {
-	if (autoPilot && VesselStatus == FLIGHT)
+	if (!(VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE) || !rcsExists) return; // we must be in a free capsule state, so that the RCS exists
+
+	// Set all thrusters to zero first
+	DisableAutopilot(false);
+
+	// ASCS autopilot
+	if (switchASCSMode == -1 && switchControlMode == -1)
 	{
-		if (AutopilotStatus == POSIGRADEDAMP)
+		if (VesselStatus == FLIGHT)
 		{
-			AuxDampingAuto(true);
-			if (!posigradeDampingActivated)
+			if (AutopilotStatus == POSIGRADEDAMP)
 			{
-				posigradeDampingTime = simt;
-				posigradeDampingActivated = true;
+				AuxDampingAuto(true);
+				if (!posigradeDampingActivated)
+				{
+					posigradeDampingTime = simt;
+					posigradeDampingActivated = true;
+				}
+				else if (posigradeDampingActivated && simt - posigradeDampingTime > 5.0) // Damping for 5 seconds (MR-4 flight profile graphic)
+				{
+					AutopilotStatus = TURNAROUND;
+				}
 			}
-			else if (posigradeDampingActivated && simt - posigradeDampingTime > 5.0) // Damping for 5 seconds (MR-4 flight profile graphic)
+			else if (AutopilotStatus == TURNAROUND)
 			{
-				AutopilotStatus = TURNAROUND;
-
-				// Turn off thrusters
-				SetThrusterLevel(thruster_auto_py[0], 0.0);
-				SetThrusterLevel(thruster_auto_py[1], 0.0);
-				SetThrusterLevel(thruster_auto_py[2], 0.0);
-				SetThrusterLevel(thruster_auto_py[3], 0.0);
-				SetThrusterLevel(thruster_auto_roll[0], 0.0);
-				SetThrusterLevel(thruster_auto_roll[1], 0.0);
+				RetroAttitudeAuto(simt, simdt, true);
 			}
-		}
-		else if (AutopilotStatus == TURNAROUND)
-		{
-			RetroAttitudeAuto(simt, simdt, false);
-		}
-		else if (AutopilotStatus == PITCHHOLD)
-		{
-			RetroAttitudeAuto(simt, simdt, true);
-		}
+			else if (AutopilotStatus == ORBITATTITUDE)
+			{
+				RetroAttitudeAuto(simt, simdt, false);
+			}
+			else if (AutopilotStatus == RETROATTITUDE)
+			{
+				RetroAttitudeAuto(simt, simdt, true);
+			}
 
-		if (engageRetro && simt - retroStartTime > 60.0) // both for suborbital and orbital missions (19640056774 page 12 and doi:10.1002/j.2161-4296.1962.tb02524.x page 2)
+			//if (engageRetro && simt - retroStartTime > 60.0 && switchAutoRetroJet == -1) // both for suborbital and orbital missions (19640056774 page 12 and doi:10.1002/j.2161-4296.1962.tb02524.x page 2)
+			//{
+			//	prepareReentryAction = true;
+			//	AutopilotStatus = REENTRYATT;
+			//}
+		}
+		else if (VesselStatus == REENTRY)
 		{
-			prepareReentryAction = true;
-			AutopilotStatus = REENTRYATT;
+			if (AutopilotStatus == REENTRYATTITUDE)
+			{
+				ReentryAttitudeAuto(simt, simdt);
+
+				if (vesselAcceleration > 0.05 * G && FailureMode != LOWGDEACTIVE)
+				{
+					GetRelativeVel(GetSurfaceRef(), entryVel);
+					GetRelativePos(GetSurfaceRef(), entryLoc);
+
+					entryAng = -acos(dotp(entryLoc, entryVel) / length(entryLoc) / length(entryVel)) * DEG + 90.0;
+
+					double radius;
+					GetEquPos(lowGLong, lowGLat, radius);
+
+					entryAngleToBase = oapiOrthodome(lowGLong, lowGLat, missionLandLong * RAD, missionLandLat * RAD);
+
+					double heading;
+					oapiGetHeading(GetHandle(), &heading);
+					double slip = OrbitalFrameSlipAngle2(entryLoc, entryVel);
+					lowGHeading = heading - slip;
+					if (lowGHeading < 0.0) lowGHeading += PI2;
+					else if (lowGHeading > PI2) lowGHeading -= PI2;
+
+					char cbuf[256];
+					sprintf(cbuf, "0.05 G trigger at T+%.0f. Entry angle: %.3f deg. Entry velocity %.2f m/s. Altitude %.0f m. Angle to target base %.3f deg", simt - launchTime, entryAng, length(entryVel), length(entryLoc) - oapiGetSize(GetSurfaceRef()), entryAngleToBase * DEG);
+					oapiWriteLog(cbuf);
+					DisableAutopilot(false); // disable stuck thrusters
+					AutopilotStatus = LOWG;
+				}
+			}
+			else if (AutopilotStatus == LOWG)
+			{
+				GRollAuto(simt, simdt);
+			}
 		}
 	}
-	else if (autoPilot && VesselStatus == REENTRY)
-	{
-		if (AutopilotStatus == REENTRYATT)
-		{
-			ReentryAttitudeAuto(simt, simdt);
-
-			if (vesselAcceleration > 0.05 * G && FailureMode != LOWGDEACTIVE)
-			{
-				GetRelativeVel(GetSurfaceRef(), entryVel);
-				GetRelativePos(GetSurfaceRef(), entryLoc);
-
-				entryAng = -acos(dotp(entryLoc, entryVel) / length(entryLoc) / length(entryVel)) * DEG + 90.0;
-
-				double radius;
-				GetEquPos(lowGLong, lowGLat, radius);
-
-				entryAngleToBase = oapiOrthodome(lowGLong, lowGLat, missionLandLong * RAD, missionLandLat * RAD);
-
-				double heading;
-				oapiGetHeading(GetHandle(), &heading);
-				double slip = OrbitalFrameSlipAngle2(entryLoc, entryVel);
-				lowGHeading = heading - slip;
-				if (lowGHeading < 0.0) lowGHeading += PI2;
-				else if (lowGHeading > PI2) lowGHeading -= PI2;
-
-				char cbuf[256];
-				sprintf(cbuf, "0.05 G trigger at T+%.0f. Entry angle: %.3f deg. Entry velocity %.2f m/s. Altitude %.0f m. Angle to target base %.3f deg", simt - launchTime, entryAng, length(entryVel), length(entryLoc) - oapiGetSize(GetSurfaceRef()), entryAngleToBase * DEG);
-				oapiWriteLog(cbuf);
-				DisableAutopilot(false); // disable stuck thrusters
-				AutopilotStatus = LOWG;
-			}
-		}
-		else if (AutopilotStatus == LOWG)
-		{
-			GRollAuto(simt, simdt);
-		}
-	}
-
-	if (autoPilot && FailureMode == LOWGACTIVATE && simt - launchTime > timeOfError && oapiGetTimeAcceleration() <= 1.0)
+	
+	// ASCS .05G mode, debug, check MA-9 transcript and logic for low g mode. Potentially move this to ASCS autopilot directly above
+	if (switchASCSMode == -1 && FailureMode == LOWGACTIVATE && simt - launchTime > timeOfError && oapiGetTimeAcceleration() <= 1.0)
 	{
 		DisableAutopilot(false); // disable stuck thrusters
 		AutopilotStatus = LOWG;
+	}
+
+	SetPropellantMass(dummyControllerFuel, 1e-3); // must always have fuel in the dummy tank to have thruster groups to work.
+	double thrustLevelPitchup = GetThrusterGroupLevel(THGROUP_ATT_PITCHUP);
+	double thrustLevelPitchdown = GetThrusterGroupLevel(THGROUP_ATT_PITCHDOWN);
+	double thrustLevelYawright = GetThrusterGroupLevel(THGROUP_ATT_YAWRIGHT);
+	double thrustLevelYawleft = GetThrusterGroupLevel(THGROUP_ATT_YAWLEFT);
+	double thrustLevelBankright = GetThrusterGroupLevel(THGROUP_ATT_BANKRIGHT);
+	double thrustLevelBankleft = GetThrusterGroupLevel(THGROUP_ATT_BANKLEFT);
+	double totalThrustLevel = thrustLevelPitchup + thrustLevelPitchdown + thrustLevelYawright + thrustLevelYawleft + thrustLevelBankright + thrustLevelBankleft;
+
+	// Fly-by-wire
+	if (switchASCSMode == 1) // as far as I understand, the FLY BY WIRE switch alone responsible for fly by wire. The manualHandle has no effect.
+	{
+		// Pitch
+		THRUSTER_HANDLE high = thruster_auto_py[0], low = thruster_auto_py_1lb[0];
+		FlyByWireControlSingleDirection(thrustLevelPitchup, high, low, tHandlePitchPushed);
+
+		high = thruster_auto_py[1], low = thruster_auto_py_1lb[1];
+		FlyByWireControlSingleDirection(thrustLevelPitchdown, high, low, tHandlePitchPushed);
+
+		// Yaw
+		high = thruster_auto_py[2], low = thruster_auto_py_1lb[2];
+		FlyByWireControlSingleDirection(thrustLevelYawright, high, low, tHandleYawPushed);
+
+		high = thruster_auto_py[3], low = thruster_auto_py_1lb[3];
+		FlyByWireControlSingleDirection(thrustLevelYawleft, high, low, tHandleYawPushed);
+
+		// Roll
+		high = thruster_auto_roll[0], low = thruster_auto_roll_1lb[0];
+		FlyByWireControlSingleDirection(thrustLevelBankright, high, low, tHandleRollPushed);
+
+		high = thruster_auto_roll[1], low = thruster_auto_roll_1lb[1];
+		FlyByWireControlSingleDirection(thrustLevelBankleft, high, low, tHandleRollPushed);
+	}
+
+	// Manual mode
+	if (!tHandleManualPushed)
+	{
+		// Pitch
+		SetThrusterLevel(thruster_man_py[0], thrustLevelPitchup);
+
+		SetThrusterLevel(thruster_man_py[1], thrustLevelPitchdown);
+
+		// Yaw
+		SetThrusterLevel(thruster_man_py[2], thrustLevelYawright);
+
+		SetThrusterLevel(thruster_man_py[3], thrustLevelYawleft);
+
+		// Roll
+		SetThrusterLevel(thruster_man_roll[0], thrustLevelBankright);
+
+		SetThrusterLevel(thruster_man_roll[1], thrustLevelBankleft);
+
+		// Optional aux damp is controlled in the end of the function
+	}
+
+	// Rate command (RSCS), where it will "provide angular rates proportional to controller deflection, and in the absence of commands provides rate damping".
+	// "Like the ASCS, the RSCS is an on-off system, but it uses fuel from the manual system supply."
+	if (tHandleManualPushed/* && switchASCSMode == -1*/ && switchControlMode == 1) // I believe we must be in ASCS NORM. Familiarization page 126: "AUTO / RATE COMD switch provides a method of energizing either the RSCS or ASCS systems".
+	{																			// That was wrong. In MA6_FlightOps.pdf page 47, pilot is instructed to used both Rate command AND FlyByWire.
+		// Familiarization manual page 147:
+		// "The dead band adjustments which are provided are a 2 deg/s to 4 deg/s in pitch and yaw axis, and a 1.5 deg/s to 3 deg/s in the roll axis."
+		// But in familiarization manual on page 145:
+		// "The rate portion of the indicator is driven by the miniature rate transducers which also serve as sensing elements for the Rate Stabilization
+		// Control System. The range of the rate indication is 0 to +- 6 deg/s for all three indicators."
+		// I assume this means that the rate command range is equal to the rate indication range, i.e. +- 6 deg/s.
+		// In the old Project Mercury addon at least, it was +-10 deg/s. But in my opinion, its entire attitude implementation isn't very sophisticated, so it doesn't have too much credibility.
+		// But then, on the other hand, seeing that the resolution was 3.0 deg/s (see below), it doesn't make sense to be limited to 6 deg/s. So maybe we should try 10 deg/s afterall ...
+
+		VECTOR3 angVel;
+		GetAngularVel(angVel);
+
+		//const double RSCSresolution = 0.1 * RAD; // the resolution of the damping, so that it doesn't try to dampen an e.g. 1e-10 rate. This is entirely my own value, no historic valuue.
+		const double RSCSresolution = 3.0 * RAD; // the resolution of the damping, 3.0 deg/s according to MA6_FlightPlan2.pdf page 39. AUX damping (+- 0.5 deg/s) is thus more precise than RSCS damping.
+		const double MaxPitchRate = 10.0 * RAD; // 6.0 * RAD; // 4.0 * RAD;
+		const double MaxYawRate = 10.0 * RAD; // 6.0 * RAD; // 4.0 * RAD;
+		const double MaxRollRate = 10.0 * RAD; // 6.0 * RAD; // 3.0 * RAD;
+
+		// If no input, the target rate will be Max * (0 - 0) = 0, and automatically damp. Thumbs up for that.
+
+		// Pitch
+		double targetPitchRate = MaxPitchRate * (thrustLevelPitchup - thrustLevelPitchdown);
+		if (angVel.x < targetPitchRate - RSCSresolution)
+			SetThrusterLevel(thruster_man_py[0], 1.0);
+		else
+			SetThrusterLevel(thruster_man_py[0], 0.0);
+
+		if (angVel.x > targetPitchRate + RSCSresolution)
+			SetThrusterLevel(thruster_man_py[1], 1.0);
+		else
+			SetThrusterLevel(thruster_man_py[1], 0.0);
+
+		// Yaw
+		double targetYawRate = MaxYawRate * (thrustLevelYawright - thrustLevelYawleft);
+		if (-angVel.y < targetYawRate - RSCSresolution)
+			SetThrusterLevel(thruster_man_py[2], 1.0);
+		else
+			SetThrusterLevel(thruster_man_py[2], 0.0);
+
+		if (-angVel.y > targetYawRate + RSCSresolution)
+			SetThrusterLevel(thruster_man_py[3], 1.0);
+		else
+			SetThrusterLevel(thruster_man_py[3], 0.0);
+
+		// Roll
+		// During .05G, RSCS gives 7.7 degree/s roll if no joystick input.
+		// Familiarization page 147: "with the control stick at zero deflection (Rate Stabilization Control System operational) an automatic three axis ratedamper is achieved, including an automatic 7.7+-2 deg/s constant roll rate when re-entry is sensed."
+		if (thrustLevelBankright + thrustLevelBankleft == 0.0 && FailureMode != LOWGDEACTIVE && VesselStatus == REENTRY && (vesselAcceleration > 0.05 * G || AutopilotStatus == LOWG))
+		{
+			if (angVel.z > 9.7 * RAD)
+			{
+				SetThrusterLevel(thruster_man_roll[1], 1.0);
+				SetThrusterLevel(thruster_man_roll[0], 0.0); // ensure not stuck
+			}
+			else if (angVel.z < 7.7 * RAD)
+			{
+				SetThrusterLevel(thruster_man_roll[0], 1.0);
+				SetThrusterLevel(thruster_man_roll[1], 0.0); // ensure not stuck
+			}
+			else
+			{
+				SetThrusterLevel(thruster_man_roll[0], 0.0);
+				SetThrusterLevel(thruster_man_roll[1], 0.0);
+			}
+		}
+		else
+		{
+			double targetRollRate = MaxRollRate * (thrustLevelBankright - thrustLevelBankleft);
+			if (angVel.z < targetRollRate - RSCSresolution)
+				SetThrusterLevel(thruster_man_roll[0], 1.0);
+			else
+				SetThrusterLevel(thruster_man_roll[0], 0.0);
+
+			if (angVel.z > targetRollRate + RSCSresolution)
+				SetThrusterLevel(thruster_man_roll[1], 1.0);
+			else
+				SetThrusterLevel(thruster_man_roll[1], 0.0);
+		}
+	}
+
+	// Aux damp mode, which requires RSCS switch in AUTO (switchControlMode == -1)
+	//if (switchControlMode == -1 && totalThrustLevel == 0.0 && !(switchASCSMode == -1)) // NOT in ASCS normal mode, which controls this itself
+	// On the other hand, apparently it is possible to yaw at a 2 deg/s rate using FBW (MA6_FlightPlan2.pdf page 40), so there should then be no rate damping.
+	// So constraint should be ASCS switch in AUX damp and RSCS switch in Auto
+	if (switchControlMode == -1 && totalThrustLevel == 0.0 && switchASCSMode == 0)
+	{
+		AuxDampingAuto(true);
+	}
+
+	// Hardmode spontanious attitude thruster firing
+	if (FailureMode == ATTSTUCKON && simt - launchTime > timeOfError && oapiGetTimeAcceleration() <= 1.0) // we are not THAT mean that we do this during time acc
+	{
+		THRUSTER_HANDLE thFail;
+		if (attitudeThrusterErrorNum < 4)
+			thFail = thruster_man_py[attitudeThrusterErrorNum];
+		else if (attitudeThrusterErrorNum < 6)
+			thFail = thruster_man_roll[attitudeThrusterErrorNum - 4];
+		else if (attitudeThrusterErrorNum < 10)
+			thFail = thruster_auto_py[attitudeThrusterErrorNum - 6];
+		else if (attitudeThrusterErrorNum < 14)
+			thFail = thruster_auto_py_1lb[attitudeThrusterErrorNum - 10];
+		else if (attitudeThrusterErrorNum < 16)
+			thFail = thruster_auto_roll[attitudeThrusterErrorNum - 14];
+		else
+			thFail = thruster_auto_roll_1lb[attitudeThrusterErrorNum - 16];
+
+		SetThrusterLevel(thFail, 1.0);
+	}
+
+	// Disable auto thrusters if handles are pulled.
+	if (!tHandlePitchPushed)
+	{
+		SetThrusterLevel(thruster_auto_py[0], 0.0);
+		SetThrusterLevel(thruster_auto_py[1], 0.0);
+		SetThrusterLevel(thruster_auto_py_1lb[0], 0.0);
+		SetThrusterLevel(thruster_auto_py_1lb[1], 0.0);
+	}
+
+	if (!tHandleYawPushed)
+	{
+		SetThrusterLevel(thruster_auto_py[2], 0.0);
+		SetThrusterLevel(thruster_auto_py[3], 0.0);
+		SetThrusterLevel(thruster_auto_py_1lb[2], 0.0);
+		SetThrusterLevel(thruster_auto_py_1lb[3], 0.0);
+	}
+
+	if (!tHandleRollPushed)
+	{
+		SetThrusterLevel(thruster_auto_roll[0], 0.0);
+		SetThrusterLevel(thruster_auto_roll[1], 0.0);
+		SetThrusterLevel(thruster_auto_roll_1lb[0], 0.0);
+		SetThrusterLevel(thruster_auto_roll_1lb[1], 0.0);
+	}
+}
+
+inline void ProjectMercury::FlyByWireControlSingleDirection(double thrustLevel, THRUSTER_HANDLE high, THRUSTER_HANDLE low, bool tHandlePushed)
+{
+	// Limits from twombly1962.pdf page 3.
+	// Note that this does not fit nicely with Orbiter's Ctrl+Num combination, which gives 0.1 thrust, and therefore will not give any thrust.
+	double lowDeflectionLimit = joystickThresholdLow; // 0.33, now set in config file
+	double highDeflectionLimit = joystickThresholdHigh; // 0.75, now set in config file
+
+	if (thrustLevel >= highDeflectionLimit && tHandlePushed)
+	{
+		SetThrusterLevel(high, 1.0);
+		SetThrusterLevel(low, 0.0);
+	}
+	else if (thrustLevel >= lowDeflectionLimit && tHandlePushed)
+	{
+		SetThrusterLevel(high, 0.0);
+		SetThrusterLevel(low, 1.0);
+	}
+	else
+	{
+		SetThrusterLevel(high, 0.0);
+		SetThrusterLevel(low, 0.0);
 	}
 }
 
@@ -2153,12 +2460,13 @@ inline void ProjectMercury::MercuryCapsuleGenericTimestep(double simt, double si
 		AnimateDials();
 	}
 
-	// Rate damping if aborting (19670028606 page 97 and 98)
-	if (abort && VesselStatus == REENTRY && !drogueDeployed && abortDamping)
-	{
-		autoPilot = true;
-		AutopilotStatus = LOWG;
-	}
+	//// Rate damping if aborting (19670028606 page 97 and 98)
+	//if (abort && VesselStatus == REENTRY)
+	//{
+	//	// Debug, this should only be activated for an escape tower abort!
+	//	//autoPilot = true;
+	//	AutopilotStatus = LOWG;
+	//}
 
 	// Calculate G force for activation of tower & retro separation at 0.25 G
 	double m = GetMass();
@@ -2180,86 +2488,36 @@ inline void ProjectMercury::MercuryCapsuleGenericTimestep(double simt, double si
 	// Retrosequence
 	if (engageRetro && simt > retroStartTime && VesselStatus == FLIGHT) // firing starts 30 sec after retrosequence start
 	{
-		if (!retroCoverSeparated[0])
-		{
-			separateRetroCoverAction[0] = true;
-		}
-
-		if (FailureMode == RETROSTUCKOFF && retroErrorNum == 0)
-		{
-			// Do nothing, as the rocket failed
-		}
-		else
-		{
-			SetThrusterLevel(thruster_retro[0], 1.0);
-		}
-		RETRO_THRUST_LEVEL[0] = GetThrusterLevel(thruster_retro[0]); // For local lights
+		FireRetroRocket(0);
 
 		if (simt > (retroStartTime + 5.0))
 		{
-			if (!retroCoverSeparated[1])
-			{
-				separateRetroCoverAction[1] = true;
-			}
-			
-			if (FailureMode == RETROSTUCKOFF && retroErrorNum == 1)
-			{
-				// Do nothing, as the rocket failed
-			}
-			else
-			{
-				SetThrusterLevel(thruster_retro[1], 1.0);
-			}
-			RETRO_THRUST_LEVEL[1] = GetThrusterLevel(thruster_retro[1]); // For local lights
+			FireRetroRocket(1);
 
 			if (simt > (retroStartTime + 10.0))
 			{
-				if (!retroCoverSeparated[2])
-				{
-					separateRetroCoverAction[2] = true;
-				}
-				
-				if (FailureMode == RETROSTUCKOFF && retroErrorNum == 2)
-				{
-					// Do nothing, as the rocket failed
-				}
-				else
-				{
-					SetThrusterLevel(thruster_retro[2], 1.0);
-				}
-				RETRO_THRUST_LEVEL[2] = GetThrusterLevel(thruster_retro[2]); // For local lights
+				FireRetroRocket(2);
 			}
 		}
+
+		if (simt > retroStartTime + 60.0 && switchAutoRetroJet == -1) // both for suborbital and orbital missions (19640056774 page 12 and doi:10.1002/j.2161-4296.1962.tb02524.x page 2)
+		{
+			prepareReentryAction = true;
+			AutopilotStatus = REENTRYATTITUDE;
+		}
 	}
+
 	// Hardmode sponatious retro firing
 	if (FailureMode == RETROSTUCKON && simt - launchTime > timeOfError && oapiGetTimeAcceleration() <= 1.0) // we are not THAT mean that we do this during time acc
 	{
-		if (!retroCoverSeparated[retroErrorNum])
+		SetThrusterLevel(thruster_retro[retroErrorNum], 1.0);
+		
+		RETRO_THRUST_LEVEL[retroErrorNum] = GetThrusterLevel(thruster_retro[retroErrorNum]); // For local lights
+		
+		if (!retroCoverSeparated[retroErrorNum] && RETRO_THRUST_LEVEL[retroErrorNum] > 0.0)
 		{
 			separateRetroCoverAction[retroErrorNum] = true;
 		}
-		SetThrusterLevel(thruster_retro[retroErrorNum], 1.0);
-		RETRO_THRUST_LEVEL[retroErrorNum] = GetThrusterLevel(thruster_retro[retroErrorNum]); // For local lights
-	}
-
-	// Hardmode spontanious attitude thruster firing
-	if (FailureMode == ATTSTUCKON && simt - launchTime > timeOfError&& oapiGetTimeAcceleration() <= 1.0) // we are not THAT mean that we do this during time acc
-	{
-		THRUSTER_HANDLE thFail;
-		if (attitudeThrusterErrorNum < 4)
-			thFail = thruster_man_py[attitudeThrusterErrorNum];
-		else if (attitudeThrusterErrorNum < 6)
-			thFail = thruster_man_roll[attitudeThrusterErrorNum - 4];
-		else if (attitudeThrusterErrorNum < 10)
-			thFail = thruster_auto_py[attitudeThrusterErrorNum - 6];
-		else if (attitudeThrusterErrorNum < 14)
-			thFail = thruster_auto_py_1lb[attitudeThrusterErrorNum - 10];
-		else if (attitudeThrusterErrorNum < 16)
-			thFail = thruster_auto_roll[attitudeThrusterErrorNum - 14];
-		else
-			thFail = thruster_auto_roll_1lb[attitudeThrusterErrorNum - 16];
-
-		SetThrusterLevel(thFail, 1.0);
 	}
 
 	// Jettison retro if aerodynamic stresses are too high (a la MA-6)
@@ -2353,13 +2611,13 @@ inline void ProjectMercury::WriteHUDAutoFlightReentry(oapi::Sketchpad* skp, doub
 
 	if (VesselStatus == FLIGHT)
 	{
-		if (autoPilot && AutopilotStatus == POSIGRADEDAMP)
+		if (switchASCSMode == -1 && switchControlMode == -1 && AutopilotStatus == POSIGRADEDAMP)
 		{
 			sprintf(cbuf, "Capsule turnaround in %.2f s", 5.0 + posigradeDampingTime - simt);
 			skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
 			yIndex += 1;
 		}
-		else if (autoPilot && AutopilotStatus == TURNAROUND)
+		else if (switchASCSMode == -1 && switchControlMode == -1 && AutopilotStatus == TURNAROUND)
 		{
 			sprintf(cbuf, "Hold retro attitude");
 			skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
@@ -2369,7 +2627,7 @@ inline void ProjectMercury::WriteHUDAutoFlightReentry(oapi::Sketchpad* skp, doub
 			skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
 			yIndex += 1;
 		}
-		else if (autoPilot && AutopilotStatus == PITCHHOLD)
+		else if (switchASCSMode == -1 && switchControlMode == -1 && AutopilotStatus == ORBITATTITUDE)
 		{
 			sprintf(cbuf, "Holding retro attitude");
 			skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
@@ -2417,9 +2675,9 @@ inline void ProjectMercury::WriteHUDAutoFlightReentry(oapi::Sketchpad* skp, doub
 			}
 		}
 	}
-	else if (autoPilot && VesselStatus == REENTRY)
+	else if (switchASCSMode == -1 && switchControlMode == -1 && VesselStatus == REENTRY)
 	{
-		if (AutopilotStatus == REENTRYATT)
+		if (AutopilotStatus == REENTRYATTITUDE)
 		{
 			sprintf(cbuf, "Holding reentry pitch:");
 			skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
@@ -2489,7 +2747,8 @@ inline void ProjectMercury::WriteHUDIndicators(oapi::Sketchpad* skp, double simt
 	// RETRO ATT
 	double currP = GetPitch() + pitchOffset;
 	double currY = GetSlipAngle() + yawOffset;
-	if (engageRetro && abs(currP + 34.0 * RAD) < 15.0 * RAD && abs(normangle(currY + PI)) < 15.0 * RAD) skp->SetTextColor(Green); // within limits
+	double currR = GetBank() + rollOffset;
+	if (engageRetro && abs(currP + 34.0 * RAD) < 12.5 * RAD && abs(normangle(currY + PI)) < 30.0 * RAD && abs(currR) < 30.0 * RAD) skp->SetTextColor(Green); // within limits, Familiarization page 229
 	else if (retroStartTime == 0.0) skp->SetTextColor(Gray); // haven't engaged retro
 	else if (VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE || VesselStatus == ABORTNORETRO) skp->SetTextColor(Gray);
 	else skp->SetTextColor(Red);
@@ -2554,12 +2813,12 @@ inline void ProjectMercury::WriteHUDIndicators(oapi::Sketchpad* skp, double simt
 	// FUEL QUAN
 	double autoLevel = GetPropellantMass(fuel_auto) / MERCURY_FUEL_MASS_AUTO;
 	double manualLevel = GetPropellantMass(fuel_manual) / MERCURY_FUEL_MASS_MAN;
-	if (!attitudeFuelAuto) // swap (just how I've defined it)
-	{
-		autoLevel = GetPropellantMass(fuel_manual) / MERCURY_FUEL_MASS_AUTO;
-		manualLevel = GetPropellantMass(fuel_auto) / MERCURY_FUEL_MASS_MAN;
-	}
-	if (autoLevel < 0.25 || manualLevel < 0.25) skp->SetTextColor(Red); // copied from old addon. Familiarization manual says "The pressure swich is set to actuate at a pre-determined low fuel level. However, on MA-7 Carpenter said at 01 34 37: Fuel is 62 and 68 %, ..., fuel quantity light is on
+	//if (!attitudeFuelAuto) // swap (just how I've defined it)
+	//{
+	//	autoLevel = GetPropellantMass(fuel_manual) / MERCURY_FUEL_MASS_AUTO;
+	//	manualLevel = GetPropellantMass(fuel_auto) / MERCURY_FUEL_MASS_MAN;
+	//}
+	if (autoLevel < 0.65 || manualLevel < 0.65) skp->SetTextColor(Red);
 	else skp->SetTextColor(Gray);
 	sprintf(cbuf, "FUEL QUAN");
 	skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
@@ -2581,7 +2840,7 @@ inline void ProjectMercury::LoadCapsule(const char *cbuf)
 	if (isalpha(cbuf[0])) // User specified capsule from config, e.g. "Demo"
 	{
 		oapiWriteLog("Scenario load user capsule.");
-		for (int i = 0; i < 10; i++)
+		for (int i = 0; i < NUMBER_SUPPORTED_CONFIG_CAPSULES; i++)
 		{
 			if (strcmp(cbuf, configTextureUserName[i]) == 0)
 			{
@@ -2921,7 +3180,7 @@ inline bool ProjectMercury::ReadTextureString(const char* cbuf, const int len, c
 	char* spaceLoc, * newSpaceLoc;
 	spaceLoc = strchr(nonConstCbuf, ' ');
 
-	char width[5], height[5];
+	char width[50], height[50];
 
 	if (spaceLoc != NULL) // found a space
 	{

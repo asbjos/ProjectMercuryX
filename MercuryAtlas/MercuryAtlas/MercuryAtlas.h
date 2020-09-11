@@ -16,6 +16,7 @@
 // ==============================================================
 
 //FILEHANDLE pitchDataLogFile;
+//FILEHANDLE PIDdebug;
 
 // ==============================================================
 // Some vessel parameters
@@ -153,7 +154,7 @@ const VECTOR3 MERCURY_ROT_DRAG_CHUTE = _V(10.0, 10.0, 7.0); // Also from Apollo 
 const VECTOR3 MERCURY_ROT_DRAG_DROGUE = _V(1.0, 1.0, 1.0); // guesstimate based on two other values
 
 const double MERCURY_FUEL_MASS_AUTO = 14.51; // 32 pounds
-const double MERCURY_FUEL_MASS_MAN = 10.66; // 23.5 pounds (20150018552 page 9)
+const double MERCURY_FUEL_MASS_MAN = 10.61; // 23.4 pounds (MercuryFamiliarizationManual page 158, although 20150018552 page 9 lists 23 1/2)
 const double MERCURY_THRUST_ATT = 106.8; // 24 lb
 const double MERCURY_THRUST_ROLL_ATT = 26.69; // 6 lb
 const double MERCURY_ISP_ATT = 220 * G; // Also listed somewhere as 160 pound-seconds, but unsure how to convert
@@ -186,10 +187,11 @@ const double aimPitchover[13] = { 0.0, 0.98, 0.76, 0.64, 0.68, 0.60, 0.45, 0.240
 //	- MA-8 communications
 //	- MA-9 communications
 //	- MA6_FlightOps.pdf, page 93, list of all retrosequence times from 1B to 7-1.
-//								1Bravo			1Charlie	1Delta		1Echo					 Foxtrot(end of 1st orbit)	2Alpha					2Bravo				2Charlie				2Delta						2Echo					Golf (end 2nd)	3Alpha					3Bravo					3Charlie				3Delta						3Echo					Hotel (Nominal deorbit)
 const int STORED_RETROSEQUENCE_TIMES = 46;
 const int retroTimes[STORED_RETROSEQUENCE_TIMES] = {		17 * 60 + 50,	32 * 60 + 12,	50 * 60 + 24,	1 * 3600 + 15 * 60 + 42,	1 * 3600 + 28 * 60 + 50,	1 * 3600 + 36 * 60 + 38,	1 * 3600 + 50 * 60,		2 * 3600 + 5 * 60 + 59,	2 * 3600 + 38 * 60 + 31,	2 * 3600 + 48 * 60 + 59,	3 * 3600 + 39,	3 * 3600 + 11 * 60 + 26,	3 * 3600 + 22 * 60 + 32,	3 * 3600 + 40 * 60 + 18,	4 * 3600 + 12 * 60 + 32,	4 * 3600 + 22 * 60 + 12,	4 * 3600 + 32 * 60 + 37,	4 * 3600 + 43 * 60 + 53,	4 * 3600 + 54 * 60 + 40,	5 * 3600 + 31 * 60 + 29,	5 * 3600 + 44 * 60 + 5,	5 * 3600 + 55 * 60 + 14,	6 * 3600 + 3 * 60 + 48,	6 * 3600 + 28 * 60 + 12,	7 * 3600 + 3 * 60 + 52,	7 * 3600 + 18 * 60 + 10,	7 * 3600 + 28 * 60 + 30,	7 * 3600 + 36 * 60 + 9,	8 * 3600 + 11 * 60 + 38,	8 * 3600 + 37 * 60 + 23,	8 * 3600 + 51 * 60 + 28,	9 * 3600 + 24,	9 * 3600 + 11 * 60 + 56,	9 * 3600 + 40 * 60 + 22,	10 * 3600 + 14 * 60 + 13,	10 * 3600 + 23 * 60 + 37,	11 * 3600 + 56 * 60 + 24,	13 * 3600 + 19 * 60 + 20,	23 * 3600 + 31 * 60 + 3,	26 * 3600 + 14 * 60 + 48,	26 * 3600 + 34 * 60 + 48,	26 * 3600 + 58 * 60 + 50,	27 * 3600 + 43 * 60 + 48,	28 * 3600 + 31 * 60 + 24,	30 * 3600 + 53 * 60 + 1,	33 * 3600 + 59 * 60 + 24 };
 const char retroNames[][256] =							{	"1Bravo",		"1Charlie",		"1Delta",		"1Echo",					"Foxtrot",					"2Alpha",					"2Bravo",				"2Charlie",				"2Delta",					"2Echo",					"Golf",			"3Alpha",					"3Bravo",					"3Charlie",					"3Delta",					"3Echo",					"Hotel",				"4Alpha",						"4Bravo",					"4Delta",					"4-2",					"4Echo",					"5Alpha",				"5Bravo",					"5Delta",				"5-1",						"5Echo",					"5Foxtrot",				"6Bravo",					"6Delta",					"6-1",						"6Echo",		"7Alpha",					"7Bravo",					"7Delta",					"7-1",						"8-1",						"9-1",						"16-1",						"17Bravo",					"18-1",						"18Alpha",					"18-2",						"19Bravo",					"20-1",						"22-1" };
+
+const int NUMBER_SUPPORTED_CONFIG_CAPSULES = 10;
 
 class ProjectMercury : public VESSELVER {
 public:
@@ -247,13 +249,14 @@ public:
 
 	void DisableAutopilot(bool turnOff);
 	void AuxDampingAuto(bool highThrust);
-	void RetroAttitudeAuto(double simt, double simdt, bool retroAtt);
-	bool SetPitchAuto(double targetPitch, bool highThrust);
-	bool SetYawAuto(bool highThrust);
-	bool SetRollAuto(bool highThrust);
+	void RetroAttitudeAuto(double simt, double simdt, bool highTorque);
+	bool SetPitchAuto(double targetPitch, bool highTorque);
+	bool SetYawAuto(bool highTorque);
+	bool SetRollAuto(bool highTorque);
 	void ReentryAttitudeAuto(double simt, double simdt);
 	void GRollAuto(double simt, double simdt);
 	void InitiateRetroSequence(void);
+	void FireRetroRocket(int rckNum);
 
 	double EmptyMass(void);
 	void TowerSeparation(void);
@@ -270,8 +273,8 @@ public:
 	void CreateRCS(void);
 	void CreateAirfoils(void);
 	void CreateAirfoilsEscape(void);
-	void SwitchAttitudeMode(void);
-	void SwitchPropellantSource(void);
+	//void SwitchAttitudeMode(void);
+	//void SwitchPropellantSource(void);
 	MATRIX3 RotationMatrix(VECTOR3 angles, bool xyz = false);
 	void DumpFuelRCS(void);
 	VECTOR3 FlipX(VECTOR3 vIn);
@@ -279,7 +282,7 @@ public:
 	VECTOR3 SwapXY(VECTOR3 vIn);
 	void myStrncpy(char* writeTo, const char* readFrom, int len);
 
-	double OrbitArea(double angle, double ecc);
+	//double OrbitArea(double angle, double ecc);
 
 	void SeparateTower(bool noAbortSep);
 	void SeparateAtlasBooster(bool noAbortSep);
@@ -316,6 +319,8 @@ public:
 
 	void SetCameraSceneVisibility(WORD mode);
 
+	void CreatePanelSwitchClick(int ID_L, int ID_R, int x, int y, PANELHANDLE hPanel);
+	void CreatePanelTHandleClick(int ID, int x, int y, PANELHANDLE hPanel);
 	void FitPanelToScreen(int w, int h);
 	void AnimateDials(void);
 	void RotateArmGroup(int groupNum, float x0, float y0, float length, float width, float angleR, float pointiness, float negLength = 0.0f, bool includeLatency = true);
@@ -326,6 +331,7 @@ public:
 	void SetIndicatorStatus(int indicatorNr, int status);
 	void SetIndicatorButtonStatus(int buttonNr, int status);
 	void SetPhysicalSwitchStatus(int switchNr, int status);
+	void SetTHandleState(int groupIdx, bool pushed, int handleNum);
 
 	void GetPanelRetroTimes(double met, int* rH, int* rM, int* rS, int* dH, int* dM, int* dS);
 
@@ -344,7 +350,8 @@ public:
 	void AddDefaultMeshes(void);
 	void CapsuleGenericPostCreation(void);
 	void DeleteRogueVessels(void);
-	void CapsuleAutopilotControl(double simt, double simdt);
+	void CapsuleAttitudeControl(double simt, double simdt);
+	void FlyByWireControlSingleDirection(double thrustLevel, THRUSTER_HANDLE high, THRUSTER_HANDLE low, bool tHandlePushed);
 	void MercuryCapsuleGenericTimestep(double simt, double simdt, double latit, double longit, double getAlt);
 	void WriteHUDAutoFlightReentry(oapi::Sketchpad* skp, double simt, int *yIndexUpdate, char *cbuf);
 	void WriteHUDIndicators(oapi::Sketchpad* skp, double simt, int* yIndexUpdate, char* cbuf);
@@ -409,15 +416,16 @@ private:
 
 	THRUSTER_HANDLE th_main, th_booster[2], th_vernier[2], thCluster[5], th_rcsDummyBooster[6], escape_engine, thruster_retro[3], thruster_posigrade[3], thruster_man_py[4],
 		thruster_man_roll[2], thruster_auto_py[4], thruster_auto_py_1lb[4], thruster_auto_roll[2], thruster_auto_roll_1lb[2],
-		pitchup, pitchdown, yawleft, yawright, bankleft, bankright;
-	PROPELLANT_HANDLE atlas_propellant, retro_propellant[3], posigrade_propellant[3], fuel_auto, fuel_manual, escape_tank;
+		//pitchup, pitchdown, yawleft, yawright, bankleft, bankright,
+		controllerPitchup, controllerPitchdown, controllerYawleft, controllerYawright, controllerBankleft, controllerBankright; // the dummy thrusters for capsule RCS
+	PROPELLANT_HANDLE atlas_propellant, retro_propellant[3], posigrade_propellant[3], fuel_auto, fuel_manual, escape_tank, dummyControllerFuel;
 	//THRUSTER_HANDLE th_main, th_rcs[14], th_group[4];
 	PARTICLESTREAMSPEC contrail_main, contrail_second;
 	PSTREAM_HANDLE contrail, contrail2, rcsStream[18], turbineExhaustContrail, boosterExhaustContrail[2], iceVenting[3];
 	UINT exMain, exBooster[2], exVernier[2];
 	bool contrailActive = true;
 	bool contrail2Active = true;
-	double engineLevel02 = 0.0;
+	//double engineLevel02 = 0.0;
 	double turbineContrailLevel = 0.0;
 	//double iceVentLevel = 0.0;
 	bool suborbitalMission = false; // change to false for Mercury Atlas!
@@ -428,6 +436,9 @@ private:
 	double becoTime = 128.6;
 	double previousSustainerLevel = 0.0;
 	bool inclinationTarget = false;
+	double PIDintegral = 0.0, PIDpreviousError = 0.0;
+	double fireflyLevel = 0.0;
+	double fireflyBangTime = 0.0;
 
 	MESHHANDLE atlas,
 		atlasIce, atlasIce2, atlasIce3,
@@ -460,7 +471,7 @@ private:
 		cockpitPanelMesh,
 		vcFrame; // mesh handles
 
-	DEVMESHHANDLE cockpitPanelDevMesh;
+	//DEVMESHHANDLE cockpitPanelDevMesh;
 
 	UINT Atlas; // rocket mesh
 	UINT AtlasBooster;
@@ -505,8 +516,6 @@ private:
 	// ReplacementTextures
 	int numTextures = 0;
 	char textureString[50][100] = { NULL }; // now supports up to 50 appended textures. Should be more than plenty enough
-	//char texturePorthole[50] = { NULL };
-	//int texturePortholeWidth, texturePortholeHeight;
 	ATEX texPorthole, texBrailmap, texMBrail1, texMBrail2, texRidges, texVerrail1, texMetal, texVerrail2, texOrange, texPythr, texRollthst, texScanner, texScope, texSnorkel, texTrailmap, texTopboxes, texUsa, // all these present in Freedom 7 mesh
 		texArtwork,
 		texCrack, texGlass, texFoilwindow, texFoil, texWindowfr,
@@ -515,9 +524,9 @@ private:
 		texMetalant, texAntridge, texScrew, texDialec,
 		texMetalret, texDialecret, texBw,
 		texAtlas3, texAtlas4, texAtlas5, texAtlas3ice, texAtlas3ice2, texAtlas3ice3, texAdapterridge, texMetaladapt, texAtlas5boost, texAtlas3boost;
-	int configTextureUserNum = -1; // if between 0 and 9, it is defined
-	char configTextureUserName[10][20]; // up to 10 user defined capsules, supports up to length 20
-	int configTextureUserBasis[10]; // The original frame to build upon
+	int configTextureUserNum = -1; // if between 0 and NUMBER_SUPPORTED_CONFIG_CAPSULES - 1, it is defined
+	char configTextureUserName[NUMBER_SUPPORTED_CONFIG_CAPSULES][20]; // up to NUMBER_SUPPORTED_CONFIG_CAPSULES user defined capsules, supports up to length 20
+	int configTextureUserBasis[NUMBER_SUPPORTED_CONFIG_CAPSULES]; // The original frame to build upon
 	bool configTextureUserEnable = false; // by default, don't load textures defined in config. Only if actual capsule is called
 	bool scenarioTextureUserEnable = false;
 
@@ -567,15 +576,15 @@ private:
 	double towerJetTime = 0.0;
 	//double capsuleSepTime = 0.0;
 	bool retroCoverSeparated[3] = { false, false, false };
-	bool attitudeControlManual = true;
-	bool attitudeFuelAuto = true;
+	//bool attitudeControlManual = true;
+	//bool attitudeFuelAuto = true;
 	double RETRO_THRUST_LEVEL[3];
-	bool abortDamping = true;
+	//bool abortDamping = true;
 	bool rcsExists = false;
 	bool engageFuelDump = false;
 	bool rollProgram = false;
 	bool pitchProgram = false;
-	bool retroAttitude = false;
+	//bool retroAttitude = false;
 	double eulerPitch = 0.0;
 	double eulerYaw = 0.0;
 
@@ -586,6 +595,8 @@ private:
 	bool leftMFDwasOn = false;
 	bool rightMFDwasOn = false;
 	bool MercuryNetwork = true;
+	double joystickThresholdLow = 0.33; // the RCS joystick threshold activating the low torque thrusters in Fly-By-Wire
+	double joystickThresholdHigh = 0.75; // the RCS joystick threshold activating the high torque thrusters in Fly-By-Wire
 
 	// Left cockpit lights
 	bool towerJettisoned = false;
@@ -639,8 +650,23 @@ private:
 	double indicatorButtonPressTime[20]; // right now support 20 buttons, but this limit is arbitrary. Increase if needed
 	int indicatorButtonPressState[20] = { -1 };
 	int indicatorButtonFirstGroup = 13; // right now it's 13, but doesn't matter what we set to, as it will be correctly assigned every frame
-	int physicalSwitchState[3] = { -2 }; // -1 left, 0 centre, 1 right. -2 is reset
+	//int physicalSwitchState[5] = { -2 }; // -1 left, 0 centre, 1 right. -2 is reset
 	int physicalSwitchFirstGroup = 17; // right now it's 17, but doesn't matter what we set to, as it will be correctly assigned every frame
+	double animateDialsPreviousSimt = 0.0; // even if we have scenario with simt < 0.0 (scnEditor), we will only have a smooth transition once every time jump backwards.
+
+	// -1 left, 0 centre, 1 right. -2 is reset
+	int switchAutoRetroJet = -1; // ARM (-1), OFF (1)
+	int switchRetroDelay = -1; // NORM (-1), INST (1)
+	int switchRetroAttitude = -1; // AUTO (-1), MAN (1)
+	int switchASCSMode = -1; // NORM (-1), AUX DAMP (0), FLY BY WIRE (1)
+	int switchControlMode = -1; // AUTO (-1), RATE COMD (1)
+
+	// MA6_FlightOps.pdf calls for control fuel handles to be pushed IN during launch (page 9).
+	// This means (see MR3_FlightOps.pdf page 3) that ASCS is completely on (roll, yaw, pitch), and double authority (manual handle [MAN CONT FUEL]).
+	bool tHandleManualPushed = true;
+	bool tHandleRollPushed = true;
+	bool tHandleYawPushed = true;
+	bool tHandlePitchPushed = true;
 
 
 	//SURFHANDLE panelDynamicTexture;
@@ -704,8 +730,8 @@ private:
 	//enum mainchutestate { M_CLOSED, M_DEPLOYED, M_OPENING, M_REEFED, M_UNREEFING, M_OPENED } MainChuteStatus, ReserveChuteStatus;
 	enum landingbagstate { L_CLOSED, L_DEPLOYED, L_OPENING, L_OPENED } LandingBagStatus;
 	enum periscopestate { P_CLOSED, P_DEPLOYED, P_OPENING, P_CLOSING } PeriscopeStatus, DestabiliserStatus;
-	enum rcsstate { MANUAL, AUTOHIGH, AUTOLOW } RcsStatus;
-	enum autopilotstate { AUTOLAUNCH, POSIGRADEDAMP, TURNAROUND, PITCHHOLD, REENTRYATT, LOWG } AutopilotStatus;
+	//enum rcsstate { MANUAL, AUTOHIGH, AUTOLOW } RcsStatus;
+	enum autopilotstate { AUTOLAUNCH, POSIGRADEDAMP, TURNAROUND, ORBITATTITUDE, RETROATTITUDE, REENTRYATTITUDE, LOWG } AutopilotStatus; // TURNAROUND, PITCHHOLD, REENTRYATT, LOWG } AutopilotStatus;
 	enum icemesh { ICE0, ICE1, ICE2, ICE3 } AtlasIceStatus;
 	enum filtertype { CLEAR, RED, YELLOW, GRAY } CurrentFilter;
 
@@ -721,7 +747,6 @@ private:
 
 	int stuffCreated = 0;
 	OBJHANDLE createdVessel[25]; // number is close to 20, but don't bother counting exactly
-	bool createdAbove50km[25] = { false };
 
 	bool capsuleOnly = false; // Is possibly overloaded at SetClassCaps. If set to true spawns a capsule in FLIGHT stage
 	bool capsuleTowerRetroOnly = false; // Is possibly overloaded at SetClassCaps. If set to true, spawns a capsule in ABORT stage, with LES and retropack

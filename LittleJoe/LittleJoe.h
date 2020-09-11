@@ -198,6 +198,8 @@ const int numRocketCamModes = 2;
 const VECTOR3 ROCKET_CAMERA_DIRECTION[numRocketCamModes] = { _V(0, 0, -1), _V(0,0,1) };
 const VECTOR3 ROCKET_CAMERA_OFFSET[numRocketCamModes] = { _V(0.4, 1.2, -LITTLEJOE_LENGTH / 2.0 + 3.0), _V(0.4, 1.2, LITTLEJOE_LENGTH / 2.0 + 1.0) };
 
+const int NUMBER_SUPPORTED_CONFIG_CAPSULES = 10;
+
 class ProjectMercury : public VESSELVER {
 public:
 	ProjectMercury(OBJHANDLE hVessel, int flightmodel);
@@ -221,13 +223,13 @@ public:
 	void VersionDependentTouchdown(VECTOR3 touch1, VECTOR3 touch2, VECTOR3 touch3, VECTOR3 touch4, double stiff, double damp, double mu);
 	void VersionDependentPanelClick(int id, const RECT& pos, int texidx, int draw_event, int mouse_event, PANELHANDLE hPanel, const RECT& texpos, int bkmode);
 	void VersionDependentPadHUD(oapi::Sketchpad* skp, double simt, int* yIndexUpdate, char* cbuf, VESSEL* v);
-	double normangle(double angle);
-	void oapiWriteLogV(const char* format, ...);
-	double GetGroundspeed(void);
-	double GetAnimation(UINT anim);
-	void GetGroundspeedVector(int frame, VECTOR3& v);
-	double length2(VECTOR3 vec);
-	void GetAirspeedVector(int frame, VECTOR3& v);
+	//double normangle(double angle);
+	//void oapiWriteLogV(const char* format, ...);
+	//double GetGroundspeed(void);
+	//double GetAnimation(UINT anim);
+	//void GetGroundspeedVector(int frame, VECTOR3& v);
+	//double length2(VECTOR3 vec);
+	//void GetAirspeedVector(int frame, VECTOR3& v);
 
 	void AimEulerAngle(double pitch, double yaw);
 	void DisableAutopilot(bool turnOff);
@@ -244,6 +246,7 @@ public:
 	//void PitchAttAuto(double simt, double simdt);
 	void GRollAuto(double simt, double simdt);
 	void InitiateRetroSequence(void); // Actually for manned capsules that carried retro, but must include for Little Joe to run. We're ensuring that it will never be run.
+	void FireRetroRocket(int rckNum); // Same as above
 
 	double EmptyMass(void);
 	void TowerSeparation(void);
@@ -260,8 +263,6 @@ public:
 	void CreateRCS(void);
 	void CreateAirfoils(void);
 	void CreateAirfoilsEscape(void);
-	void SwitchAttitudeMode(void);
-	void SwitchPropellantSource(void);
 	MATRIX3 RotationMatrix(VECTOR3 angles, bool xyz = FALSE);
 	void DumpFuelRCS(void);
 	VECTOR3 FlipX(VECTOR3 vIn);
@@ -307,6 +308,8 @@ public:
 	void GetPixelDeviationForAltitude(double inputAltitude, double* deg0Pix, double* deg5Pix);
 	void SetPeriscopeAltitude(double inputAltitude);
 
+	void CreatePanelSwitchClick(int ID_L, int ID_R, int x, int y, PANELHANDLE hPanel);
+	void CreatePanelTHandleClick(int ID, int x, int y, PANELHANDLE hPanel);
 	void FitPanelToScreen(int w, int h);
 	void AnimateDials(void);
 	void RotateArmGroup(int groupNum, float x0, float y0, float length, float width, float angleR, float pointiness, float negLength = 0.0f, bool includeLatency = true);
@@ -317,6 +320,7 @@ public:
 	void SetIndicatorStatus(int indicatorNr, int status);
 	void SetIndicatorButtonStatus(int buttonNr, int status);
 	void SetPhysicalSwitchStatus(int switchNr, int status);
+	void SetTHandleState(int groupIdx, bool pushed, int handleNum);
 
 	void GetPanelRetroTimes(double met, int* rH, int* rM, int* rS, int* dH, int* dM, int* dS);
 
@@ -335,7 +339,8 @@ public:
 	void AddDefaultMeshes(void);
 	void CapsuleGenericPostCreation(void);
 	void DeleteRogueVessels(void);
-	void CapsuleAutopilotControl(double simt, double simdt);
+	void CapsuleAttitudeControl(double simt, double simdt);
+	void FlyByWireControlSingleDirection(double thrustLevel, THRUSTER_HANDLE high, THRUSTER_HANDLE low, bool tHandlePushed);
 	void MercuryCapsuleGenericTimestep(double simt, double simdt, double latit, double longit, double getAlt);
 	void WriteHUDAutoFlightReentry(oapi::Sketchpad* skp, double simt, int* yIndexUpdate, char* cbuf);
 	void WriteHUDIndicators(oapi::Sketchpad* skp, double simt, int* yIndexUpdate, char* cbuf);
@@ -374,8 +379,8 @@ private:
 
 	THRUSTER_HANDLE th_castor[4], th_pollux[4], th_recruit[4], escape_engine, thruster_retro[3], thruster_posigrade[3], thruster_man_py[4],
 		thruster_man_roll[2], thruster_auto_py[4], thruster_auto_py_1lb[4], thruster_auto_roll[2], thruster_auto_roll_1lb[2],
-		pitchup, pitchdown, yawleft, yawright, bankleft, bankright;
-	PROPELLANT_HANDLE castor_propellant[4], pollux_propellant[4], recruit_propellant[4], retro_propellant[3], posigrade_propellant[3], fuel_auto, fuel_manual, escape_tank;
+		controllerPitchup, controllerPitchdown, controllerYawleft, controllerYawright, controllerBankleft, controllerBankright; // the dummy thrusters for capsule RCS
+	PROPELLANT_HANDLE castor_propellant[4], pollux_propellant[4], recruit_propellant[4], retro_propellant[3], posigrade_propellant[3], fuel_auto, fuel_manual, escape_tank, dummyControllerFuel;
 	//THRUSTER_HANDLE th_main, th_rcs[14], th_group[4];
 	PARTICLESTREAMSPEC contrail_main_castor, contrail_main_recruit;
 	PSTREAM_HANDLE contrail_castor[4], contrail_recruit[4], contrail_vapour, rcsStream[18], exhaustCastor[2];
@@ -461,9 +466,9 @@ private:
 		texMetalant, texAntridge, texScrew, texDialec,
 		texMetalret, texDialecret, texBw,
 		texLittlej, texBaixxo, texJoefins, texFinfron, texBodynum;
-	int configTextureUserNum = -1; // if between 0 and 9, it is defined
-	char configTextureUserName[10][20]; // up to 10 user defined capsules, supports up to length 20
-	int configTextureUserBasis[10]; // The original frame to build upon
+	int configTextureUserNum = -1; // if between 0 and NUMBER_SUPPORTED_CONFIG_CAPSULES - 1, it is defined
+	char configTextureUserName[NUMBER_SUPPORTED_CONFIG_CAPSULES][20]; // up to NUMBER_SUPPORTED_CONFIG_CAPSULES user defined capsules, supports up to length 20
+	int configTextureUserBasis[NUMBER_SUPPORTED_CONFIG_CAPSULES]; // The original frame to build upon
 	bool configTextureUserEnable = false; // by default, don't load textures defined in config. Only if actual capsule is called
 	bool scenarioTextureUserEnable = false;
 
@@ -498,17 +503,12 @@ private:
 	bool attitudeHold14deg = false;
 	bool CGshifted;
 	double escapeLevel = 0.0;
-	bool inFlightAbort = false;
 	double abortTime = 0.0;
 	double towerJetTime = 0.0;
 	bool retroCoverSeparated[3] = { false, false, false };
-	bool attitudeControlManual = true;
-	bool attitudeFuelAuto = true;
 	double RETRO_THRUST_LEVEL[3];
-	bool abortDamping = true;
 	bool rcsExists = false;
 	bool engageFuelDump = false;
-	bool retroAttitude = false;
 	double previousThrusterLevel = 0.0;
 	double eulerPitch = 0.0;
 	double eulerYaw = 0.0;
@@ -520,6 +520,8 @@ private:
 	bool leftMFDwasOn = false;
 	bool rightMFDwasOn = false;
 	bool MercuryNetwork = true;
+	double joystickThresholdLow = 0.33; // the RCS joystick threshold activating the low torque thrusters in Fly-By-Wire
+	double joystickThresholdHigh = 0.75; // the RCS joystick threshold activating the high torque thrusters in Fly-By-Wire
 
 	bool drogueCoverSeparated = false;
 	bool drogueDeployed = false;
@@ -547,7 +549,6 @@ private:
 	bool landingBagEndAnimation = false;
 	double destabiliserProgress = 0.0;
 
-
 	bool periscope = false;
 	double oldFOV = 20.0 * RAD;
 	bool narrowField = false;
@@ -574,27 +575,19 @@ private:
 	int physicalSwitchState[3] = { -2 }; // -1 left, 0 centre, 1 right. -2 is reset
 	int physicalSwitchFirstGroup = 17; // right now it's 17, but doesn't matter what we set to, as it will be correctly assigned every frame
 
-	//bool periscope = false;
-	//double oldFOV = 20.0 * RAD;
-	//bool narrowField = false;
-	//int oldHUDMode = HUD_SURFACE;
-	//double periscopeProgress = 0.0;
-	//double periscopeAltitude = 160.0;
-	//bool rocketCam = false;
-	//int rocketCamMode = 0;
-	//// Include panel, although technically Little Joe was never manned
-	//bool panelView = false;
-	//int armGroups[50] = { NULL }; // Support up to 50 for now. Real number more like 15
-	//int totalArmGroups = 0;
-	//int panelMeshGroupSide[100] = { 0 }; // 0 empty, 1 left, 2 right, -1 ignore
-	//float addScreenWidthValue = 0.0;
-	//int globeGroup = NULL;
-	//int globeVertices = NULL;
-	//float previousDialAngle[200] = { 0.0f }; // must be longer than total mesh group number
-	//float dialAngularSpeed = float(180.0 * RAD); // Degrees per second
-	//int abortIndicatorGroup = NULL;
-	//int previousIndicatorStatus[13] = { 0 };
-	//bool retroWarnLight = false;
+	// -1 left, 0 centre, 1 right. -2 is reset
+	int switchAutoRetroJet = -1; // ARM (-1), OFF (1)
+	int switchRetroDelay = -1; // NORM (-1), INST (1)
+	int switchRetroAttitude = -1; // AUTO (-1), MAN (1)
+	int switchASCSMode = -1; // NORM (-1), AUX DAMP (0), FLY BY WIRE (1)
+	int switchControlMode = -1; // AUTO (-1), RATE COMD (1)
+
+	// MA6_FlightOps.pdf calls for control fuel handles to be pushed IN during launch (page 9).
+	// This means (see MR3_FlightOps.pdf page 3) that ASCS is completely on (roll, yaw, pitch), and double authority (manual handle [MAN CONT FUEL]).
+	bool tHandleManualPushed = true;
+	bool tHandleRollPushed = true;
+	bool tHandleYawPushed = true;
+	bool tHandlePitchPushed = true;
 
 	double vesselAcceleration;
 	double longitudinalAcc;
@@ -647,7 +640,7 @@ private:
 	enum landingbagstate { L_CLOSED, L_DEPLOYED, L_OPENING, L_OPENED } LandingBagStatus;
 	enum periscopestate { P_CLOSED, P_DEPLOYED, P_OPENING, P_CLOSING } PeriscopeStatus, DestabiliserStatus;
 	enum rcsstate { MANUAL, AUTOHIGH, AUTOLOW } RcsStatus;
-	enum autopilotstate { AUTOLAUNCH, POSIGRADEDAMP, TURNAROUND, PITCHHOLD, REENTRYATT, LOWG } AutopilotStatus;
+	enum autopilotstate { AUTOLAUNCH, POSIGRADEDAMP, TURNAROUND, ORBITATTITUDE, RETROATTITUDE, REENTRYATTITUDE, LOWG } AutopilotStatus;
 	enum filtertype { CLEAR, RED, YELLOW, GRAY } CurrentFilter;
 
 	// Failure definitions
@@ -667,7 +660,7 @@ private:
 
 	int stuffCreated = 0;
 	OBJHANDLE createdVessel[25]; // number is close to 20, but don't bother counting exactly
-	bool createdAbove50km[25] = { false };
+	//bool createdAbove50km[25] = { false };
 
 	// Concept adapter stuff that has to be created, but is only used on Atlas
 	bool conceptManouverUnit = false;

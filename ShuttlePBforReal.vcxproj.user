@@ -4,4 +4,9 @@
     <LocalDebuggerCommand>C:\Orbiter2016\Orbiter_ng.exe</LocalDebuggerCommand>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LocalDebuggerCommand>C:\Orbiter2016\Orbiter</LocalDebuggerCommand>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+    <LocalDebuggerWorkingDirectory>C:\Orbiter2016\</LocalDebuggerWorkingDirectory>
+  </PropertyGroup>
 </Project>

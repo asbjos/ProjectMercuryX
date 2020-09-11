@@ -15,11 +15,11 @@
 
 #define STRICT
 #define ORBITER_MODULE
-#define VESSELVER VESSEL3
+#define VESSELVER VESSEL4
 
 #include "orbitersdk.h"
 #include "LittleJoe.h"
-#include "..\FunctionsForOrbiter2010.h"
+#include "..\FunctionsForOrbiter2016.h"
 #include "..\MercuryCapsule.h"
 
 
@@ -71,7 +71,9 @@ void ProjectMercury::clbkSetClassCaps(FILEHANDLE cfg)
 	}
 
 	escape_tank = CreatePropellantResource(ABORT_MASS_FUEL); // Need to define after Redstone, as this is deleted first
-	//SetPropellantMass(redstone_propellant, STAGE1_FUEL_MASS);
+
+	// This must be last, as to not make Orbiter spawn an old scenario with this index taking another, and thus make e.g. 1 retro without fuel
+	dummyControllerFuel = CreatePropellantResource(1e-3); // create a 1 gram fuel supply for control stick, to always have ability to use dummy thrusters on control stick.
 
 	SetDefaultPropellantResource(castor_propellant[0]);
 
@@ -113,12 +115,14 @@ void ProjectMercury::clbkSetClassCaps(FILEHANDLE cfg)
 	contrail_main_castor = {
 		0, 3.0, 100, 200, 0.1, 20.0, 2.0, 50.0, PARTICLESTREAMSPEC::DIFFUSE,
 		PARTICLESTREAMSPEC::LVL_PSQRT, 0, 2,
-		PARTICLESTREAMSPEC::ATM_PLOG, contrailBegin, contrailEnd
+		PARTICLESTREAMSPEC::ATM_PLOG, contrailBegin, contrailEnd,
+		oapiRegisterParticleTexture("Contrail2")
 	};
 	PARTICLESTREAMSPEC exhCastor = {
 		0, 2.0, 5.0, 50, 0.5, 5.0, 10.0, 3.0, PARTICLESTREAMSPEC::DIFFUSE,
 		PARTICLESTREAMSPEC::LVL_PSQRT, 0, 2,
-		PARTICLESTREAMSPEC::ATM_PLOG, 0.0, 0.3
+		PARTICLESTREAMSPEC::ATM_PLOG, 0.0, 0.3,
+		oapiRegisterParticleTexture("Contrail4")
 	};
 
 	contrail_castor[0] = AddExhaustStream(th_castor[0], _V(0, 0.0, -20), &contrail_main_castor);
@@ -128,7 +132,8 @@ void ProjectMercury::clbkSetClassCaps(FILEHANDLE cfg)
 	contrail_main_recruit = {
 		0, 3.0, 100, 200, 0.1, 20.0, 2.0, 50.0, PARTICLESTREAMSPEC::DIFFUSE,
 		PARTICLESTREAMSPEC::LVL_PSQRT, 0, 2,
-		PARTICLESTREAMSPEC::ATM_PLOG, contrailBegin, contrailEnd
+		PARTICLESTREAMSPEC::ATM_PLOG, contrailBegin, contrailEnd,
+		oapiRegisterParticleTexture("Contrail3")
 	};
 	contrail_recruit[0] = AddExhaustStream(th_recruit[0], _V(0, 0.0, -15), &contrail_main_recruit);
 
@@ -601,7 +606,7 @@ void ProjectMercury::clbkPreStep(double simt, double simdt, double mjd)
 
 		escapeLevel = GetThrusterLevel(escape_engine);
 
-		if (inFlightAbort && vesselAcceleration < 0.25 * G && (simt - abortTime) > 2.0) // When aborting from inflight, and acc<0.25g and "maximum altitude sensor runs out" (http://aresinstitute.org/spacepdf/19740076641_1974076641.pdf page 10)
+		if (vesselAcceleration < 0.25 * G && (simt - abortTime) > 2.0) // When aborting from inflight, and acc<0.25g and "maximum altitude sensor runs out" (http://aresinstitute.org/spacepdf/19740076641_1974076641.pdf page 10)
 		{
 			InflightAbortSeparate();
 			//oapiWriteLog("Finished 0.25G separation");
@@ -673,14 +678,6 @@ void ProjectMercury::clbkPostStep(double simt, double simdt, double mjd)
 {
 	if (VesselStatus == LAUNCH || VesselStatus == TOWERSEP)
 	{
-		//if (Redstone == NULL && GroundContact()) // no idea why I have to do this! It all worked yesterday! >:(
-		//{
-		//	Redstone = AddMesh(redstone, &LITTLEJOE_OFFSET);
-		//	char stringToWrite[256];
-		//	sprintf(stringToWrite, "AddMesh because NULL %.3f", simt);
-		//	oapiWriteLog(stringToWrite);
-		//}
-
 		// Abort due to failure mode
 		if (FailureMode == BOOSTERPROBLEM && simt - launchTime > timeOfError)
 		{
@@ -714,19 +711,6 @@ void ProjectMercury::clbkPostStep(double simt, double simdt, double mjd)
 	if (VesselStatus == LAUNCH && enableAbortConditions && GetDamageModel() != 0)
 		CheckAbortConditions(simt, simdt);
 
-	// Redstone contrail
-	//if ((VesselStatus == LAUNCH || VesselStatus == TOWERSEP) && GetAtmDensity() < contrailEnd)
-	//{
-	//	DelExhaustStream(contrail_vapour);
-
-	//	contrailActive = false;
-	//}
-	//else if ((VesselStatus == LAUNCH || VesselStatus == TOWERSEP) && !contrailActive) // If in dense atmosphere and contrail has not been activated
-	//{
-	//	contrail_vapour = AddExhaustStream(th_castor[0], _V(0, 0.3, -20), &contrail_main);
-	//	contrailActive = true;
-	//}
-
 	if (FailureMode == ATTSTUCKOFF && (VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE) && simt - launchTime > timeOfError)
 	{
 		DisableAttitudeThruster(attitudeThrusterErrorNum);
@@ -737,7 +721,7 @@ void ProjectMercury::clbkPostStep(double simt, double simdt, double mjd)
 	{
 		if (AutopilotStatus == AUTOLAUNCH)
 		{
-			//RedstoneAutopilot(simt, simdt);
+			// Unguided launch
 		}
 		else if (simt - boosterShutdownTime > 0.5)
 		{
@@ -753,29 +737,7 @@ void ProjectMercury::clbkPostStep(double simt, double simdt, double mjd)
 	}
 	else
 	{
-		CapsuleAutopilotControl(simt, simdt);
-	}
-
-	if (VesselStatus == LAUNCH && !autoPilot) // not autopilot
-	{
-		//SetADCtrlMode(7); // enable adc
-		//double PitchUp = GetThrusterGroupLevel(THGROUP_ATT_PITCHUP);
-		//double PitchDown = GetThrusterGroupLevel(THGROUP_ATT_PITCHDOWN);
-		//double TotalPitch = PitchUp - PitchDown;
-
-		//double YawRight = GetThrusterGroupLevel(THGROUP_ATT_YAWRIGHT);
-		//double YawLeft = GetThrusterGroupLevel(THGROUP_ATT_YAWLEFT);
-		//double TotalYaw = YawRight - YawLeft;
-
-		//double flameArea = 0.46 * 0.46 * PI;
-		//double pitchVaneArea = 2 * 0.025 * sin(27.5 * RAD * GetControlSurfaceLevel(AIRCTRL_RUDDER));
-		//double yawVaneArea = 2 * 0.025 * sin(27.5 * RAD * GetControlSurfaceLevel(AIRCTRL_ELEVATOR));
-
-		//VECTOR3 thrustDirection;
-		//thrustDirection.z = 1 - ((abs(pitchVaneArea) + abs(yawVaneArea)) / flameArea);
-		//thrustDirection.x = -pitchVaneArea / flameArea;
-		//thrustDirection.y = -yawVaneArea / flameArea;
-		//SetThrusterDir(th_main, thrustDirection);
+		CapsuleAttitudeControl(simt, simdt);
 	}
 
 	double longit, latit, radiusDontCare;
@@ -783,43 +745,7 @@ void ProjectMercury::clbkPostStep(double simt, double simdt, double mjd)
 	double getAlt = GetAltitude();
 	MercuryCapsuleGenericTimestep(simt, simdt, latit, longit, getAlt);
 
-	if ((VesselStatus == LAUNCH || VesselStatus == ABORT || VesselStatus == ABORTNORETRO) && vesselAcceleration > historyMaxLaunchAcc)
-		historyMaxLaunchAcc = vesselAcceleration;
-
-	if (PMIcheck) // debugging stuff. Remove from final product
-	{
-		if (simt >= PMItime + 1.0 && PMIn == 1)
-		{
-			SetThrusterGroupLevel(THGROUP_ATT_BANKLEFT, 0.0);
-			VECTOR3 angVel;
-			GetAngularVel(angVel);
-			oapiWriteLogV("1Bankleft: %.2f %.2f %.2f", DEG * angVel.x, DEG * angVel.y, DEG * angVel.z);
-			PMIn++;
-			SetAngularVel(_V(0.0, 0.0, 0.0));
-			SetThrusterGroupLevel(THGROUP_ATT_YAWLEFT, 1.0);
-			PMItime = simt;
-		}
-		else if (simt >= PMItime + 1.0 && PMIn == 2)
-		{
-			SetThrusterGroupLevel(THGROUP_ATT_YAWLEFT, 0.0);
-			VECTOR3 angVel;
-			GetAngularVel(angVel);
-			oapiWriteLogV("2Yawleft: %.2f %.2f %.2f", DEG * angVel.x, DEG * angVel.y, DEG * angVel.z);
-			PMIn++;
-			SetAngularVel(_V(0.0, 0.0, 0.0));
-			SetThrusterGroupLevel(THGROUP_ATT_PITCHUP, 1.0);
-			PMItime = simt;
-		}
-		else if (simt >= PMItime + 1.0 && PMIn == 3)
-		{
-			SetThrusterGroupLevel(THGROUP_ATT_PITCHUP, 0.0);
-			VECTOR3 angVel;
-			GetAngularVel(angVel);
-			oapiWriteLogV("3Pitchup: %.2f %.2f %.2f", DEG * angVel.x, DEG * angVel.y, DEG * angVel.z);
-			PMIn++;
-			SetAngularVel(_V(0.0, 0.0, 0.0));
-		}
-	}
+	if ((VesselStatus == LAUNCH || VesselStatus == ABORT || VesselStatus == ABORTNORETRO) && vesselAcceleration > historyMaxLaunchAcc) historyMaxLaunchAcc = vesselAcceleration;
 }
 
 int ProjectMercury::clbkConsumeBufferedKey(DWORD key, bool down, char* kstate)
@@ -956,15 +882,7 @@ int ProjectMercury::clbkConsumeBufferedKey(DWORD key, bool down, char* kstate)
 			}
 			else if (VesselStatus == FLIGHT)
 			{
-				engageRetro = true;
-				retroStartTime = oapiGetSimTime() + 30.0; // retrosequence starts 30 sec before firing
-				char cbuf[256];
-				sprintf(cbuf, "Retrosequence T+%.0f", retroStartTime - 30.0 - launchTime);
-				oapiWriteLog(cbuf);
-
-				AutopilotStatus = PITCHHOLD;
-				autoPilot = true;
-				attitudeHold14deg = false;
+				InitiateRetroSequence();
 			}
 
 			return 1;
@@ -975,10 +893,6 @@ int ProjectMercury::clbkConsumeBufferedKey(DWORD key, bool down, char* kstate)
 				autoPilot = true;
 				SetThrusterGroupLevel(THGROUP_MAIN, 1.0);
 				launchTime = oapiGetSimTime();
-			}
-			else if (VesselStatus == FLIGHT || VesselStatus == REENTRY) // switch fuel tank for attitude control
-			{
-				SwitchPropellantSource();
 			}
 			else if (VesselStatus == REENTRYNODROGUE)
 			{
@@ -992,44 +906,7 @@ int ProjectMercury::clbkConsumeBufferedKey(DWORD key, bool down, char* kstate)
 			{
 				separateTowerAction = true;
 			}
-			else if (VesselStatus == FLIGHT) // engage retro attitude
-			{
-				//PMIcheck = true;
-				//// Test of PMI
-				//SetAngularVel(_V(0, 0, 0));
-				//SetThrusterGroupLevel(THGROUP_ATT_BANKLEFT, 1.0);
-				//PMItime = oapiGetSimTime();
-				//PMIn = 1;
 
-				AutopilotStatus = TURNAROUND;
-				autoPilot = true;
-				attitudeHold14deg = !attitudeHold14deg;
-			}
-			else if (VesselStatus == REENTRY)
-			{
-				AutopilotStatus = REENTRYATT;
-				autoPilot = true;
-			}
-
-			return 1;
-		case OAPI_KEY_G:
-			if (VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE)
-			{
-				if (RcsStatus == AUTOLOW)
-				{
-					RcsStatus = MANUAL;
-					SwitchPropellantSource();
-				}
-				else if (RcsStatus == MANUAL)
-				{
-					RcsStatus = AUTOHIGH;
-					SwitchPropellantSource();
-				}
-				else
-					RcsStatus = AUTOLOW; // don't switch propellant, as we're from Autohigh->Autolow
-
-				SwitchAttitudeMode();
-			}
 			return 1;
 		case OAPI_KEY_C: // switch to launch complex
 			if ((VesselStatus == LAUNCH || VesselStatus == TOWERSEP) && GroundContact() && GetAttachmentStatus(padAttach) == NULL)
@@ -1083,7 +960,6 @@ int ProjectMercury::clbkConsumeBufferedKey(DWORD key, bool down, char* kstate)
 				oapiWriteLog("Automatic abort turned off by key");
 			enableAbortConditions = false;
 			DisableAutopilot(true);
-			abortDamping = false;
 			engageFuelDump = false;
 
 			if (VesselStatus == LAUNCH || VesselStatus == TOWERSEP) // If not for this, the control surfaces get stuck in the last position from the autopilot
@@ -1248,21 +1124,6 @@ bool ProjectMercury::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketch
 			skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
 			yIndex += 1;
 		}
-		else if (VesselStatus == FLIGHT || VesselStatus == REENTRY) // switch fuel tank for attitude control
-		{
-			if (attitudeFuelAuto)
-			{
-				sprintf(cbuf, "P:     Set propellant source MANUAL");
-				skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-				yIndex += 1;
-			}
-			else
-			{
-				sprintf(cbuf, "P:     Set propellant source AUTO");
-				skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-				yIndex += 1;
-			}
-		}
 		else if (VesselStatus == REENTRYNODROGUE)
 		{
 			if (!engageFuelDump)
@@ -1280,35 +1141,6 @@ bool ProjectMercury::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketch
 			sprintf(cbuf, "K:     Separate escape tower");
 			skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
 			yIndex += 1;
-		}
-		else if (VesselStatus == FLIGHT || VesselStatus == REENTRY)
-		{
-			sprintf(cbuf, "K:     Engage automatic attitude");
-			skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-			yIndex += 1;
-		}
-
-		// Key G
-		if (VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE)
-		{
-			if (RcsStatus == AUTOLOW)
-			{
-				sprintf(cbuf, "G:     Switch to attitude MANUAL");
-				skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-				yIndex += 1;
-			}
-			else if (RcsStatus == MANUAL)
-			{
-				sprintf(cbuf, "G:     Switch to attitude AUTOHIGH");
-				skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-				yIndex += 1;
-			}
-			else
-			{
-				sprintf(cbuf, "G:     Switch to attitude AUTOLOW");
-				skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-				yIndex += 1;
-			}
 		}
 
 		// Key M
@@ -1408,7 +1240,7 @@ bool ProjectMercury::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketch
 			yIndex += 1;
 		}
 
-		if (attitudeFuelAuto && (VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE) && fuel_manual != NULL) // there's a pesky crash if one checks for propellant level of a non-created propellant source
+		if ((VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE) && fuel_manual != NULL) // there's a pesky crash if one checks for propellant level of a non-created propellant source
 		{
 			sprintf(cbuf, "Manual fuel: %.1f %%", GetPropellantMass(fuel_manual) / MERCURY_FUEL_MASS_MAN * 100.0);
 			skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
@@ -1418,18 +1250,6 @@ bool ProjectMercury::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketch
 			skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
 			yIndex += 1;
 		}
-		else if ((VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE) && fuel_manual != NULL)
-		{
-			sprintf(cbuf, "Manual fuel: %.1f %%", GetPropellantMass(fuel_auto) / MERCURY_FUEL_MASS_MAN * 100.0);
-			skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-			yIndex += 1;
-
-			sprintf(cbuf, "Auto fuel: %.1f %%", GetPropellantMass(fuel_manual) / MERCURY_FUEL_MASS_AUTO * 100.0);
-			skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-			yIndex += 1;
-		}
-
-		// Sensor dials
 
 		// Longitudinal acc:
 		double m = GetMass();
@@ -1548,34 +1368,57 @@ bool ProjectMercury::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketch
 
 		if (VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE)
 		{
-			if (attitudeFuelAuto)
+			if (switchASCSMode == -1 && switchControlMode == -1)
 			{
-				sprintf(cbuf, "Attitude fuel AUTO");
-				skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-				yIndex += 1;
-			}
-			else
-			{
-				sprintf(cbuf, "Attitude fuel MANUAL");
+				sprintf(cbuf, "ASCS auto attitude");
 				skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
 				yIndex += 1;
 			}
 
-			if (RcsStatus == MANUAL)
+			if (switchASCSMode == 0 && switchControlMode == -1)
 			{
-				sprintf(cbuf, "Attitude mode MANUAL");
+				sprintf(cbuf, "AUX damp");
 				skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
 				yIndex += 1;
 			}
-			else if (RcsStatus == AUTOHIGH)
+
+			if (switchASCSMode == 1)
 			{
-				sprintf(cbuf, "Attitude mode AUTOHIGH");
+				sprintf(cbuf, "Fly By Wire");
 				skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
 				yIndex += 1;
 			}
-			else
+
+			if (!tHandlePitchPushed)
 			{
-				sprintf(cbuf, "Attitude mode AUTOLOW");
+				sprintf(cbuf, "  Auto pitch thrusters OFF");
+				skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
+				yIndex += 1;
+			}
+			if (!tHandleYawPushed)
+			{
+				sprintf(cbuf, "  Auto yaw thrusters OFF");
+				skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
+				yIndex += 1;
+			}
+
+			if (!tHandleRollPushed)
+			{
+				sprintf(cbuf, "  Auto roll thrusters OFF");
+				skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
+				yIndex += 1;
+			}
+
+			if (!tHandleManualPushed)
+			{
+				sprintf(cbuf, "Manual direct");
+				skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
+				yIndex += 1;
+			}
+
+			if (tHandleManualPushed && switchControlMode == 1)
+			{
+				sprintf(cbuf, "Rate command (RSCS)");
 				skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
 				yIndex += 1;
 			}
@@ -1665,6 +1508,42 @@ void ProjectMercury::clbkLoadStateEx(FILEHANDLE scn, void* status)
 			scenarioTextureUserEnable = true; // Load textures
 			ReadCapsuleTextureReplacement(cbuf + 15); // don't send space char after REPLACETEXTURE
 		}
+		else if (!_strnicmp(cbuf, "SWITCHAUTRETJET", 15))
+		{
+			switchAutoRetroJet = atoi(cbuf + 15);
+		}
+		else if (!_strnicmp(cbuf, "SWITCHRETRODELA", 15))
+		{
+			switchRetroDelay = atoi(cbuf + 15);
+		}
+		else if (!_strnicmp(cbuf, "SWITCHRETROATTI", 15))
+		{
+			switchRetroAttitude = atoi(cbuf + 15);
+		}
+		else if (!_strnicmp(cbuf, "SWITCHASCSMODE", 14))
+		{
+			switchASCSMode = atoi(cbuf + 14);
+		}
+		else if (!_strnicmp(cbuf, "SWITCHCONTRMODE", 15))
+		{
+			switchControlMode = atoi(cbuf + 15);
+		}
+		else if (!_strnicmp(cbuf, "THANDLEMANUAL", 13))
+		{
+			tHandleManualPushed = bool(atoi(cbuf + 13));
+		}
+		else if (!_strnicmp(cbuf, "THANDLEPITCH", 12))
+		{
+			tHandlePitchPushed = bool(atoi(cbuf + 12));
+		}
+		else if (!_strnicmp(cbuf, "THANDLEYAW", 10))
+		{
+			tHandleYawPushed = bool(atoi(cbuf + 10));
+		}
+		else if (!_strnicmp(cbuf, "THANDLEROLL", 11))
+		{
+			tHandleRollPushed = bool(atoi(cbuf + 11));
+		}
 		else ParseScenarioLineEx(cbuf, status);
 	}
 }
@@ -1695,6 +1574,17 @@ void ProjectMercury::clbkSaveState(FILEHANDLE scn)
 	{
 		oapiWriteScenario_string(scn, "HARDMODE", "");
 	}
+
+	oapiWriteScenario_int(scn, "SWITCHAUTRETJET", switchAutoRetroJet);
+	oapiWriteScenario_int(scn, "SWITCHRETRODELA", switchRetroDelay);
+	oapiWriteScenario_int(scn, "SWITCHRETROATTI", switchRetroAttitude);
+	oapiWriteScenario_int(scn, "SWITCHASCSMODE", switchASCSMode);
+	oapiWriteScenario_int(scn, "SWITCHCONTRMODE", switchControlMode);
+
+	oapiWriteScenario_int(scn, "THANDLEMANUAL", (int)tHandleManualPushed);
+	oapiWriteScenario_int(scn, "THANDLEPITCH", (int)tHandlePitchPushed);
+	oapiWriteScenario_int(scn, "THANDLEYAW", (int)tHandleYawPushed);
+	oapiWriteScenario_int(scn, "THANDLEROLL", (int)tHandleRollPushed);
 
 	int i = 0;
 	while (scenarioTextureUserEnable && i < numTextures)
@@ -1805,7 +1695,7 @@ double ProjectMercury::EmptyMass(void)
 
 void ProjectMercury::TowerSeparation(void)
 {
-	if (VesselStatus == LAUNCH || VesselStatus == ABORT) // only occasions with tower
+	if (VesselStatus == LAUNCH || VesselStatus == ABORT || VesselStatus == ABORTNORETRO) // only occasions with tower
 	{
 		SeparateTower(true);
 
@@ -1901,6 +1791,7 @@ void ProjectMercury::CapsuleSeparate(void)
 			SetPropellantMass(fuel_manual, MERCURY_FUEL_MASS_MAN);
 			SetPropellantMass(fuel_auto, MERCURY_FUEL_MASS_AUTO);
 			VesselStatus = REENTRY;
+			AutopilotStatus = REENTRYATTITUDE; // Automatically reentry attitude
 			CGshifted = false;
 		}
 		else
@@ -1973,24 +1864,27 @@ void ProjectMercury::SeparateTower(bool noAbortSep)
 	vs.nfuel = 2;
 	vs.fuel->idx = 0;
 	vs.fuel->level = 1.0;
+	strcpy(name, GetName());
+	strcat(name, " Abort Tower");
+
 	if (noAbortSep)
 	{
 		vs.fuel->idx = 1;
 		vs.fuel->level = 1.0;
+
+		createdVessel[stuffCreated] = oapiCreateVesselEx(name, "ProjectMercury\\Mercury_AbortNominal", &vs);
 	}
 	else
 	{
 		vs.fuel->idx = 1;
 		vs.fuel->level = 0.0;
-		abortDamping = true; // abort. So that we can enable abort damping
+		AutopilotStatus = LOWG;
+
+		createdVessel[stuffCreated] = oapiCreateVesselEx(name, "ProjectMercury\\Mercury_Abort", &vs);
 	}
 
-	strcpy(name, GetName());
-	strcat(name, " abort tower");
-
-	createdVessel[stuffCreated] = oapiCreateVesselEx(name, "ProjectMercury\\Mercury_Abort", &vs);
-	if (GetAltitude() > 5e4)
-		createdAbove50km[stuffCreated] = true;
+	//if (GetAltitude() > 5e4)
+	//	createdAbove50km[stuffCreated] = true;
 	stuffCreated += 1;
 	DelMesh(Tower);
 	DelPropellantResource(escape_tank);
@@ -2044,7 +1938,6 @@ void ProjectMercury::SeparateLittleJoe(void)
 		Local2Rel(redstoneOffset, vs.rpos);
 		GlobalRot(redstoneDirection, relativeOffset);
 		vs.rvel += relativeOffset * redstoneVelocity;
-		inFlightAbort = true;
 	}
 
 	if (GetThrusterLevel(th_castor[0]) != 0.0 || GetThrusterLevel(th_castor[1]) != 0.0) // 19670028606 page 87, keep engine running if less than T+30
@@ -2067,8 +1960,8 @@ void ProjectMercury::SeparateLittleJoe(void)
 	}
 
 	createdVessel[stuffCreated] = oapiCreateVesselEx(name, "Vessels\\ProjectMercury\\LittleJoeBooster", &vs);;
-	if (GetAltitude() > 5e4)
-		createdAbove50km[stuffCreated] = true;
+	//if (GetAltitude() > 5e4)
+	//	createdAbove50km[stuffCreated] = true;
 	stuffCreated += 1;
 
 	// The thrusterlist spec doesnt seem to work, sadly
@@ -2121,8 +2014,8 @@ void ProjectMercury::SeparateRingsAndAdapters(VECTOR3 redstoneDirection)
 	strcpy(name, GetName());
 	strcat(name, " Adapter Cover 1");
 	createdVessel[stuffCreated] = oapiCreateVesselEx(name, "ProjectMercury\\Mercury_AdaptCover1", &vs);
-	if (GetAltitude() > 5e4)
-		createdAbove50km[stuffCreated] = true;
+	//if (GetAltitude() > 5e4)
+		//createdAbove50km[stuffCreated] = true;
 	stuffCreated += 1;
 	DelMesh(Adaptcover1);
 
@@ -2136,8 +2029,8 @@ void ProjectMercury::SeparateRingsAndAdapters(VECTOR3 redstoneDirection)
 	strcpy(name, GetName());
 	strcat(name, " Adapter Cover 2");
 	createdVessel[stuffCreated] = oapiCreateVesselEx(name, "ProjectMercury\\Mercury_AdaptCover2", &vs);
-	if (GetAltitude() > 5e4)
-		createdAbove50km[stuffCreated] = true;
+	//if (GetAltitude() > 5e4)
+		//createdAbove50km[stuffCreated] = true;
 	stuffCreated += 1;
 	DelMesh(Adaptcover2);
 
@@ -2151,8 +2044,8 @@ void ProjectMercury::SeparateRingsAndAdapters(VECTOR3 redstoneDirection)
 	strcpy(name, GetName());
 	strcat(name, " Adapter Cover 3");
 	createdVessel[stuffCreated] = oapiCreateVesselEx(name, "ProjectMercury\\Mercury_AdaptCover3", &vs);
-	if (GetAltitude() > 5e4)
-		createdAbove50km[stuffCreated] = true;
+	//if (GetAltitude() > 5e4)
+	//	createdAbove50km[stuffCreated] = true;
 	stuffCreated += 1;
 	DelMesh(Adaptcover3);
 
@@ -2166,8 +2059,8 @@ void ProjectMercury::SeparateRingsAndAdapters(VECTOR3 redstoneDirection)
 	strcpy(name, GetName());
 	strcat(name, " Adapter Ring 1");
 	createdVessel[stuffCreated] = oapiCreateVesselEx(name, "ProjectMercury\\Mercury_AdaptRing1", &vs);
-	if (GetAltitude() > 5e4)
-		createdAbove50km[stuffCreated] = true;
+	//if (GetAltitude() > 5e4)
+	//	createdAbove50km[stuffCreated] = true;
 	stuffCreated += 1;
 	DelMesh(Adaptring1);
 
@@ -2181,8 +2074,8 @@ void ProjectMercury::SeparateRingsAndAdapters(VECTOR3 redstoneDirection)
 	strcpy(name, GetName());
 	strcat(name, " Adapter Ring 2");
 	createdVessel[stuffCreated] = oapiCreateVesselEx(name, "ProjectMercury\\Mercury_AdaptRing2", &vs);
-	if (GetAltitude() > 5e4)
-		createdAbove50km[stuffCreated] = true;
+	//if (GetAltitude() > 5e4)
+	//	createdAbove50km[stuffCreated] = true;
 	stuffCreated += 1;
 	DelMesh(Adaptring2);
 
@@ -2196,8 +2089,8 @@ void ProjectMercury::SeparateRingsAndAdapters(VECTOR3 redstoneDirection)
 	strcpy(name, GetName());
 	strcat(name, " Adapter Ring 3");
 	createdVessel[stuffCreated] = oapiCreateVesselEx(name, "ProjectMercury\\Mercury_AdaptRing3", &vs);
-	if (GetAltitude() > 5e4)
-		createdAbove50km[stuffCreated] = true;
+	//if (GetAltitude() > 5e4)
+	//	createdAbove50km[stuffCreated] = true;
 	stuffCreated += 1;
 	DelMesh(Adaptring3);
 }
@@ -2272,38 +2165,11 @@ void ProjectMercury::vliftLittleJoe(VESSEL* v, double aoa, double M, double Re, 
 
 	// Similarly, page 76, we see that the lift coefficient is approximately linear, with slope 0.26 * aoa(deg).
 	*cl = -0.26 * aoa * DEG;
-	//sprintf(oapiDebugString(), "aoa: %.1f, cm: %.2f, cl: %.2f", aoa, cm, cl);
 
 	// Finally, the drag coefficient varies greatly both with AoA and mach, but as with the Mercury capsule, we assume AoA zero, and create only a mach dependence.
 	if (M > 6.8) M = 6.8; // max of this interpolation
 	if (M < 0.0) M = 0.0; // min of this interpolation
 	*cd = -2.6154644599e-06 * pow(M, 15) + 1.3925595645e-04 * pow(M, 14) + -3.3479687526e-03 * pow(M, 13) + 4.8015136575e-02 * pow(M, 12) + -4.5705296374e-01 * pow(M, 11) + 3.0391668768e+00 * pow(M, 10) + -1.4462570476e+01 * pow(M, 9) + 4.9598487277e+01 * pow(M, 8) + -1.2169523577e+02 * pow(M, 7) + 2.0891394075e+02 * pow(M, 6) + -2.4064585332e+02 * pow(M, 5) + 1.7341363369e+02 * pow(M, 4) + -7.0416769088e+01 * pow(M, 3) + 1.5178741115e+01 * pow(M, 2) + -2.3548590922e+00 * pow(M, 1) + 8.8797126179e-01 * pow(M, 0);
-	//static const int numMachEntries = 15;
-	//static const  double mach[numMachEntries] = {
-	//	0.056,	0.1,	0.2,	0.3,	0.5,	0.7,	0.8,	0.9,	0.95,	1.0,	1.2,	1.5,	1.57,	1.8,	2.16
-	//};
-	//static const double cdp[numMachEntries] = { // drag coeff at 0 AoA (tip first) for different mach numbers. Note that there is a possible error for the drag data for lowest mach, as it is roughly half of the later data. So I multiplied by two
-	//	0.96,	0.96,	0.82,	0.60,	0.62,	0.72,	0.77,	0.96,	1.20,	1.42,	1.40,	1.22,	1.17,	1.07,	0.96
-	//};
-
-	//int i = 0;
-	//while (i < numMachEntries && M > mach[i])
-	//{
-	//	i++;
-	//}
-
-	//if (i == numMachEntries)
-	//{
-	//	*cd = cdp[numMachEntries - 1];
-	//}
-	//else if (i == 0)
-	//{
-	//	*cd = cdp[0];
-	//}
-	//else
-	//{
-	//	*cd = cdp[i - 1] + (cdp[i] - cdp[i - 1]) * (M - mach[i - 1]) / (mach[i] - mach[i - 1]);
-	//}
 
 	*cd *= 0.5;
 }
@@ -2323,32 +2189,6 @@ void ProjectMercury::hliftLittleJoe(VESSEL* v, double beta, double M, double Re,
 	if (M > 6.8) M = 6.8; // max of this interpolation
 	if (M < 0.0) M = 0.0; // min of this interpolation
 	*cd = -2.6154644599e-06 * pow(M, 15) + 1.3925595645e-04 * pow(M, 14) + -3.3479687526e-03 * pow(M, 13) + 4.8015136575e-02 * pow(M, 12) + -4.5705296374e-01 * pow(M, 11) + 3.0391668768e+00 * pow(M, 10) + -1.4462570476e+01 * pow(M, 9) + 4.9598487277e+01 * pow(M, 8) + -1.2169523577e+02 * pow(M, 7) + 2.0891394075e+02 * pow(M, 6) + -2.4064585332e+02 * pow(M, 5) + 1.7341363369e+02 * pow(M, 4) + -7.0416769088e+01 * pow(M, 3) + 1.5178741115e+01 * pow(M, 2) + -2.3548590922e+00 * pow(M, 1) + 8.8797126179e-01 * pow(M, 0);
-	//static const int numMachEntries = 15;
-	//static const  double mach[numMachEntries] = {
-	//	0.056,	0.1,	0.2,	0.3,	0.5,	0.7,	0.8,	0.9,	0.95,	1.0,	1.2,	1.5,	1.57,	1.8,	2.16
-	//};
-	//static const double cdp[numMachEntries] = { // drag coeff at 0 AoA (tip first) for different mach numbers. Note that there is a possible error for the drag data for lowest mach, as it is roughly half of the later data. So I multiplied by two
-	//	0.96,	0.96,	0.82,	0.60,	0.62,	0.72,	0.77,	0.96,	1.20,	1.42,	1.40,	1.22,	1.17,	1.07,	0.96
-	//};
-
-	//int i = 0;
-	//while (i < numMachEntries && M > mach[i])
-	//{
-	//	i++;
-	//}
-
-	//if (i == numMachEntries)
-	//{
-	//	*cd = cdp[numMachEntries - 1];
-	//}
-	//else if (i == 0)
-	//{
-	//	*cd = cdp[0];
-	//}
-	//else
-	//{
-	//	*cd = cdp[i - 1] + (cdp[i] - cdp[i - 1]) * (M - mach[i - 1]) / (mach[i] - mach[i - 1]);
-	//}
 
 	*cd *= 0.5;
 }
