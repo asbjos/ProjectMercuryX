@@ -657,6 +657,7 @@ void ProjectMercury::clbkPreStep(double simt, double simdt, double mjd)
 	}
 	AnimatePeriscope(simt, simdt);
 	AnimateAntennaDestabiliser(simt, simdt);
+	if (fireflyBangTime + 0.25 < simt || simt < fireflyBangTime) fireflyLevel = 0.0; // reset fireflies. Second condition if we jump back in time immediately after a bang.
 
 	//// DEBUG
 	//if (simt - launchTime > 0.0 && launchTime != 0.0)

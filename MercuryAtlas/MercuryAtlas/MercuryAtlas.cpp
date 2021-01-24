@@ -790,8 +790,6 @@ void ProjectMercury::clbkPreStep(double simt, double simdt, double mjd)
 
 		if (!CGshifted && !GroundContact())
 		{
-			/*SetSize(ATLAS_CORE_LENGTH + MERCURY_LENGTH_CAPSULE);
-			VersionDependentTouchdown(TOUCHDOWN_TOWSEP0, TOUCHDOWN_TOWSEP1, TOUCHDOWN_TOWSEP2, TOUCHDOWN_TOWSEP3, 1e7, 1e5, 10);*/
 			CGshifted = true; // Yeah, not bothering with CG here
 
 			PreviousVesselStatus = TOWERSEP;
@@ -1547,51 +1545,12 @@ int ProjectMercury::clbkConsumeBufferedKey(DWORD key, bool down, char* kstate)
 			{
 				separateTowerAction = true;
 			}
-			/*else if (VesselStatus == FLIGHT) // engage retro attitude
-			{
-				//PMIcheck = true;
-				//// Test of PMI
-				//SetAngularVel(_V(0, 0, 0));
-				//SetThrusterGroupLevel(THGROUP_ATT_BANKLEFT, 1.0);
-				//PMItime = oapiGetSimTime();
-				//PMIn++;
-
-				AutopilotStatus = TURNAROUND;
-				autoPilot = true;
-				attitudeHold14deg = !attitudeHold14deg;
-			}
-			else if (VesselStatus == REENTRY)
-			{
-				AutopilotStatus = REENTRYATT;
-				autoPilot = true;
-			}*/
 			else if (VesselStatus == ABORT)
 			{
 				separateTowerAction = true;
 			}
 
 			return 1;
-		//case OAPI_KEY_G:
-		//	if (VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE)
-		//	{
-		//		if (RcsStatus == AUTOLOW)
-		//		{
-		//			RcsStatus = MANUAL;
-		//			SwitchPropellantSource();
-		//		}
-		//		else if (RcsStatus == MANUAL)
-		//		{
-		//			RcsStatus = AUTOHIGH;
-		//			SwitchPropellantSource();
-		//		}
-		//		else
-		//			RcsStatus = AUTOLOW; // don't switch propellant, as we're from Autohigh->Autolow
-
-		//		SwitchAttitudeMode();
-
-		//		if (conceptManouverUnit) SetAttitudeMode(RCS_ROT);
-		//	}
-		//	return 1;
 		case OAPI_KEY_M: // turn on manual mode
 			if (enableAbortConditions)
 				oapiWriteLog("Automatic abort turned off by key");
@@ -1739,7 +1698,6 @@ bool ProjectMercury::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketch
 				VECTOR3 relVel;
 				GetRelativeVel(oapiGetVesselByIndex(i), relVel);
 				vesselVel = relVel.z;
-				//if (relVel.z < 0.0) vesselVel *= 1.0;
 			}
 		}
 
@@ -1911,21 +1869,6 @@ bool ProjectMercury::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketch
 			skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
 			yIndex += 1;
 		}
-		//else if (VesselStatus == FLIGHT || VesselStatus == REENTRY) // switch fuel tank for attitude control
-		//{
-		//	if (attitudeFuelAuto)
-		//	{
-		//		sprintf(cbuf, "P:     Set propellant source MANUAL");
-		//		skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-		//		yIndex += 1;
-		//	}
-		//	else
-		//	{
-		//		sprintf(cbuf, "P:     Set propellant source AUTO");
-		//		skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-		//		yIndex += 1;
-		//	}
-		//}
 		else if (VesselStatus == REENTRYNODROGUE)
 		{
 			if (!engageFuelDump)
@@ -1949,41 +1892,14 @@ bool ProjectMercury::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketch
 			skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
 			yIndex += 1;
 		}
-		else if (VesselStatus == FLIGHT || VesselStatus == REENTRY)
+
+		// Key M
+		if (VesselStatus == LAUNCH || VesselStatus == LAUNCHCORE || VesselStatus == TOWERSEP || VesselStatus == LAUNCHCORETOWERSEP)
 		{
-			if (attitudeHold14deg) sprintf(cbuf, "K:     Engage automatic attitude (34\u00B0)");
-			else sprintf(cbuf, "K:     Engage automatic attitude (14.5\u00B0)");
+			sprintf(cbuf, "M:     Disengage autopilot");
 			skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
 			yIndex += 1;
 		}
-
-		//// Key G
-		//if (VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE)
-		//{
-		//	if (RcsStatus == AUTOLOW)
-		//	{
-		//		sprintf(cbuf, "G:     Switch to attitude MANUAL");
-		//		skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-		//		yIndex += 1;
-		//	}
-		//	else if (RcsStatus == MANUAL)
-		//	{
-		//		sprintf(cbuf, "G:     Switch to attitude AUTOHIGH");
-		//		skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-		//		yIndex += 1;
-		//	}
-		//	else
-		//	{
-		//		sprintf(cbuf, "G:     Switch to attitude AUTOLOW");
-		//		skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-		//		yIndex += 1;
-		//	}
-		//}
-
-		// Key M
-		sprintf(cbuf, "M:     Disengage autopilot");
-		skp->Text(TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-		yIndex += 1;
 
 		// Key C
 		if (VesselStatus == LAUNCH && GroundContact() && GetAttachmentStatus(padAttach) == NULL)
@@ -2264,56 +2180,6 @@ bool ProjectMercury::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketch
 			skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
 			yIndex += 1;
 		}
-		/*else if ((VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE) && fuel_manual != NULL)
-		{
-			sprintf(cbuf, "Manual fuel: %.1f %%", GetPropellantMass(fuel_auto) / MERCURY_FUEL_MASS_MAN * 100.0);
-			skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-			yIndex += 1;
-
-			sprintf(cbuf, "Auto fuel: %.1f %%", GetPropellantMass(fuel_manual) / MERCURY_FUEL_MASS_AUTO * 100.0);
-			skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-			yIndex += 1;
-		}*/
-
-		// Sensor dials
-		// Remove, as it's now displayed on the 2D panel
-		//// Longitudinal acc:
-		//double m = GetMass();
-		//VECTOR3 F, W;
-		//GetForceVector(F);
-		//GetWeightVector(W);
-		//double longAcc = (F - W).z / m;
-		//if (longAcc > 21.0 * G) longAcc = 21.0 * G;
-		//if (longAcc < -9.0 * G) longAcc = -9.0 * G;
-		//sprintf(cbuf, "Longitudinal acceleration: %.1f g", longAcc / G);
-		//skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-		//yIndex += 1;
-
-		//// Descent rate
-		//VECTOR3 groundSpeedVec;
-		//GetAirspeedVector(FRAME_HORIZON, groundSpeedVec);
-		//double descRate = groundSpeedVec.y;
-		//if (descRate > 0.0) descRate = 0.0;
-		//if (descRate < -43.0) descRate = -43.0;
-		//if (GetAltitude() > 5e4) descRate = 0.0;
-		//DWORD previousTextColour; // red
-		//previousTextColour = skp->SetTextColor(0x0000FF); // red
-		//if (descRate > -9.754) skp->SetTextColor(0x00FF00); // green
-		//sprintf(cbuf, "Descent: %.1f m/s", -descRate);
-		//skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-		//yIndex += 1;
-		//skp->SetTextColor(previousTextColour);
-
-		//// Altitude
-		//double airAltitude = GetAltitude();
-		//if (airAltitude > 30480.0) airAltitude = 30480.0;
-		//previousTextColour = skp->SetTextColor(0x00FF00); // green
-		//if (airAltitude < 3048.0) skp->SetTextColor(0x0000FF); // red
-		//else if (airAltitude < 6401.0) skp->SetTextColor(0x00FFFF); // yellow
-		//sprintf(cbuf, "Altitude: %.0f m", floor(airAltitude / 10.0) * 10.0);
-		//skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-		//yIndex += 1;
-		//skp->SetTextColor(previousTextColour);
 
 		// Next event
 		if (autoPilot && (VesselStatus == LAUNCH || VesselStatus == TOWERSEP || VesselStatus == LAUNCHCORE || VesselStatus == LAUNCHCORETOWERSEP) && boosterShutdownTime == 0.0)
@@ -2424,19 +2290,6 @@ bool ProjectMercury::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketch
 
 		if (VesselStatus == FLIGHT || VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE)
 		{
-			/*if (attitudeFuelAuto)
-			{
-				sprintf(cbuf, "Attitude fuel AUTO");
-				skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-				yIndex += 1;
-			}
-			else
-			{
-				sprintf(cbuf, "Attitude fuel MANUAL");
-				skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-				yIndex += 1;
-			}*/
-
 			if (switchASCSMode == -1 && switchControlMode == -1)
 			{
 				sprintf(cbuf, "ASCS auto attitude");
@@ -2491,27 +2344,6 @@ bool ProjectMercury::clbkDrawHUD(int mode, const HUDPAINTSPEC* hps, oapi::Sketch
 				skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
 				yIndex += 1;
 			}
-
-
-
-			//if (RcsStatus == MANUAL)
-			//{
-			//	sprintf(cbuf, "Attitude mode MANUAL");
-			//	skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-			//	yIndex += 1;
-			//}
-			//else if (RcsStatus == AUTOHIGH)
-			//{
-			//	sprintf(cbuf, "Attitude mode AUTOHIGH");
-			//	skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-			//	yIndex += 1;
-			//}
-			//else
-			//{
-			//	sprintf(cbuf, "Attitude mode AUTOLOW");
-			//	skp->Text(secondColumnHUDx * TextX0, yIndex * LineSpacing + TextY0, cbuf, strlen(cbuf));
-			//	yIndex += 1;
-			//}
 
 			if (engageFuelDump)
 			{
@@ -3151,19 +2983,6 @@ void ProjectMercury::AtlasAutopilot(double simt, double simdt)
 			PIDpreviousError = PIDerror;
 
 			SetControlSurfaceLevel(AIRCTRL_ELEVATOR, PIDoutput);
-
-			//if (abs(currentAngAcc.x) < 0.75 * RAD && currentAngRate.x > pitchRate + 0.0005)
-			//{
-			//	SetControlSurfaceLevel(AIRCTRL_ELEVATOR, -(currentAngRate.x * DEG * currentAngRate.x * DEG * ampFactor + ampAdder));
-			//}
-			//else if (abs(currentAngAcc.x) < 0.75 * RAD && currentAngRate.x < pitchRate - 0.0005) // hello Kuddel! Thanks a lot! https://www.orbiter-forum.com/showthread.php?p=606147&postcount=100
-			//{
-			//	SetControlSurfaceLevel(AIRCTRL_ELEVATOR, (currentAngRate.x * DEG * currentAngRate.x * DEG * ampFactor + ampAdder));
-			//}
-			//else
-			//{
-			//	SetControlSurfaceLevel(AIRCTRL_ELEVATOR, 0.0);
-			//}
 		}
 
 		// Autopilot for heading. Either target an inclination or a specific position after N orbits
@@ -3227,22 +3046,7 @@ void ProjectMercury::AtlasAutopilot(double simt, double simdt)
 			PIDpreviousError = PIDerror;
 
 			SetControlSurfaceLevel(AIRCTRL_RUDDER, -PIDoutput);
-
-			//if (currentAngRate.y > yawRate + 0.0005)
-			//{
-			//	SetControlSurfaceLevel(AIRCTRL_RUDDER, (currentAngRate.y * DEG * currentAngRate.y * DEG * ampFactor + ampAdder));
-			//}
-			//else if (currentAngRate.y < yawRate - 0.0005)
-			//{
-			//	SetControlSurfaceLevel(AIRCTRL_RUDDER, -(currentAngRate.y * DEG * currentAngRate.y * DEG * ampFactor + ampAdder));
-			//}
-			//else
-			//{
-			//	SetControlSurfaceLevel(AIRCTRL_RUDDER, 0.0);
-			//}
 		}
-
-		//currentYawAim = -targetSlipAngle; // the reading is flipped, nut sure why
 	}
 	else if (met > MET[1] && pitchProgram) // after T+15 s and finalised roll
 	{
@@ -3270,28 +3074,7 @@ void ProjectMercury::AtlasAutopilot(double simt, double simdt)
 			double PIDoutput = proportionalGainConstant * PIDerror + integralGainConstant * PIDintegral + derivativeGainConstant * PIDderivative;
 			PIDpreviousError = PIDerror;
 
-			//if (PIDdebug == NULL) PIDdebug = oapiOpenFile("PIDdebug.txt", FILE_OUT);
-
-			//char PIDline[200];
-			//sprintf(PIDline, "%.4f\t%.4f\t%.4f\t%.4f\t%.4f\t%.4f", met, pitchRate * DEG, currentAngRate.x * DEG, PIDoutput, currentPitchAim, GetPitch() * DEG);
-			//if (!GroundContact()) oapiWriteLine(PIDdebug, PIDline);
-
 			SetControlSurfaceLevel(AIRCTRL_ELEVATOR, PIDoutput);
-
-			//if (abs(currentAngAcc.x) < 0.75 * RAD && currentAngRate.x > pitchRate + 0.0005)
-			//{
-			//	//thrusterAngle = 0.00075;
-			//	SetControlSurfaceLevel(AIRCTRL_ELEVATOR, -(currentAngRate.x * DEG * currentAngRate.x * DEG * ampFactor + ampAdder));
-			//}
-			//else if (abs(currentAngAcc.x) < 0.75 * RAD && currentAngRate.x < pitchRate - 0.0005)
-			//{
-			//	//thrusterAngle = -0.00075;
-			//	SetControlSurfaceLevel(AIRCTRL_ELEVATOR, (currentAngRate.x * DEG * currentAngRate.x * DEG * ampFactor + ampAdder));
-			//}
-			//else
-			//{
-			//	SetControlSurfaceLevel(AIRCTRL_ELEVATOR, 0.0);
-			//}
 		}
 	}
 	else if (met > 2.0) // roll program, time from 19930074071 page 54
@@ -3379,19 +3162,6 @@ void ProjectMercury::AtlasAutopilot(double simt, double simdt)
 
 		SetControlSurfaceLevel(AIRCTRL_AILERON, PIDoutput);
 
-		/*if (abs(currentAngAcc.z) < 2.0 * RAD && currentAngRate.z > rollRate + 0.0005)
-		{
-			SetControlSurfaceLevel(AIRCTRL_AILERON, -(currentAngRate.z * DEG * currentAngRate.z * DEG * ampFactor + ampAdder));
-		}
-		else if (abs(currentAngAcc.z) < 2.0 * RAD && currentAngRate.z < rollRate - 0.0005)
-		{
-			SetControlSurfaceLevel(AIRCTRL_AILERON, (currentAngRate.z* DEG* currentAngRate.z* DEG* ampFactor + ampAdder));
-		}
-		else
-		{
-			SetControlSurfaceLevel(AIRCTRL_AILERON, 0.0);
-		}*/
-
 		// Check if roll program is finished
 		if (rollDiff < 0.1 && currentAngRate.z * DEG < 0.05)
 		{
@@ -3431,21 +3201,6 @@ void ProjectMercury::AtlasAutopilot(double simt, double simdt)
 		PIDpreviousError = PIDerror;
 
 		SetControlSurfaceLevel(AIRCTRL_ELEVATOR, PIDoutput);
-
-		//if (currentAngRate.x > pitchRate + 0.0005)
-		//{
-		//	//thrusterAngle = 0.00075;
-		//	SetControlSurfaceLevel(AIRCTRL_ELEVATOR, -(currentAngRate.x * DEG * currentAngRate.x * DEG * ampFactor + ampAdder));
-		//}
-		//else if (currentAngRate.x < pitchRate - 0.0005)
-		//{
-		//	//thrusterAngle = -0.00075;
-		//	SetControlSurfaceLevel(AIRCTRL_ELEVATOR, (currentAngRate.x * DEG * currentAngRate.x * DEG * ampFactor + ampAdder));
-		//}
-		//else
-		//{
-		//	SetControlSurfaceLevel(AIRCTRL_ELEVATOR, 0.0);
-		//}
 	}
 
 	// Automatically null yaw
@@ -3478,21 +3233,6 @@ void ProjectMercury::AtlasAutopilot(double simt, double simdt)
 			PIDpreviousError = PIDerror;
 
 			SetControlSurfaceLevel(AIRCTRL_RUDDER, -PIDoutput);
-
-			//if (currentAngRate.y > yawRate + 0.0005)
-			//{
-			//	//thrusterAngle = 0.00075;
-			//	SetControlSurfaceLevel(AIRCTRL_RUDDER, (currentAngRate.y * DEG * currentAngRate.y * DEG * ampFactor + ampAdder));
-			//}
-			//else if (currentAngRate.y < yawRate - 0.0005)
-			//{
-			//	//thrusterAngle = -0.00075;
-			//	SetControlSurfaceLevel(AIRCTRL_RUDDER, -(currentAngRate.y * DEG * currentAngRate.y * DEG * ampFactor + ampAdder));
-			//}
-			//else
-			//{
-			//	SetControlSurfaceLevel(AIRCTRL_RUDDER, 0.0);
-			//}
 		}
 	}
 
@@ -3529,11 +3269,6 @@ void ProjectMercury::AtlasAutopilot(double simt, double simdt)
 		sprintf(cbuf, "SECO T+%.1f", met);
 		oapiWriteLog(cbuf);
 	}
-
-	//// Debug
-	//char pitchLog[256];
-	//sprintf(pitchLog, "%.3f\t%.3f", simt - launchTime, GetPitch() * DEG);
-	//oapiWriteLine(pitchDataLogFile, pitchLog);
 }
 
 double ProjectMercury::PitchProgramAim(double met)
@@ -4246,7 +3981,6 @@ void ProjectMercury::SeparateTower(bool noAbortSep)
 		vs.fuel->idx = 1;
 		vs.fuel->level = 0.0;
 		AutopilotStatus = REENTRYATTITUDE;
-		//abortDamping = true; // we have abort, so dampen any movement
 
 		createdVessel[stuffCreated] = oapiCreateVesselEx(name, "ProjectMercury\\Mercury_Abort", &vs);
 	}
@@ -4387,7 +4121,6 @@ void ProjectMercury::SeparateAtlasCore(void)
 		Local2Rel(redstoneOffset, vs.rpos);
 		GlobalRot(redstoneDirection, relativeOffset);
 		vs.rvel += relativeOffset * redstoneVelocity;
-		//inFlightAbort = true;
 	}
 
 	if (GetThrusterLevel(th_main) != 0.0 && oapiGetSimTime() - launchTime < 30.0) // 19670028606 page 87, keep engine running if less than T+30

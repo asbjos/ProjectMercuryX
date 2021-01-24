@@ -140,12 +140,6 @@ bool ProjectMercury::clbkLoadPanel2D(int id, PANELHANDLE hPanel, DWORD viewW, DW
 		CreatePanelSwitchClick(PANEL_ID_RETATT_SWITCH_L, PANEL_ID_RETATT_SWITCH_R, retAtt[0], retAtt[1], hPanel);
 		CreatePanelSwitchClick(PANEL_ID_ASCSMODE_SWITCH_L, PANEL_ID_ASCSMODE_SWITCH_R, ASCSmde[0], ASCSmde[1], hPanel);
 		CreatePanelSwitchClick(PANEL_ID_CNTRLMODE_SWITCH_L, PANEL_ID_CNTRLMODE_SWITCH_R, ctrlMde[0], ctrlMde[1], hPanel);
-		/*VersionDependentPanelClick(PANEL_ID_AUTORETJET_SWITCH_L, _R(autRetJet[0] - switchW / 2, autRetJet[1] - switchH / 2, autRetJet[0], autRetJet[1] + switchH / 2), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN, hPanel, _R(0, 0, 0, 0), NULL);
-		VersionDependentPanelClick(PANEL_ID_AUTORETJET_SWITCH_R, _R(autRetJet[0], autRetJet[1] - switchH / 2, autRetJet[0] + switchW / 2, autRetJet[1] + switchH / 2), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN, hPanel, _R(0, 0, 0, 0), NULL);
-		VersionDependentPanelClick(PANEL_ID_RETDELAY_SWITCH_L, _R(retDel[0] - switchW / 2, retDel[1] - switchH / 2, retDel[0], retDel[1] + switchH / 2), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN, hPanel, _R(0, 0, 0, 0), NULL);
-		VersionDependentPanelClick(PANEL_ID_RETDELAY_SWITCH_R, _R(retDel[0], retDel[1] - switchH / 2, retDel[0] + switchW / 2, retDel[1] + switchH / 2), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN, hPanel, _R(0, 0, 0, 0), NULL);
-		VersionDependentPanelClick(PANEL_ID_THRUSTER_SWITCH_L, _R(switchX - switchW / 2, thrusterY - switchH / 2, switchX, thrusterY + switchH / 2), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN, hPanel, _R(0, 0, 0, 0), NULL);
-		VersionDependentPanelClick(PANEL_ID_THRUSTER_SWITCH_R, _R(switchX, thrusterY - switchH / 2, switchX + switchW / 2, thrusterY + switchH / 2), 0, PANEL_REDRAW_NEVER, PANEL_MOUSE_LBDOWN, hPanel, _R(0, 0, 0, 0), NULL);*/
 
 		// Click left mouse to push, click right mouse to push, T handles
 		CreatePanelTHandleClick(PANEL_ID_MANUAL_THANDLE, tHandleManual[0], tHandleManual[1], hPanel);
@@ -333,6 +327,7 @@ inline bool ProjectMercury::clbkPanelMouseEvent(int id, int event, int mx, int m
 		indicatorButtonPressTime[3] = simt;
 
 		prepareReentryAction = true;
+		AutopilotStatus = REENTRYATTITUDE;
 		return true;
 	case PANEL_ID_TIMZER_BUTTON:
 		SetIndicatorButtonStatus(indicatorButtonFirstGroup + 4, 1);
@@ -609,8 +604,8 @@ void ProjectMercury::FitPanelToScreen(int w, int h)
 	}
 
 	// Edit mesh
-	double defaultScale = (double)h / 1440;
-	addScreenWidthValue = float((w / defaultScale - 2160.0) / 2.0); // add or subtract offset value
+	//double defaultScale = (double)h / 1440;
+	//addScreenWidthValue = float((w / defaultScale - 2160.0) / 2.0); // add or subtract offset value
 	//for (int k = 0; k < totalGroupNumber; k++) // for every group
 	//{
 	//	GROUPEDITSPEC ges;
@@ -665,7 +660,7 @@ void ProjectMercury::FitPanelToScreen(int w, int h)
 	//	}
 	//}
 
-	oapiWriteLogV("Panel mesh fit to screen by pushing mesh groups %.1f pixels.", addScreenWidthValue);
+	//oapiWriteLogV("Panel mesh fit to screen by pushing mesh groups %.1f pixels.", addScreenWidthValue);
 }
 
 inline void ProjectMercury::AnimateDials(void)
@@ -673,12 +668,7 @@ inline void ProjectMercury::AnimateDials(void)
 	bool includeLatency = true;
 	double simt = oapiGetSimTime();
 
-	if (simt - animateDialsPreviousSimt > 1.0)
-	{
-		includeLatency = false; // a relatively long time since last animation step, so force no latency to show current value. This is to omit the clock jumping around for every small periscope/F8-switch.
-
-		oapiWriteLogV("Panel simt: %.2f, prev: %.2f, diff: %.2f", simt, animateDialsPreviousSimt, simt - animateDialsPreviousSimt);
-	}
+	if (simt - animateDialsPreviousSimt > 1.0) includeLatency = false; // a relatively long time since last animation step, so force no latency to show current value. This is to omit the clock jumping around for every small periscope/F8-switch.
 
 	int idx = 0;
 
@@ -889,12 +879,12 @@ inline void ProjectMercury::RotateArmGroup(int groupNum, float x0, float y0, flo
 	NTVERTEX newVertex[5]; // We require five verticies
 
 	// Find x-offset from screen width (same as in FitPanelToScreen())
-	float xTraOffset = addScreenWidthValue;
-	if (panelMeshGroupSide[groupNum] == 1) // left
-	{
-		xTraOffset *= -1.0f;
-	}
-	xTraOffset = 0.0f; // debug. I have now disabled the screen fit, as the dials are now centered, instead of being on the sides
+	//float xTraOffset = addScreenWidthValue;
+	//if (panelMeshGroupSide[groupNum] == 1) // left
+	//{
+	//	xTraOffset *= -1.0f;
+	//}
+	//xTraOffset = 0.0f; // debug. I have now disabled the screen fit, as the dials are now centered, instead of being on the sides
 
 	// Include latency in dial
 	if (includeLatency)
@@ -908,19 +898,19 @@ inline void ProjectMercury::RotateArmGroup(int groupNum, float x0, float y0, flo
 	}
 	previousDialAngle[groupNum] = angleR; // save outside of the latency adding, as clock has dynamic latency, and thus always needs to be saved
 
-	float armInner0x = -negLength * cos(angleR) + width / 2.0f * sin(-angleR) + x0 + xTraOffset;
+	float armInner0x = -negLength * cos(angleR) + width / 2.0f * sin(-angleR) + x0; // +xTraOffset;
 	float armInner0y = -negLength * sin(angleR) + width / 2.0f * cos(angleR) + y0;
 
-	float armInner1x = -negLength * cos(angleR) - width / 2.0f * sin(-angleR) + x0 + xTraOffset;
+	float armInner1x = -negLength * cos(angleR) - width / 2.0f * sin(-angleR) + x0;// +xTraOffset;
 	float armInner1y = -negLength * sin(angleR) -width / 2.0f * cos(angleR) + y0;
 
-	float armOuter0x = length * pointiness * cos(angleR) + width / 2.0f * sin(-angleR) + x0 + xTraOffset;
+	float armOuter0x = length * pointiness * cos(angleR) + width / 2.0f * sin(-angleR) + x0;// +xTraOffset;
 	float armOuter0y = length * pointiness * sin(angleR) + width / 2.0f * cos(angleR) + y0;
 
-	float armOuter1x = length * pointiness * cos(angleR) - width / 2.0f * sin(-angleR) + x0 + xTraOffset;
+	float armOuter1x = length * pointiness * cos(angleR) - width / 2.0f * sin(-angleR) + x0;// +xTraOffset;
 	float armOuter1y = length * pointiness * sin(angleR) - width / 2.0f * cos(angleR) + y0;
 
-	float handOuterx = length * cos(angleR) + x0 + xTraOffset;
+	float handOuterx = length * cos(angleR) + x0;// +xTraOffset;
 	float handOutery = length * sin(angleR) + y0;
 
 	ges.flags = GRPEDIT_VTXCRDX | GRPEDIT_VTXCRDY;

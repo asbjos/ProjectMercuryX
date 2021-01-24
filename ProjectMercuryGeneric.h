@@ -1,4 +1,3 @@
-#include "MercuryAtlas\MercuryAtlas\MercuryAtlas.h"
 #pragma once
 
 // ==============================================================
@@ -140,16 +139,17 @@ inline double ProjectMercury::GenerateRandom01(void)
 }
 
 // Generate random gaussian number. Use a1 and a2 for different distribution.
+// This is called the Box-Muller transform.
+// This is for std 1 and exp 0, so to get specific std and exp, use std * genRandNorm + exp
 inline double ProjectMercury::GenerateRandomNorm(double a1, double a2)
 {
 	double random1 = GenerateRandom01();
 	double random2 = GenerateRandom01();
 
-	double randNorm = pow(-a1 * log(random1), a2) * cos(PI2 * random2);
-	return randNorm;
+	return pow(-a1 * log(random1), a2) * cos(PI2 * random2);
 }
 
-// Generate gaussian truncated to an angle [-PI, PI]. Pich a1 and a2 for different distribution. If not picked carefully, you have very high probability of either -PI or PI
+// Generate gaussian truncated to an angle [-PI, PI]. Pick a1 and a2 for different distribution. If not picked carefully, you have very high probability of either -PI or PI
 inline double ProjectMercury::GenerateRandomAngleNorm(double a1, double a2)
 {
 	double randGauss = GenerateRandomNorm(a1, a2);
@@ -164,6 +164,18 @@ inline double ProjectMercury::NormAngleDeg(double ang)
 {
 	double deg = normangle(ang * RAD) * DEG;
 	return deg;
+}
+
+inline void ProjectMercury::GetNoisyAngularVel(VECTOR3& avel, double stdDev)
+{
+	//VECTOR3 angVel;
+	GetAngularVel(avel);
+
+	if (oapiGetTimeAcceleration() > 1.0) stdDev /= oapiGetTimeAcceleration(); // it's not fun with noise when on time acc
+
+	avel.x += GenerateRandomNorm() * stdDev;
+	avel.y += GenerateRandomNorm() * stdDev;
+	avel.z += GenerateRandomNorm() * stdDev;
 }
 
 inline bool ProjectMercury::InRadioContact(OBJHANDLE planet)
@@ -234,7 +246,7 @@ inline void ProjectMercury::DeleteRogueVessels(void)
 	// Delete created vessels that bounce off into infinity (hopefully this will reduce crashes). Maybe use this for Redstone too, although we don't do time acc there
 	for (int i = 0; i < stuffCreated; i++)
 	{
-		if (createdVessel[i] != NULL && oapiIsVessel(createdVessel[i]))
+		if (createdVessel[i] != NULL && oapiIsVessel(createdVessel[i]) && oapiGetFocusObject() != createdVessel[i]) // include condition to not delete if object is in focus (like if playing with staged parts)
 		{
 			VECTOR3 vesselPosition;
 			GetRelativePos(createdVessel[i], vesselPosition);
@@ -244,7 +256,7 @@ inline void ProjectMercury::DeleteRogueVessels(void)
 				char vesselName[256];
 				oapiGetObjectName(createdVessel[i], vesselName, 256);
 
-				if (oapiGetFocusObject() == createdVessel[i]) oapiSetFocusObject(GetHandle());
+				//if (oapiGetFocusObject() == createdVessel[i]) oapiSetFocusObject(GetHandle());
 
 				bool deleteResult = oapiDeleteVessel(createdVessel[i]);
 				if (deleteResult)
@@ -270,14 +282,14 @@ inline void ProjectMercury::DeleteRogueVessels(void)
 // MnA in radians
 inline double ProjectMercury::MnA2TrA(double MnA, double Ecc)
 {
-	double TrA = MnA + (2.0 * Ecc - pow(Ecc, 3.0) / 4.0) * sin(MnA) + 5.0 / 4.0 * pow(Ecc, 2.0) * sin(2.0 * MnA) + 13.0 / 12.0 * pow(Ecc, 3.0) * sin(3.0 * MnA);
+	double TrA = MnA + (2.0 * Ecc - pow(Ecc, 3) / 4.0) * sin(MnA) + 5.0 / 4.0 * pow(Ecc, 2) * sin(2.0 * MnA) + 13.0 / 12.0 * pow(Ecc, 3) * sin(3.0 * MnA);
 
 	return TrA;
 }
 
 inline double ProjectMercury::TrA2MnA(double TrA, double Ecc)
 {
-	double MnA = TrA - 2.0 * Ecc * sin(TrA) + (3.0 / 4.0 * pow(Ecc, 2.0) + pow(Ecc, 4.0) / 8.0) * sin(2.0 * TrA) - pow(Ecc, 3.0) / 3.0 * sin(3.0 * TrA) + 5.0 / 32.0 * pow(Ecc, 4.0) * sin(4.0 * TrA);
+	double MnA = TrA - 2.0 * Ecc * sin(TrA) + (3.0 / 4.0 * pow(Ecc, 2) + pow(Ecc, 4) / 8.0) * sin(2.0 * TrA) - pow(Ecc, 3) / 3.0 * sin(3.0 * TrA) + 5.0 / 32.0 * pow(Ecc, 4) * sin(4.0 * TrA);
 
 	return MnA;
 }

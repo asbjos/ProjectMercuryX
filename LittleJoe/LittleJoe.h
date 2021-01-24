@@ -303,6 +303,7 @@ public:
 	double GenerateRandomNorm(double a1 = 2.0, double a2 = 0.5);
 	double GenerateRandomAngleNorm(double a1 = 2.0, double a2 = 0.5);
 	double NormAngleDeg(double ang);
+	void GetNoisyAngularVel(VECTOR3& avel, double stdDev = 0.25 * RAD);
 	void DisableAttitudeThruster(int num);
 
 	void GetPixelDeviationForAltitude(double inputAltitude, double* deg0Pix, double* deg5Pix);
@@ -387,6 +388,8 @@ private:
 	bool contrailActive = true;
 	bool suborbitalMission = true; // change to false for Mercury Atlas!
 	bool boilerplateMission = false;
+	double fireflyLevel = 0.0;
+	double fireflyBangTime = 0.0;
 
 	MESHHANDLE booster,
 		capsule,
@@ -522,6 +525,10 @@ private:
 	bool MercuryNetwork = true;
 	double joystickThresholdLow = 0.33; // the RCS joystick threshold activating the low torque thrusters in Fly-By-Wire
 	double joystickThresholdHigh = 0.75; // the RCS joystick threshold activating the high torque thrusters in Fly-By-Wire
+	double ASCSstdDev = 0.25; // in deg/s
+	double RSCSstdDev = 1.0; // in deg/s
+	double RSCSresolutionD = 3.0; // in deg
+	double RSCSmax = 10.0; // in deg/s
 
 	bool drogueCoverSeparated = false;
 	bool drogueDeployed = false;
@@ -574,6 +581,7 @@ private:
 	int indicatorButtonFirstGroup = 13; // right now it's 13, but doesn't matter what we set to, as it will be correctly assigned every frame
 	int physicalSwitchState[3] = { -2 }; // -1 left, 0 centre, 1 right. -2 is reset
 	int physicalSwitchFirstGroup = 17; // right now it's 17, but doesn't matter what we set to, as it will be correctly assigned every frame
+	double animateDialsPreviousSimt = 0.0; // even if we have scenario with simt < 0.0 (scnEditor), we will only have a smooth transition once every time jump backwards.
 
 	// -1 left, 0 centre, 1 right. -2 is reset
 	int switchAutoRetroJet = -1; // ARM (-1), OFF (1)

@@ -154,7 +154,7 @@ void ProjectMercury::AuxDampingAuto(bool highThrust) // return number of active 
 	}
 
 	VECTOR3 angVel;
-	GetAngularVel(angVel);
+	GetNoisyAngularVel(angVel, ASCSstdDev * RAD);
 
 	const double rateLimit = 0.5 * RAD;
 
@@ -235,8 +235,8 @@ void ProjectMercury::RetroAttitudeAuto(double simt, double simdt, bool highTorqu
 		{
 			// Remember that highTorque here always will be false.
 			// But no. On MA-6, with lowTorque thruster failed, ASCS went into highTorque when passing more than 20 deg off-course
-			if (attitudeHold14deg) result[0] = SetPitchAuto(-14.5, highTorque); // for periscope centering
-			else result[0] = SetPitchAuto(-34.0, highTorque);
+			/*if (attitudeHold14deg) result[0] = SetPitchAuto(-14.5, highTorque); // for periscope centering
+			else */result[0] = SetPitchAuto(-34.0, highTorque);
 		}
 
 		result[1] = SetYawAuto(highTorque);
@@ -253,7 +253,7 @@ void ProjectMercury::RetroAttitudeAuto(double simt, double simdt, bool highTorqu
 bool ProjectMercury::SetPitchAuto(double targetPitch, bool highTorque)
 {
 	VECTOR3 angVel;
-	GetAngularVel(angVel);
+	GetNoisyAngularVel(angVel, ASCSstdDev * RAD);
 	double pitch = normangle(GetPitch() + pitchOffset);
 	pitch -= targetPitch * RAD; // target pitch is -34 degrees, so that would give 0 deg if correct pitch
 	double autoVel = 0.0;
@@ -371,7 +371,7 @@ bool ProjectMercury::SetPitchAuto(double targetPitch, bool highTorque)
 bool ProjectMercury::SetYawAuto(bool highTorque)
 {
 	VECTOR3 angVel;
-	GetAngularVel(angVel);
+	GetNoisyAngularVel(angVel, ASCSstdDev * RAD);
 	double yaw = normangle(GetSlipAngle() + yawOffset);
 	double autoVel = 0.0;
 	int sign = (yaw > 0.0) - (yaw < 0.0);
@@ -485,7 +485,7 @@ bool ProjectMercury::SetYawAuto(bool highTorque)
 bool ProjectMercury::SetRollAuto(bool highTorque)
 {
 	VECTOR3 angVel;
-	GetAngularVel(angVel);
+	GetNoisyAngularVel(angVel, ASCSstdDev * RAD);
 	angVel.z *= -1.0; // WARNING: ORBITER IS LEFT-HANDED, SO WE HAVE TO FLIP THE SIGN FOR ANGVELZ
 	double roll = normangle(GetBank() + rollOffset);
 	double autoVel = 0.0;
@@ -629,7 +629,7 @@ void ProjectMercury::ReentryAttitudeAuto(double simt, double simdt)
 void ProjectMercury::GRollAuto(double simt, double simdt)
 {
 	VECTOR3 angVel;
-	GetAngularVel(angVel);
+	GetNoisyAngularVel(angVel, ASCSstdDev * RAD);
 
 	// Roll between 10 and 12 deg/s
 	if (angVel.z > 12.0 * RAD && tHandleRollPushed)
@@ -675,13 +675,8 @@ inline void ProjectMercury::InitiateRetroSequence(void)
 	engageRetro = true;
 	if (switchRetroDelay == -1) retroStartTime = oapiGetSimTime() + 30.0; // retrosequence starts 30 sec before firing
 	else if (switchRetroDelay == 1) retroStartTime = oapiGetSimTime(); // start retrosequence immediately
-	//char cbuf[256];
-	//sprintf(cbuf, "Retrosequence initiated at T+%.0f, simt: %.0f", retroStartTime - launchTime - 30.0, retroStartTime - 30.0);
-	//oapiWriteLog(cbuf);
 
 	AutopilotStatus = RETROATTITUDE;
-	//autoPilot = true;
-	attitudeHold14deg = false;
 }
 
 inline void ProjectMercury::FireRetroRocket(int rckNum)
@@ -822,7 +817,7 @@ void ProjectMercury::CreateRetroRockets(void)
 	retro3_light->SetIntensityRef(&RETRO_THRUST_LEVEL[2]);
 }
 
-void ProjectMercury::PrepareReentry()
+void ProjectMercury::PrepareReentry(void)
 {
 	double reentryStresses = 0.5 * GetAtmDensity() * pow(GetAirspeed(), 3);
 	if (FailureMode == RETRONOSEP && reentryStresses < 1e6) // things could be interesting if this failure mode is on, and aborting. Check that in debugging process
@@ -1017,17 +1012,6 @@ void ProjectMercury::CreateRCS(void)
 	// AddExhaust(thruster_auto_roll_1lb[1], .07, .02, att_ref, att_dir);
 	rcsStream[17] = AddExhaustStream(thruster_auto_roll_1lb[1], att_ref, &RCSLow);
 
-	//// Auto groups
-	//pitchup = CreateThrusterGroup(&thruster_auto_py[0], 1, THGROUP_ATT_PITCHUP);
-	//pitchdown = CreateThrusterGroup(&thruster_auto_py[1], 1, THGROUP_ATT_PITCHDOWN);
-	//yawright = CreateThrusterGroup(&thruster_auto_py[2], 1, THGROUP_ATT_YAWRIGHT);
-	//yawleft = CreateThrusterGroup(&thruster_auto_py[3], 1, THGROUP_ATT_YAWLEFT);
-	//bankright = CreateThrusterGroup(&thruster_auto_roll[0], 1, THGROUP_ATT_BANKRIGHT);
-	//bankleft = CreateThrusterGroup(&thruster_auto_roll[1], 1, THGROUP_ATT_BANKLEFT);
-
-	//RcsStatus = AUTOHIGH;
-	//SetDefaultPropellantResource(fuel_auto);
-
 	// Create the thrusters for capsule control. Dummy thrusters, and we map the levels onto the actual thrusters, everything dependent on which mode we are in (ASCS, rate cmd, etc.)
 	controllerPitchup = CreateThruster(_V(0, 0, 0), _V(0, 0, 1), 0, dummyControllerFuel, 0, 0);
 	controllerPitchdown = CreateThruster(_V(0, 0, 0), _V(0, 0, 1), 0, dummyControllerFuel, 0, 0);
@@ -1083,73 +1067,6 @@ void ProjectMercury::CreateAirfoilsEscape(void)
 	CreateAirfoil3(LIFT_HORIZONTAL, _V(0, 0, -4.91), hliftEscape, NULL, 1.89, 1.89 * 1.89 * PI / 4.0, 1.0); // spherical symmetric
 }
 
-//void ProjectMercury::SwitchAttitudeMode(void)
-//{
-//	if (RcsStatus == AUTOHIGH)
-//	{
-//		DelThrusterGroup(pitchup);
-//		DelThrusterGroup(pitchdown);
-//		DelThrusterGroup(yawright);
-//		DelThrusterGroup(yawleft);
-//		DelThrusterGroup(bankleft);
-//		DelThrusterGroup(bankright);
-//
-//		pitchup = CreateThrusterGroup(&thruster_auto_py[0], 1, THGROUP_ATT_PITCHUP);
-//		pitchdown = CreateThrusterGroup(&thruster_auto_py[1], 1, THGROUP_ATT_PITCHDOWN);
-//		yawright = CreateThrusterGroup(&thruster_auto_py[2], 1, THGROUP_ATT_YAWRIGHT);
-//		yawleft = CreateThrusterGroup(&thruster_auto_py[3], 1, THGROUP_ATT_YAWLEFT);
-//		bankright = CreateThrusterGroup(&thruster_auto_roll[0], 1, THGROUP_ATT_BANKRIGHT);
-//		bankleft = CreateThrusterGroup(&thruster_auto_roll[1], 1, THGROUP_ATT_BANKLEFT);
-//	}
-//	else if (RcsStatus == MANUAL)
-//	{
-//		DelThrusterGroup(pitchup);
-//		DelThrusterGroup(pitchdown);
-//		DelThrusterGroup(yawright);
-//		DelThrusterGroup(yawleft);
-//		DelThrusterGroup(bankleft);
-//		DelThrusterGroup(bankright);
-//
-//		pitchup = CreateThrusterGroup(&thruster_man_py[0], 1, THGROUP_ATT_PITCHUP);
-//		pitchdown = CreateThrusterGroup(&thruster_man_py[1], 1, THGROUP_ATT_PITCHDOWN);
-//		yawright = CreateThrusterGroup(&thruster_man_py[2], 1, THGROUP_ATT_YAWRIGHT);
-//		yawleft = CreateThrusterGroup(&thruster_man_py[3], 1, THGROUP_ATT_YAWLEFT);
-//		bankright = CreateThrusterGroup(&thruster_man_roll[0], 1, THGROUP_ATT_BANKRIGHT);
-//		bankleft = CreateThrusterGroup(&thruster_man_roll[1], 1, THGROUP_ATT_BANKLEFT);
-//	}
-//	else
-//	{
-//		DelThrusterGroup(pitchup);
-//		DelThrusterGroup(pitchdown);
-//		DelThrusterGroup(yawright);
-//		DelThrusterGroup(yawleft);
-//		DelThrusterGroup(bankleft);
-//		DelThrusterGroup(bankright);
-//
-//		pitchup = CreateThrusterGroup(&thruster_auto_py_1lb[0], 1, THGROUP_ATT_PITCHUP);
-//		pitchdown = CreateThrusterGroup(&thruster_auto_py_1lb[1], 1, THGROUP_ATT_PITCHDOWN);
-//		yawright = CreateThrusterGroup(&thruster_auto_py_1lb[2], 1, THGROUP_ATT_YAWRIGHT);
-//		yawleft = CreateThrusterGroup(&thruster_auto_py_1lb[3], 1, THGROUP_ATT_YAWLEFT);
-//		bankright = CreateThrusterGroup(&thruster_auto_roll_1lb[0], 1, THGROUP_ATT_BANKRIGHT);
-//		bankleft = CreateThrusterGroup(&thruster_auto_roll_1lb[1], 1, THGROUP_ATT_BANKLEFT);
-//	}
-//}
-
-//void ProjectMercury::SwitchPropellantSource(void)
-//{
-//	double currentAuto = GetPropellantMass(fuel_auto);
-//	double currentManual = GetPropellantMass(fuel_manual);
-//	double currentAutoMax = GetPropellantMaxMass(fuel_auto);
-//	double currentManualMax = GetPropellantMaxMass(fuel_manual);
-//
-//	SetPropellantMaxMass(fuel_manual, currentAutoMax);
-//	SetPropellantMaxMass(fuel_auto, currentManualMax);
-//	SetPropellantMass(fuel_manual, currentAuto);
-//	SetPropellantMass(fuel_auto, currentManual);
-//
-//	attitudeFuelAuto = !attitudeFuelAuto;
-//}
-
 void ProjectMercury::DumpFuelRCS(void)
 {
 	SetThrusterLevel(thruster_auto_py[0], 1.0);
@@ -1172,12 +1089,6 @@ void ProjectMercury::DumpFuelRCS(void)
 	SetThrusterLevel(thruster_man_py[3], 1.0);
 	SetThrusterLevel(thruster_man_roll[0], 1.0);
 	SetThrusterLevel(thruster_man_roll[1], 1.0);
-
-	//if (GetFuelMass() == 0.0 && (GetPropellantMass(fuel_manual) != 0.0 || GetPropellantMass(fuel_auto) != 0.0))
-	//{
-	//	SwitchPropellantSource();
-	//}
-
 }
 
 void ProjectMercury::SeparateRetroPack(bool deleteThrusters) // only false if no thrusters have been created (abort)
@@ -1744,6 +1655,8 @@ inline void ProjectMercury::MercuryGenericConstructor(void)
 	circularFrameMesh = oapiLoadMeshGlobal("ProjectMercury\\FullCircle"); // For camera cutout. Is a duplicate of the one included in periscopeMesh
 
 	cockpitPanelMesh = oapiLoadMeshGlobal("ProjectMercury\\Panel\\panel");
+	//cockpitPanelMesh = oapiLoadMesh("ProjectMercury\\Panel\\panel"); // load non-global, to be able to delete when destructing
+	//oapiWriteLogV("Constructor loaded panel: %i", cockpitPanelMesh);
 
 	//vcFrame = oapiLoadMeshGlobal("ProjectMercury\\VC\\GenericFrame");
 
@@ -1901,6 +1814,31 @@ inline void ProjectMercury::ReadConfigSettings(FILEHANDLE cfg)
 		oapiWriteLog("Mercury could not read joystick high threshold.");
 	}
 
+	if (!oapiReadItem_float(commonCfg, "StandardDevRateASCS", ASCSstdDev))
+	{
+		ASCSstdDev = 0.25;
+		oapiWriteLog("Mercury could not read standard deviation rate for ASCS.");
+	}
+
+	if (!oapiReadItem_float(commonCfg, "StandardDevRateRSCS", RSCSstdDev))
+	{
+		RSCSstdDev = 1.0;
+		oapiWriteLog("Mercury could not read standard deviation rate for RSCS.");
+	}
+
+	if (!oapiReadItem_float(commonCfg, "RSCSresolution", RSCSresolutionD))
+	{
+		RSCSresolutionD = 3.0;
+		oapiWriteLog("Mercury could not read RSCS resolution.");
+	}
+
+	if (!oapiReadItem_float(commonCfg, "RSCSmaxRate", RSCSmax))
+	{
+		RSCSmax = 10.0;
+		oapiWriteLog("Mercury could not read RSCS maximum angular rate.");
+	}
+
+
 	char caps[NUMBER_SUPPORTED_CONFIG_CAPSULES][1000];
 	if (oapiReadItem_string(commonCfg, "DEFINENEWCAPSULE0", caps[0])) // Is defined
 	{
@@ -1977,35 +1915,17 @@ inline void ProjectMercury::ReadConfigSettings(FILEHANDLE cfg)
 
 inline void ProjectMercury::CreateCapsuleFuelTanks(void)
 {
-	// propellant resources, in order of last deleted to first
+	// Propellant resources, in order of last deleted to first
 	fuel_manual = CreatePropellantResource(MERCURY_FUEL_MASS_MAN);
-	//SetPropellantMass(fuel_manual, MERCURY_FUEL_MASS_MAN);
-
 	fuel_auto = CreatePropellantResource(MERCURY_FUEL_MASS_AUTO);
-	//SetPropellantMass(fuel_auto, MERCURY_FUEL_MASS_AUTO);
-
-	//attitudeFuelAuto = true;
 
 	posigrade_propellant[0] = CreatePropellantResource(POSIGRADE_MASS_FUEL);
-	//SetPropellantMass(posigrade_propellant[0], POSIGRADE_MASS_FUEL);
-
 	posigrade_propellant[1] = CreatePropellantResource(POSIGRADE_MASS_FUEL);
-	//SetPropellantMass(posigrade_propellant[1], POSIGRADE_MASS_FUEL);
-
 	posigrade_propellant[2] = CreatePropellantResource(POSIGRADE_MASS_FUEL);
-	//SetPropellantMass(posigrade_propellant[2], POSIGRADE_MASS_FUEL);
 
 	retro_propellant[0] = CreatePropellantResource(RETRO_MASS_FUEL);
-	//SetPropellantMass(retro_propellant[0], RETRO_MASS_FUEL);
-
 	retro_propellant[1] = CreatePropellantResource(RETRO_MASS_FUEL);
-	//SetPropellantMass(retro_propellant[1], RETRO_MASS_FUEL);
-
 	retro_propellant[2] = CreatePropellantResource(RETRO_MASS_FUEL);
-	//SetPropellantMass(retro_propellant[2], RETRO_MASS_FUEL);
-
-	//SetPropellantMass(escape_tank, ABORT_MASS_FUEL);
-
 }
 
 inline void ProjectMercury::AddDefaultMeshes(void)
@@ -2019,9 +1939,6 @@ inline void ProjectMercury::AddDefaultMeshes(void)
 	Tower = AddMesh(tower, &ABORT_OFFSET);
 
 	Droguecover = AddMesh(droguecover, &MERCURY_OFS_DROGUECOVER);
-
-	//VcFrame = AddMesh(vcFrame, &VC_FRAME_OFS);
-	//SetMeshVisibilityMode(VcFrame, MESHVIS_VC | MESHVIS_ALWAYS); // Debug
 }
 
 inline void ProjectMercury::CapsuleGenericPostCreation(void)
@@ -2302,13 +2219,14 @@ inline void ProjectMercury::CapsuleAttitudeControl(double simt, double simdt)
 		// But then, on the other hand, seeing that the resolution was 3.0 deg/s (see below), it doesn't make sense to be limited to 6 deg/s. So maybe we should try 10 deg/s afterall ...
 
 		VECTOR3 angVel;
-		GetAngularVel(angVel);
+		GetNoisyAngularVel(angVel, RSCSstdDev * RAD);
 
 		//const double RSCSresolution = 0.1 * RAD; // the resolution of the damping, so that it doesn't try to dampen an e.g. 1e-10 rate. This is entirely my own value, no historic valuue.
-		const double RSCSresolution = 3.0 * RAD; // the resolution of the damping, 3.0 deg/s according to MA6_FlightPlan2.pdf page 39. AUX damping (+- 0.5 deg/s) is thus more precise than RSCS damping.
-		const double MaxPitchRate = 10.0 * RAD; // 6.0 * RAD; // 4.0 * RAD;
-		const double MaxYawRate = 10.0 * RAD; // 6.0 * RAD; // 4.0 * RAD;
-		const double MaxRollRate = 10.0 * RAD; // 6.0 * RAD; // 3.0 * RAD;
+		//const double RSCSresolution = 3.0 * RAD; // the resolution of the damping, 3.0 deg/s according to MA6_FlightPlan2.pdf page 39. AUX damping (+- 0.5 deg/s) is thus more precise than RSCS damping.
+		const double RSCSresolution = RSCSresolutionD * RAD; // the resolution of the damping. With a keyboard, 3.0 deg/s is way too unprecise. So a compromise could be 1.5 deg/s. Or one should instead add gaussian noise to the rates or something.
+		const double MaxPitchRate = RSCSmax * RAD; // 6.0 * RAD; // 4.0 * RAD;
+		const double MaxYawRate = RSCSmax * RAD; // 6.0 * RAD; // 4.0 * RAD;
+		const double MaxRollRate = RSCSmax * RAD; // 6.0 * RAD; // 3.0 * RAD;
 
 		// If no input, the target rate will be Max * (0 - 0) = 0, and automatically damp. Thumbs up for that.
 
@@ -2459,14 +2377,6 @@ inline void ProjectMercury::MercuryCapsuleGenericTimestep(double simt, double si
 	{
 		AnimateDials();
 	}
-
-	//// Rate damping if aborting (19670028606 page 97 and 98)
-	//if (abort && VesselStatus == REENTRY)
-	//{
-	//	// Debug, this should only be activated for an escape tower abort!
-	//	//autoPilot = true;
-	//	AutopilotStatus = LOWG;
-	//}
 
 	// Calculate G force for activation of tower & retro separation at 0.25 G
 	double m = GetMass();

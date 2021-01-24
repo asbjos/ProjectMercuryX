@@ -340,6 +340,7 @@ public:
 	double GenerateRandomNorm(double a1 = 2.0, double a2 = 0.5);
 	double GenerateRandomAngleNorm(double a1 = 2.0, double a2 = 0.5);
 	double NormAngleDeg(double ang);
+	void GetNoisyAngularVel(VECTOR3& avel, double stdDev = 0.25 * RAD);
 	void DisableAttitudeThruster(int num);
 
 	// Functions that are common in both Redstone and Atlas, and which are called in the default Orbiter callback functions
@@ -562,7 +563,7 @@ private:
 	bool posigradeDampingActivated = false;
 	double posigradeDampingTime = 0.0;
 	bool turnAroundFinished = false;
-	bool attitudeHold14deg = false;
+	//bool attitudeHold14deg = false;
 	double integratedSpeed = 0.0;
 	double integratedPitch = 90.0;
 	double integratedYaw = 0.0;
@@ -597,6 +598,10 @@ private:
 	bool MercuryNetwork = true;
 	double joystickThresholdLow = 0.33; // the RCS joystick threshold activating the low torque thrusters in Fly-By-Wire
 	double joystickThresholdHigh = 0.75; // the RCS joystick threshold activating the high torque thrusters in Fly-By-Wire
+	double ASCSstdDev = 0.25; // in deg/s
+	double RSCSstdDev = 1.0; // in deg/s
+	double RSCSresolutionD = 3.0; // in deg
+	double RSCSmax = 10.0; // in deg/s
 
 	// Left cockpit lights
 	bool towerJettisoned = false;
@@ -639,7 +644,7 @@ private:
 	int armGroups[50] = { NULL }; // Support up to 50 for now. Real number more like 15
 	int totalArmGroups = 0;
 	int panelMeshGroupSide[100] = { 0 }; // 0 empty, 1 left, 2 right, -1 ignore
-	float addScreenWidthValue = 0.0;
+	//float addScreenWidthValue = 0.0;
 	int globeGroup = NULL;
 	int globeVertices = NULL;
 	float previousDialAngle[200] = { 0.0f }; // must be longer than total mesh group number
