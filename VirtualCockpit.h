@@ -1143,7 +1143,8 @@ inline void ProjectMercury::ChangeIndicatorStatus(void)
 	// RETRO ATT
 	double currP = GetPitch() + pitchOffset;
 	double currY = GetSlipAngle() + yawOffset;
-	if (engageRetro && abs(currP + 34.0 * RAD) < 15.0 * RAD && abs(normangle(currY + PI)) < 15.0 * RAD) indicatorStatus[idx] = GREEN; // within limits
+	double currR = GetBank() + rollOffset;
+	if (engageRetro && abs(currP + 34.0 * RAD) < 12.5 * RAD && abs(normangle(currY + PI)) < 30.0 * RAD && abs(currR) < 30.0 * RAD) indicatorStatus[idx] = GREEN; // within limits, familiariyation page 229
 	else if (retroStartTime == 0.0) indicatorStatus[idx] = GRAY; // haven't engaged retro
 	else if (VesselStatus == REENTRY || VesselStatus == REENTRYNODROGUE || VesselStatus == ABORTNORETRO) indicatorStatus[idx] = GRAY;
 	else indicatorStatus[idx] = RED;

@@ -1262,64 +1262,6 @@ void ProjectMercury::clbkPostStep(double simt, double simdt, double mjd)
 		conceptThrusterLevel[2] = 0.0;
 		conceptThrusterLevel[3] = 0.0;
 	}
-
-	// DEBUG! Print time to 0.05G and predicted landing point
-	if (VesselStatus == REENTRY)
-	{
-		// Entry interface at altitude 87 550 m
-		OBJHANDLE refPlanet = GetSurfaceRef();
-		double planetRad = oapiGetSize(refPlanet);
-		double entryRadius = 87550.0 + planetRad;
-
-		ELEMENTS el;
-		ORBITPARAM prm;
-		GetElements(refPlanet, el, &prm, 0.0, FRAME_EQU);
-		double postBurnPer = prm.T;
-		double postBurnEcc = el.e;
-		double postBurnTrA = prm.TrA;
-		double postBurnAPe = el.omegab - el.theta;
-		double postBurnLAN = el.theta;
-		double postBurnSMa = el.a;
-		double postBurnInc = el.i;
-		double postBurnMnA = TrA2MnA(postBurnTrA, postBurnEcc);
-		double longAtRetro, latAtRetro, radAtRetro;
-		GetEquPos(longAtRetro, latAtRetro, radAtRetro);
-
-		if (abs((el.a / entryRadius * (1.0 - el.e * el.e) - 1.0) / el.e) > 1.0)
-		{
-			//sprintf(oapiDebugString(), "%.1f No reentry! Min alt: %.2f km", simt, (prm.PeD - planetRad) / 1e3);
-			// Either PeA above or ApA below 87.5 km.
-		}
-		else if (radAtRetro > entryRadius)
-		{
-			double entryTrA = acos((el.a / entryRadius * (1.0 - el.e * el.e) - 1.0) / el.e);
-
-			if (entryTrA < PI) // entry is on trajectory towards perigee, which is at TrA = 0.0
-				entryTrA = PI2 - entryTrA;
-			double timeToEntry = TimeFromPerigee(postBurnPer, postBurnEcc, entryTrA) - TimeFromPerigee(postBurnPer, postBurnEcc, postBurnTrA);
-			if (NonsphericalGravityEnabled()) // Take J2 effects into consideration. Perturbs LAN and APe
-			{
-				// J2 coeffs from historical accurate value in 19980227091 paper (published in 1959)
-				postBurnAPe += 3.4722e-3 * RAD / 60.0 * pow(planetRad / postBurnSMa, 3) / pow(1.0 - postBurnEcc * postBurnEcc, 2) * (5.0 * cos(postBurnInc) * cos(postBurnInc) - 1.0) * timeToEntry;
-				postBurnLAN += -6.9444e-3 * RAD / 60.0 * pow(planetRad / postBurnSMa, 3) / pow(1.0 - postBurnEcc * postBurnEcc, 2) * cos(postBurnInc) * timeToEntry;
-				// We are not sooo extreme that we consider perturbions also after entry interface.
-				// But for a typical 500 seconds from retroburn to entry interface, there is a ~0.05 deg change, which accounts for 7.5 km cross-range. So it has some use here
-			}
-			double postBurnLPe = fmod(postBurnLAN + postBurnAPe, PI2);
-			double entryLong, entryLat;
-			GetEquPosInTime(timeToEntry, postBurnSMa, postBurnEcc, postBurnInc, postBurnPer, postBurnLPe, postBurnLAN, postBurnMnA, longAtRetro, &entryLong, &entryLat);
-
-			// Entry angle
-			double entryAngle = -abs(acos((1.0 + postBurnEcc * cos(entryTrA)) / sqrt(1.0 + postBurnEcc * postBurnEcc + 2.0 * postBurnEcc * cos(entryTrA))));
-			double entryAngleDeg = entryAngle * DEG;
-			double coeff1 = 1.5578, coeff2 = 9.3007, coeff3 = 22.6108;
-			double angleCoveredDuringReentry = (coeff1 * entryAngleDeg * entryAngleDeg + coeff2 * entryAngleDeg + coeff3) * RAD; // empirical formula from dataset of reentries. Second order polynomial
-			double landingLat = asin(sin(postBurnLPe - postBurnLAN + entryTrA + angleCoveredDuringReentry) * sin(postBurnInc));
-			double landingLong = entryLong + acos((cos(angleCoveredDuringReentry) - sin(entryLat) * sin(landingLat)) / cos(entryLat) / cos(landingLat));
-
-			//sprintf(oapiDebugString(), "%.1f Reentry in %.1f seconds. Final landing point %.2f\u00B0 long %.2f\u00B0 lat", simt, timeToEntry, landingLong * DEG, landingLat * DEG);
-		}
-	}
 }
 
 int ProjectMercury::clbkConsumeBufferedKey(DWORD key, bool down, char* kstate)
@@ -1549,6 +1491,11 @@ int ProjectMercury::clbkConsumeBufferedKey(DWORD key, bool down, char* kstate)
 				SetThrusterGroupLevel(THGROUP_MAIN, 1.0);
 				launchTime = oapiGetSimTime() + holdDownTime;
 				integratedSpeed = 0.0;
+
+				if (holdDownTime == 3.0) // if not, then it will not be synced
+				{
+					PlayVesselRadioExclusiveWave(OrbiterSoundID, OSATLASLAUNCHCOUNT);
+				}
 			}
 			else if (VesselStatus == LAUNCHCORETOWERSEP) // allow autopilot from a manual launch
 			{
@@ -3955,6 +3902,7 @@ void ProjectMercury::CapsuleSeparate(void)
 			if (abs(historyCutOffAngl) < 0.9063 && historyCutOffVel < maxVel && historyCutOffVel > minVel)
 			{
 				oapiWriteLog("GO for orbit!");
+				PlayVesselRadioExclusiveWave(OrbiterSoundID, OSGOFORSEVENORBITS);
 			}
 			else if (abs(historyCutOffAngl) < 0.9063 && historyCutOffVel < maxVel) // not larger than minVel
 			{

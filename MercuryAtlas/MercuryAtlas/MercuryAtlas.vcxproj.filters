@@ -26,6 +26,9 @@
     <Library Include="..\..\..\..\..\..\lib\Orbitersdk.lib">
       <Filter>Resource Files</Filter>
     </Library>
+    <Library Include="..\..\..\..\..\..\..\Sound\OrbiterSound_SDK\VESSELSOUND_SDK\ShuttlePB_project\OrbiterSoundSDK50.lib">
+      <Filter>Resource Files</Filter>
+    </Library>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\MercuryCapsule.h">

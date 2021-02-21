@@ -379,6 +379,21 @@ public:
 	int TextX0, TextY0, LineSpacing;
 	int secondColumnHUDx = 28; // The x-pos of the second collumn on the HUD
 
+	// OrbiterSound
+	int OrbiterSoundID;
+	void OrbiterSoundPlayTimeHackWav(int numeral);
+	enum orbitersoundsounds {OSLOWGTIMEHACK = 1, OSATLASLAUNCHCOUNT, OSGOFORSEVENORBITS, OSRETROCOUNT, OSSTANDBYSECO, OS0, OS1, OS2, OS3, OS4, OS5, OS6, OS7, OS8, OS9 } OSID; // start from 1, due to OrbiterSound rules
+	int OrbiterSoundLoadAndPlayNumber;
+	double OrbiterSoundStartTime = 0.0; // system time of when last sound was played
+	int OrbiterSoundLastPlayedSound = -1;
+	bool OrbiterSoundPlayTimeHack = false;
+	int OrbiterSoundTimeHackPlayIndex = 0; // in HH MM SS = 01 23 45. If 6, then we are finished with time hack.
+	int OrbiterSoundTimeHackToPlay[6] = { 0 }; // load in the digits to play in time hack.
+	bool OrbiterSoundLowGPlayed = false;
+	bool OrbiterSoundGoForOrbitPlayed = false;
+	bool OrbiterSoundRetroCountPlayed = false;
+	bool OrbiterSoundStandBySecoPlayed = false;
+
 private:
 
 	// Previously were const's, but as we now have manouver unit, they are changed. Thus have to be moved to private

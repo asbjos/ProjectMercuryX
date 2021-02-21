@@ -3,6 +3,7 @@
 #include <time.h> // for seed in random function
 #include "VirtualCockpit.h"
 #include "ProjectMercuryGeneric.h"
+#include "..\..\Sound\OrbiterSound_SDK\VESSELSOUND_SDK\ShuttlePB_project\OrbiterSoundSDK50.h"
 
 // ==============================================================
 //				Header file for Mercury Capsule.
@@ -2057,6 +2058,28 @@ inline void ProjectMercury::CapsuleGenericPostCreation(void)
 	}
 
 	oapiWriteLog(errorMsg);
+
+	// OrbiterSound
+	OrbiterSoundID = ConnectToOrbiterSoundDLL(GetHandle());
+	SetMyDefaultWaveDirectory("Sound\\_CustomVesselsSounds\\ProjectMercuryX\\");
+	// Load my sounds
+	RequestLoadVesselWave(OrbiterSoundID, OS0, "0.wav", DEFAULT);
+	RequestLoadVesselWave(OrbiterSoundID, OS1, "1.wav", DEFAULT);
+	RequestLoadVesselWave(OrbiterSoundID, OS2, "2.wav", DEFAULT);
+	RequestLoadVesselWave(OrbiterSoundID, OS3, "3.wav", DEFAULT);
+	RequestLoadVesselWave(OrbiterSoundID, OS4, "4.wav", DEFAULT);
+	RequestLoadVesselWave(OrbiterSoundID, OS5, "5.wav", DEFAULT);
+	RequestLoadVesselWave(OrbiterSoundID, OS6, "6.wav", DEFAULT);
+	RequestLoadVesselWave(OrbiterSoundID, OS7, "7.wav", DEFAULT);
+	RequestLoadVesselWave(OrbiterSoundID, OS8, "8.wav", DEFAULT);
+	RequestLoadVesselWave(OrbiterSoundID, OS9, "9.wav", DEFAULT);
+	RequestLoadVesselWave(OrbiterSoundID, OSLOWGTIMEHACK, "Estimating05GAt.wav", DEFAULT);
+	RequestLoadVesselWave(OrbiterSoundID, OSATLASLAUNCHCOUNT, "AtlasCount.wav", DEFAULT);
+	RequestLoadVesselWave(OrbiterSoundID, OSGOFORSEVENORBITS, "AtlasGo7orbits.wav", DEFAULT);
+	RequestLoadVesselWave(OrbiterSoundID, OSRETROCOUNT, "RedstoneRetrosequence.wav", DEFAULT);
+	RequestLoadVesselWave(OrbiterSoundID, OSSTANDBYSECO, "StandByForSECO.wav", DEFAULT);
+	// Disable RSC, as I've mapped it such that it may give sound even though no thruster is firing
+	SoundOptionOnOff(OrbiterSoundID, PLAYATTITUDETHRUST, false);
 }
 
 // Control every attitude setting, from ASCS norm, to aux damp, to fly-by-wire, to rate command, to fully manual
@@ -2518,6 +2541,116 @@ inline void ProjectMercury::MercuryCapsuleGenericTimestep(double simt, double si
 	if (!GroundContact() && vesselAcceleration < 0.05 * G) // Orbiter sometimes give 0 G when landed, so assure no ground contact
 	{
 		historyWeightlessTime += simdt;
+	}
+
+	// DEBUG! Print time to 0.05G and predicted landing point
+	OBJHANDLE planetRef = oapiGetGbodyByName("Earth");
+	if (planetRef == NULL) planetRef = GetSurfaceRef();
+
+	if (VesselStatus == REENTRY && !OrbiterSoundLowGPlayed && InRadioContact(planetRef))
+	{
+		// Entry interface at altitude 87 550 m
+		OBJHANDLE refPlanet = GetSurfaceRef();
+		double planetRad = oapiGetSize(refPlanet);
+		double entryRadius = 87550.0 + planetRad;
+
+		ELEMENTS el;
+		ORBITPARAM prm;
+		GetElements(refPlanet, el, &prm, 0.0, FRAME_EQU);
+		double postBurnPer = prm.T;
+		double postBurnEcc = el.e;
+		double postBurnTrA = prm.TrA;
+		double postBurnAPe = el.omegab - el.theta;
+		double postBurnLAN = el.theta;
+		double postBurnSMa = el.a;
+		double postBurnInc = el.i;
+		double postBurnMnA = TrA2MnA(postBurnTrA, postBurnEcc);
+		double longAtRetro, latAtRetro, radAtRetro;
+		GetEquPos(longAtRetro, latAtRetro, radAtRetro);
+
+		if (abs((el.a / entryRadius * (1.0 - el.e * el.e) - 1.0) / el.e) > 1.0)
+		{
+			//sprintf(oapiDebugString(), "%.1f No reentry! Min alt: %.2f km", simt, (prm.PeD - planetRad) / 1e3);
+			// Either PeA above or ApA below 87.5 km.
+		}
+		else if (radAtRetro > entryRadius)
+		{
+			double entryTrA = acos((el.a / entryRadius * (1.0 - el.e * el.e) - 1.0) / el.e);
+
+			if (entryTrA < PI) // entry is on trajectory towards perigee, which is at TrA = 0.0
+				entryTrA = PI2 - entryTrA;
+			double timeToEntry = TimeFromPerigee(postBurnPer, postBurnEcc, entryTrA) - TimeFromPerigee(postBurnPer, postBurnEcc, postBurnTrA);
+			if (NonsphericalGravityEnabled()) // Take J2 effects into consideration. Perturbs LAN and APe
+			{
+				// J2 coeffs from historical accurate value in 19980227091 paper (published in 1959)
+				postBurnAPe += 3.4722e-3 * RAD / 60.0 * pow(planetRad / postBurnSMa, 3) / pow(1.0 - postBurnEcc * postBurnEcc, 2) * (5.0 * cos(postBurnInc) * cos(postBurnInc) - 1.0) * timeToEntry;
+				postBurnLAN += -6.9444e-3 * RAD / 60.0 * pow(planetRad / postBurnSMa, 3) / pow(1.0 - postBurnEcc * postBurnEcc, 2) * cos(postBurnInc) * timeToEntry;
+				// We are not sooo extreme that we consider perturbions also after entry interface.
+				// But for a typical 500 seconds from retroburn to entry interface, there is a ~0.05 deg change, which accounts for 7.5 km cross-range. So it has some use here
+			}
+			double postBurnLPe = fmod(postBurnLAN + postBurnAPe, PI2);
+			double entryLong, entryLat;
+			GetEquPosInTime(timeToEntry, postBurnSMa, postBurnEcc, postBurnInc, postBurnPer, postBurnLPe, postBurnLAN, postBurnMnA, longAtRetro, &entryLong, &entryLat);
+
+			// Entry angle
+			double entryAngle = -abs(acos((1.0 + postBurnEcc * cos(entryTrA)) / sqrt(1.0 + postBurnEcc * postBurnEcc + 2.0 * postBurnEcc * cos(entryTrA))));
+			double entryAngleDeg = entryAngle * DEG;
+			double coeff1 = 1.5578, coeff2 = 9.3007, coeff3 = 22.6108;
+			double angleCoveredDuringReentry = (coeff1 * entryAngleDeg * entryAngleDeg + coeff2 * entryAngleDeg + coeff3) * RAD; // empirical formula from dataset of reentries. Second order polynomial
+			double landingLat = asin(sin(postBurnLPe - postBurnLAN + entryTrA + angleCoveredDuringReentry) * sin(postBurnInc));
+			double landingLong = entryLong + acos((cos(angleCoveredDuringReentry) - sin(entryLat) * sin(landingLat)) / cos(entryLat) / cos(landingLat));
+
+			//sprintf(oapiDebugString(), "%.1f Reentry in %.1f seconds. Final landing point %.2f\u00B0 long %.2f\u00B0 lat", simt, timeToEntry, landingLong * DEG, landingLat * DEG);
+
+			PlayVesselRadioExclusiveWave(OrbiterSoundID, OSLOWGTIMEHACK);
+			//OrbiterSoundLastPlayedSound = OSLOWGTIMEHACK;
+			OrbiterSoundStartTime = oapiGetSysTime();
+			OrbiterSoundLowGPlayed = true;
+
+			OrbiterSoundPlayTimeHack = true;
+			double lowGmet = simt - launchTime + timeToEntry;
+			double metFlow = lowGmet; // keep met unchanged, as it's used for retrotime
+			if (metFlow > (100.0 * 3600.0 - 1.0)) metFlow = fmod(metFlow, 100.0 * 3600.0); // overflow
+			int metH = (int)floor(metFlow / 3600.0);
+			int metM = (int)floor((metFlow - metH * 3600.0) / 60.0);
+			int metS = (int)floor((metFlow - metH * 3600.0 - metM * 60.0));
+			int digitToShow1 = int(metH / 10); // 24 -> 2
+			int digitToShow2 = metH - int(metH / 10) * 10; // 24 -> 4
+			int digitToShow3 = int(metM / 10); // 24 -> 2
+			int digitToShow4 = metM - int(metM / 10) * 10; // 24 -> 4
+			int digitToShow5 = int(metS / 10); // 24 -> 2
+			int digitToShow6 = metS - int(metS / 10) * 10; // 24 -> 4
+			OrbiterSoundTimeHackToPlay[0] = digitToShow1;
+			OrbiterSoundTimeHackToPlay[1] = digitToShow2;
+			OrbiterSoundTimeHackToPlay[2] = digitToShow3;
+			OrbiterSoundTimeHackToPlay[3] = digitToShow4;
+			OrbiterSoundTimeHackToPlay[4] = digitToShow5;
+			OrbiterSoundTimeHackToPlay[5] = digitToShow6;
+			OrbiterSoundTimeHackPlayIndex = 0;
+		}
+	}
+
+	if (OrbiterSoundPlayTimeHack && OrbiterSoundTimeHackPlayIndex < 6)
+	{
+		double systime = oapiGetSysTime();
+		if (OrbiterSoundTimeHackPlayIndex == 0 && systime > 3.5 + OrbiterSoundStartTime) // wait for lowG call to end
+		{
+			OrbiterSoundPlayTimeHackWav(OrbiterSoundTimeHackToPlay[OrbiterSoundTimeHackPlayIndex]);
+			OrbiterSoundTimeHackPlayIndex++;
+			OrbiterSoundStartTime = systime;
+		}
+		else if (OrbiterSoundTimeHackPlayIndex % 2 == 0 && systime > 1.5 + OrbiterSoundStartTime) // wait for last numeral to end, pair of 2 with extra spacing
+		{
+			OrbiterSoundPlayTimeHackWav(OrbiterSoundTimeHackToPlay[OrbiterSoundTimeHackPlayIndex]);
+			OrbiterSoundTimeHackPlayIndex++;
+			OrbiterSoundStartTime = systime;
+		}
+		else if (OrbiterSoundTimeHackPlayIndex % 2 == 1 && systime > 0.75 + OrbiterSoundStartTime) // wait for last numeral to end, pair of 2 with extra spacing
+		{
+			OrbiterSoundPlayTimeHackWav(OrbiterSoundTimeHackToPlay[OrbiterSoundTimeHackPlayIndex]);
+			OrbiterSoundTimeHackPlayIndex++;
+			OrbiterSoundStartTime = systime;
+		}
 	}
 }
 
@@ -3926,4 +4059,56 @@ void ProjectMercury::hliftEscape(VESSEL* v, double aoa, double M, double Re, voi
 	*cm = 0.0;
 
 	*cd *= 0.5;
+}
+
+//// Function thought out by dansteph, basically allowing any wav file to be played at command.
+//// The OrbiterSoundLoadAndPlayNumber value is to allow up to three files to play at the same time, deleting the oldest one if loading more.
+//void ProjectMercury::OrbiterSoundLoadAndPlay(char* WavFilename)
+//{
+//	OrbiterSoundLoadAndPlayNumber++;  // will use the next slot
+//   // Ensure that we use only our three slots (no need to initialise this value, it will be done at the first call)
+//	if (OrbiterSoundLoadAndPlayNumber > 60 || OrbiterSoundLoadAndPlayNumber < 58) // 58 to 60 are the ID's given by dansteph, so we have to use those.
+//		OrbiterSoundLoadAndPlayNumber = 58;
+//	//char FilenamePath[255] = { 0 };
+//	RequestLoadVesselWave(OrbiterSoundID, OrbiterSoundLoadAndPlayNumber, WavFilename, DEFAULT);
+//	PlayVesselWave(OrbiterSoundID, OrbiterSoundLoadAndPlayNumber);
+//}
+
+void ProjectMercury::OrbiterSoundPlayTimeHackWav(int numeral)
+{
+	switch (numeral)
+	{
+	case 0:
+		PlayVesselRadioExclusiveWave(OrbiterSoundID, OS0);
+		break;
+	case 1:
+		PlayVesselRadioExclusiveWave(OrbiterSoundID, OS1);
+		break;
+	case 2:
+		PlayVesselRadioExclusiveWave(OrbiterSoundID, OS2);
+		break;
+	case 3:
+		PlayVesselRadioExclusiveWave(OrbiterSoundID, OS3);
+		break;
+	case 4:
+		PlayVesselRadioExclusiveWave(OrbiterSoundID, OS4);
+		break;
+	case 5:
+		PlayVesselRadioExclusiveWave(OrbiterSoundID, OS5);
+		break;
+	case 6:
+		PlayVesselRadioExclusiveWave(OrbiterSoundID, OS6);
+		break;
+	case 7:
+		PlayVesselRadioExclusiveWave(OrbiterSoundID, OS7);
+		break;
+	case 8:
+		PlayVesselRadioExclusiveWave(OrbiterSoundID, OS8);
+		break;
+	case 9:
+		PlayVesselRadioExclusiveWave(OrbiterSoundID, OS9);
+		break;
+	default:
+		break;
+	}
 }
