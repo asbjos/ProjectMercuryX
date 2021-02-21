@@ -1262,6 +1262,64 @@ void ProjectMercury::clbkPostStep(double simt, double simdt, double mjd)
 		conceptThrusterLevel[2] = 0.0;
 		conceptThrusterLevel[3] = 0.0;
 	}
+
+	// DEBUG! Print time to 0.05G and predicted landing point
+	if (VesselStatus == REENTRY)
+	{
+		// Entry interface at altitude 87 550 m
+		OBJHANDLE refPlanet = GetSurfaceRef();
+		double planetRad = oapiGetSize(refPlanet);
+		double entryRadius = 87550.0 + planetRad;
+
+		ELEMENTS el;
+		ORBITPARAM prm;
+		GetElements(refPlanet, el, &prm, 0.0, FRAME_EQU);
+		double postBurnPer = prm.T;
+		double postBurnEcc = el.e;
+		double postBurnTrA = prm.TrA;
+		double postBurnAPe = el.omegab - el.theta;
+		double postBurnLAN = el.theta;
+		double postBurnSMa = el.a;
+		double postBurnInc = el.i;
+		double postBurnMnA = TrA2MnA(postBurnTrA, postBurnEcc);
+		double longAtRetro, latAtRetro, radAtRetro;
+		GetEquPos(longAtRetro, latAtRetro, radAtRetro);
+
+		if (abs((el.a / entryRadius * (1.0 - el.e * el.e) - 1.0) / el.e) > 1.0)
+		{
+			//sprintf(oapiDebugString(), "%.1f No reentry! Min alt: %.2f km", simt, (prm.PeD - planetRad) / 1e3);
+			// Either PeA above or ApA below 87.5 km.
+		}
+		else if (radAtRetro > entryRadius)
+		{
+			double entryTrA = acos((el.a / entryRadius * (1.0 - el.e * el.e) - 1.0) / el.e);
+
+			if (entryTrA < PI) // entry is on trajectory towards perigee, which is at TrA = 0.0
+				entryTrA = PI2 - entryTrA;
+			double timeToEntry = TimeFromPerigee(postBurnPer, postBurnEcc, entryTrA) - TimeFromPerigee(postBurnPer, postBurnEcc, postBurnTrA);
+			if (NonsphericalGravityEnabled()) // Take J2 effects into consideration. Perturbs LAN and APe
+			{
+				// J2 coeffs from historical accurate value in 19980227091 paper (published in 1959)
+				postBurnAPe += 3.4722e-3 * RAD / 60.0 * pow(planetRad / postBurnSMa, 3) / pow(1.0 - postBurnEcc * postBurnEcc, 2) * (5.0 * cos(postBurnInc) * cos(postBurnInc) - 1.0) * timeToEntry;
+				postBurnLAN += -6.9444e-3 * RAD / 60.0 * pow(planetRad / postBurnSMa, 3) / pow(1.0 - postBurnEcc * postBurnEcc, 2) * cos(postBurnInc) * timeToEntry;
+				// We are not sooo extreme that we consider perturbions also after entry interface.
+				// But for a typical 500 seconds from retroburn to entry interface, there is a ~0.05 deg change, which accounts for 7.5 km cross-range. So it has some use here
+			}
+			double postBurnLPe = fmod(postBurnLAN + postBurnAPe, PI2);
+			double entryLong, entryLat;
+			GetEquPosInTime(timeToEntry, postBurnSMa, postBurnEcc, postBurnInc, postBurnPer, postBurnLPe, postBurnLAN, postBurnMnA, longAtRetro, &entryLong, &entryLat);
+
+			// Entry angle
+			double entryAngle = -abs(acos((1.0 + postBurnEcc * cos(entryTrA)) / sqrt(1.0 + postBurnEcc * postBurnEcc + 2.0 * postBurnEcc * cos(entryTrA))));
+			double entryAngleDeg = entryAngle * DEG;
+			double coeff1 = 1.5578, coeff2 = 9.3007, coeff3 = 22.6108;
+			double angleCoveredDuringReentry = (coeff1 * entryAngleDeg * entryAngleDeg + coeff2 * entryAngleDeg + coeff3) * RAD; // empirical formula from dataset of reentries. Second order polynomial
+			double landingLat = asin(sin(postBurnLPe - postBurnLAN + entryTrA + angleCoveredDuringReentry) * sin(postBurnInc));
+			double landingLong = entryLong + acos((cos(angleCoveredDuringReentry) - sin(entryLat) * sin(landingLat)) / cos(entryLat) / cos(landingLat));
+
+			//sprintf(oapiDebugString(), "%.1f Reentry in %.1f seconds. Final landing point %.2f\u00B0 long %.2f\u00B0 lat", simt, timeToEntry, landingLong * DEG, landingLat * DEG);
+		}
+	}
 }
 
 int ProjectMercury::clbkConsumeBufferedKey(DWORD key, bool down, char* kstate)
@@ -3453,8 +3511,8 @@ void ProjectMercury::GetEquPosInTime(double t, double SMa, double Ecc, double In
 	double M0 = M;
 	// TrA in x seconds
 	M = fmod(M + PI2 * t / Per, PI2);
-	double TrA = M + (2.0 * Ecc - pow(Ecc, 3.0) / 4.0) * sin(M) + 5.0 / 4.0 * pow(Ecc, 2.0) * sin(2.0 * M) + 13.0 / 12.0 * pow(Ecc, 3.0) * sin(3.0 * M);
-	double TrA0 = M0 + (2.0 * Ecc - pow(Ecc, 3.0) / 4.0) * sin(M0) + 5.0 / 4.0 * pow(Ecc, 2.0) * sin(2.0 * M0) + 13.0 / 12.0 * pow(Ecc, 3.0) * sin(3.0 * M0);
+	double TrA = MnA2TrA(M, Ecc);
+	double TrA0 = MnA2TrA(M0, Ecc);
 
 	double u = LPe - LAN + TrA;
 	double u0 = LPe - LAN + TrA0;
@@ -3463,16 +3521,7 @@ void ProjectMercury::GetEquPosInTime(double t, double SMa, double Ecc, double In
 	alpha -= alpha0;
 
 	double longi = alpha + longAtNow - PI2 / oapiGetPlanetPeriod(GetSurfaceRef()) * t;
-	if (longi > 0.0)
-	{
-		while (longi > PI)
-			longi -= PI2;
-	}
-	else
-	{
-		while (longi < -PI)
-			longi += PI2;
-	}
+	longi = normangle(longi);
 
 	double lati = asin(sin(u) * sin(Inc));
 
@@ -3500,8 +3549,8 @@ bool ProjectMercury::GetLandingPointIfRetroInXSeconds(double t, ELEMENTS el, ORB
 	if (NonsphericalGravityEnabled()) // Take J2 effects into consideration. Perturbs LAN and APe
 	{
 		// J2 coeffs from historical accurate value in 19980227091 paper (published in 1959)
-		APe += 3.4722e-3 * RAD / 60.0 * pow(planetRad / el.a, 3.0) / pow(1.0 - el.e * el.e, 2.0) * (5.0 * cos(el.i) * cos(el.i) - 1.0) * t;
-		LAN += -6.9444e-3 * RAD / 60.0 * pow(planetRad / el.a, 3.0) / pow(1.0 - el.e * el.e, 2.0) * cos(el.i) * t;
+		APe += 3.4722e-3 * RAD / 60.0 * pow(planetRad / el.a, 3) / pow(1.0 - el.e * el.e, 2) * (5.0 * cos(el.i) * cos(el.i) - 1.0) * t;
+		LAN += -6.9444e-3 * RAD / 60.0 * pow(planetRad / el.a, 3) / pow(1.0 - el.e * el.e, 2) * cos(el.i) * t;
 	}
 	VECTOR3 statePos, stateVel; // Thank you to https://downloads.rene-schwarz.com/download/M001-Keplerian_Orbit_Elements_to_Cartesian_State_Vectors.pdf
 	statePos.x = orbitalFramePos.x * (cos(APe) * cos(LAN) - sin(APe) * cos(el.i) * sin(LAN)) - orbitalFramePos.y * (sin(APe) * cos(LAN) + cos(APe) * cos(el.i) * sin(LAN));
@@ -3523,7 +3572,10 @@ bool ProjectMercury::GetLandingPointIfRetroInXSeconds(double t, ELEMENTS el, ORB
 
 	postBurnPos = currPos;
 	double dV = 132.5;
-	postBurnVel = currVel - unit(currVel) * dV * cos(34.0 * RAD) - unit(currPos) * dV * sin(34.0 * RAD); // assumning currVel is horizontal
+	//VECTOR3 horizontalDirection = currVel; // this assumes that currVel is horizontal (i.e. at Ap or Pe or e=0). This is however not always the case
+	VECTOR3 horizontalDirection = currVel - currPos * dotp(currVel, currPos) / length2(currPos); // mapping vector onto plane, using https://www.maplesoft.com/support/help/Maple/view.aspx?path=MathApps%2FProjectionOfVectorOntoPlane
+	postBurnVel = currVel - unit(horizontalDirection) * dV * cos(34.0 * RAD) - unit(currPos) * dV * sin(34.0 * RAD);
+	// vel =		curr	- 34 deg from hor * dV							-	56 deg from down * dv
 
 	double postBurnR = length(postBurnPos);
 	double postBurnV = length(postBurnVel);
@@ -3562,8 +3614,8 @@ bool ProjectMercury::GetLandingPointIfRetroInXSeconds(double t, ELEMENTS el, ORB
 	if (NonsphericalGravityEnabled()) // Take J2 effects into consideration. Perturbs LAN and APe
 	{
 		// J2 coeffs from historical accurate value in 19980227091 paper (published in 1959)
-		 postBurnAPe += 3.4722e-3 * RAD / 60.0 * pow(planetRad / postBurnSMa, 3.0) / pow(1.0 - postBurnEcc * postBurnEcc, 2.0) * (5.0 * cos(postBurnInc) * cos(postBurnInc) - 1.0) * timeToEntry;
-		 postBurnLAN += -6.9444e-3 * RAD / 60.0 * pow(planetRad / postBurnSMa, 3.0) / pow(1.0 - postBurnEcc * postBurnEcc, 2.0) * cos(postBurnInc) * timeToEntry;
+		 postBurnAPe += 3.4722e-3 * RAD / 60.0 * pow(planetRad / postBurnSMa, 3) / pow(1.0 - postBurnEcc * postBurnEcc, 2) * (5.0 * cos(postBurnInc) * cos(postBurnInc) - 1.0) * timeToEntry;
+		 postBurnLAN += -6.9444e-3 * RAD / 60.0 * pow(planetRad / postBurnSMa, 3) / pow(1.0 - postBurnEcc * postBurnEcc, 2) * cos(postBurnInc) * timeToEntry;
 		 // We are not sooo extreme that we consider perturbions also after entry interface.
 		 // But for a typical 500 seconds from retroburn to entry interface, there is a ~0.05 deg change, which accounts for 7.5 km cross-range. So it has some use here
 	}

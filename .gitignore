@@ -84,3 +84,11 @@ MercuryAtlas/MercuryAtlas/Release/MercuryAtlas.log
 MercuryAtlas/.vs/MercuryAtlas/v16/ipch/AutoPCH/1755673056783448/MERCURYATLAS.ipch
 MercuryAtlas/.vs/MercuryAtlas/v16/Browse.VC.db
 MercuryAtlas/.vs/MercuryAtlas/v16/.suo
+MercuryAtlas/.vs/MercuryAtlas/v16/Browse.VC.opendb
+MercuryAtlas/.vs/MercuryAtlas/v16/.suo
+MercuryAtlas/.vs/MercuryAtlas/v16/Browse.VC.db
+*.ipch
+*.log
+*.tlog
+*.tlog
+*.pdb

@@ -279,7 +279,7 @@ bool ProjectMercury::SetPitchAuto(double targetPitch, bool highTorque)
 	// where lowTorque yaw thruster failed, and Glenn commented that it thus drifted to "about 20 deg", before
 	// highTorque pit him back on track)
 	// See ma-6-results.pdf page 169 (voice transcript at 01 33 52), and page 79 of same document .
-	if (!highTorque && abs(pitch) > 20.0 * RAD) AutopilotStatus = TURNAROUND;
+	if (!highTorque && abs(pitch) > 20.0 * RAD && VesselStatus == FLIGHT) AutopilotStatus = TURNAROUND; // Add flight-condition, as if in reentry-mode, it will disable ASCS (only looks for ReentryAtt or LowG).
 
 	if (highTorque)
 	{
@@ -393,7 +393,7 @@ bool ProjectMercury::SetYawAuto(bool highTorque)
 	// where lowTorque yaw thruster failed, and Glenn commented that it thus drifted to "about 20 deg", before
 	// highTorque pit him back on track)
 	// See ma-6-results.pdf page 169 (voice transcript at 01 33 52), and page 79 of same document .
-	if (!highTorque && abs(yaw) < 160.0 * RAD) AutopilotStatus = TURNAROUND;
+	if (!highTorque && abs(yaw) < 160.0 * RAD && VesselStatus == FLIGHT) AutopilotStatus = TURNAROUND; // Add flight-condition, as if in reentry-mode, it will disable ASCS (only looks for ReentryAtt or LowG).
 
 	if (highTorque)
 	{
@@ -508,7 +508,7 @@ bool ProjectMercury::SetRollAuto(bool highTorque)
 	// where lowTorque yaw thruster failed, and Glenn commented that it thus drifted to "about 20 deg", before
 	// highTorque pit him back on track)
 	// See ma-6-results.pdf page 169 (voice transcript at 01 33 52), and page 79 of same document .
-	if (!highTorque && abs(roll) > 20.0 * RAD) AutopilotStatus = TURNAROUND;
+	if (!highTorque && abs(roll) > 20.0 * RAD && VesselStatus == FLIGHT) AutopilotStatus = TURNAROUND; // Add flight-condition, as if in reentry-mode, it will disable ASCS (only looks for ReentryAtt or LowG).
 
 	if (highTorque)
 	{
@@ -2098,6 +2098,7 @@ inline void ProjectMercury::CapsuleAttitudeControl(double simt, double simdt)
 				RetroAttitudeAuto(simt, simdt, true);
 			}
 
+			// Why have I commented this out? I did this several months ago, but now (Feb. 2021) I have no idea. Now I know (five minutes later): I've moved it to CapsuleGenericTimestep inside the engageRetro loop
 			//if (engageRetro && simt - retroStartTime > 60.0 && switchAutoRetroJet == -1) // both for suborbital and orbital missions (19640056774 page 12 and doi:10.1002/j.2161-4296.1962.tb02524.x page 2)
 			//{
 			//	prepareReentryAction = true;
@@ -2139,6 +2140,11 @@ inline void ProjectMercury::CapsuleAttitudeControl(double simt, double simdt)
 			else if (AutopilotStatus == LOWG)
 			{
 				GRollAuto(simt, simdt);
+			}
+			else
+			{
+				// DEBUG, I've noticed that if jettison retropack while in timeAcc (e.g. 10x), ASCS stops functioning, failing to revert to reentry attitude, even after going back to 1x and flipping ASCS switch.
+				sprintf(oapiDebugString(), "%.2f ERROR WARNING! AutopilotStatus %i", simt, AutopilotStatus);
 			}
 		}
 	}
