@@ -9,7 +9,7 @@
 //				Header file for Mercury Capsule.
 //				Created by Asbjørn "asbjos" Krüger
 //					asbjorn.kruger@gmail.com
-//						Made in 2019
+//						Made in 2019-2021
 // 
 // Based on Project Mercury addon by "estar", with permission.
 // This code is my own work.
@@ -40,10 +40,6 @@ bool ProjectMercury::clbkLoadGenericCockpit(void)
 
 void ProjectMercury::clbkRenderHUD(int mode, const HUDPAINTSPEC* hps, SURFHANDLE hDefaultTex)
 {
-	OBJHANDLE planetRef = oapiGetGbodyByName("Earth");
-	if (planetRef == NULL) planetRef = GetSurfaceRef();
-	bool radioContact = InRadioContact(planetRef);
-
 	if (oapiCockpitMode() == COCKPIT_PANELS)
 	{
 		// It seems like I have to do something here, or else Orbiter crashes when returning to generic HUD. So call a stupid function or something.
@@ -2079,7 +2075,8 @@ inline void ProjectMercury::CapsuleGenericPostCreation(void)
 	RequestLoadVesselWave(OrbiterSoundID, OSRETROCOUNT, "RedstoneRetrosequence.wav", DEFAULT);
 	RequestLoadVesselWave(OrbiterSoundID, OSSTANDBYSECO, "StandByForSECO.wav", DEFAULT);
 	// Disable RSC, as I've mapped it such that it may give sound even though no thruster is firing
-	SoundOptionOnOff(OrbiterSoundID, PLAYATTITUDETHRUST, false);
+	//SoundOptionOnOff(OrbiterSoundID, PLAYATTITUDETHRUST, false);
+	//RequestLoadVesselWave(OrbiterSoundID, OSATTITUDE, "..\\..\\Vessel\\attfire.wav", INTERNAL_ONLY); // and load the sound for manual playing
 }
 
 // Control every attitude setting, from ASCS norm, to aux damp, to fly-by-wire, to rate command, to fully manual
@@ -2372,6 +2369,25 @@ inline void ProjectMercury::CapsuleAttitudeControl(double simt, double simdt)
 		SetThrusterLevel(thruster_auto_roll_1lb[0], 0.0);
 		SetThrusterLevel(thruster_auto_roll_1lb[1], 0.0);
 	}
+
+	// Control sound. Normally, OrbiterSound plays generic RCS sound when a thruster group is active. But with my implementation, a thruster group can be activated, without activating thrusters (e.g. when in ASCS, or when disabled thrusters).
+	// Therefore, here in the end, check if we eject fuel, and if we do, then play sound.
+	double finalThrustLevel =
+		GetThrusterLevel(thruster_auto_py[0]) + GetThrusterLevel(thruster_auto_py[1]) + GetThrusterLevel(thruster_auto_py[2]) + GetThrusterLevel(thruster_auto_py[3]) + GetThrusterLevel(thruster_auto_roll[0]) + GetThrusterLevel(thruster_auto_roll[1]) +
+		GetThrusterLevel(thruster_auto_py_1lb[0]) + GetThrusterLevel(thruster_auto_py_1lb[1]) + GetThrusterLevel(thruster_auto_py_1lb[2]) + GetThrusterLevel(thruster_auto_py_1lb[3]) + GetThrusterLevel(thruster_auto_roll_1lb[0]) + GetThrusterLevel(thruster_auto_roll_1lb[1]) +
+		GetThrusterLevel(thruster_man_py[0]) + GetThrusterLevel(thruster_man_py[1]) + GetThrusterLevel(thruster_man_py[2]) + GetThrusterLevel(thruster_man_py[3]) + GetThrusterLevel(thruster_man_roll[0]) + GetThrusterLevel(thruster_man_roll[1]);
+	if (finalThrustLevel == 0.0)
+	{
+		//PlayVesselWave(OrbiterSoundID, OSATTITUDE);
+		//sprintf(oapiDebugString(), "Stopping RCS %.2f", simt);
+		SetThrusterGroupLevel(THGROUP_ATT_PITCHUP, 0.0);
+		SetThrusterGroupLevel(THGROUP_ATT_PITCHDOWN, 0.0);
+		SetThrusterGroupLevel(THGROUP_ATT_YAWLEFT, 0.0);
+		SetThrusterGroupLevel(THGROUP_ATT_YAWRIGHT, 0.0);
+		SetThrusterGroupLevel(THGROUP_ATT_BANKLEFT, 0.0);
+		SetThrusterGroupLevel(THGROUP_ATT_BANKRIGHT, 0.0);
+	}
+
 }
 
 inline void ProjectMercury::FlyByWireControlSingleDirection(double thrustLevel, THRUSTER_HANDLE high, THRUSTER_HANDLE low, bool tHandlePushed)
@@ -2401,6 +2417,11 @@ inline void ProjectMercury::FlyByWireControlSingleDirection(double thrustLevel, 
 // This function always runs every timestep, from clbkPostStep.
 inline void ProjectMercury::MercuryCapsuleGenericTimestep(double simt, double simdt, double latit, double longit, double getAlt)
 {
+	// Check if we're in contact with a base. This is used for hiding MFDs, radio sounds, retrotime calculations and more.
+	OBJHANDLE planetRef = oapiGetGbodyByName("Earth");
+	if (planetRef == NULL) planetRef = GetSurfaceRef();
+	radioContact = InRadioContact(planetRef);
+
 	// If we're in panel mode with 2D panel, then animate. Note that oapiCameraInternal only gives true if in focus object, so first condition is not necessary, but better safe than sorry, especially considering potential later Orbiter verion changing it.
 	if (oapiGetFocusObject() == GetHandle() && oapiCameraInternal() && oapiCockpitMode() == COCKPIT_PANELS && panelView)
 	{
@@ -2544,15 +2565,16 @@ inline void ProjectMercury::MercuryCapsuleGenericTimestep(double simt, double si
 	}
 
 	// DEBUG! Print time to 0.05G and predicted landing point
-	OBJHANDLE planetRef = oapiGetGbodyByName("Earth");
-	if (planetRef == NULL) planetRef = GetSurfaceRef();
+	//OBJHANDLE planetRef = oapiGetGbodyByName("Earth");
+	//if (planetRef == NULL) planetRef = GetSurfaceRef();
 
-	if (VesselStatus == REENTRY && !OrbiterSoundLowGPlayed && InRadioContact(planetRef))
+	if (VesselStatus == REENTRY && !OrbiterSoundLowGPlayed && radioContact)
 	{
 		// Entry interface at altitude 87 550 m
 		OBJHANDLE refPlanet = GetSurfaceRef();
 		double planetRad = oapiGetSize(refPlanet);
-		double entryRadius = 87550.0 + planetRad;
+		double entryRadius = 87550.0 + planetRad; // 70568, 70430, 70544, 70342, 70287, 70181, 70503, 70409, 70567
+		if (suborbitalMission) entryRadius = 70500.0 + planetRad; // between 70.2 and 70.6 km for regular Redstone mission, but as we're moving down at 1 km/s, we don't need precission for a fairly accurate time.
 
 		ELEMENTS el;
 		ORBITPARAM prm;
@@ -2627,30 +2649,49 @@ inline void ProjectMercury::MercuryCapsuleGenericTimestep(double simt, double si
 			OrbiterSoundTimeHackToPlay[4] = digitToShow5;
 			OrbiterSoundTimeHackToPlay[5] = digitToShow6;
 			OrbiterSoundTimeHackPlayIndex = 0;
+			sprintf(oapiDebugString(), "DEBUG! %.2f 05GTime: %i%i %i%i %i%i", simt, OrbiterSoundTimeHackToPlay[0], OrbiterSoundTimeHackToPlay[1], OrbiterSoundTimeHackToPlay[2], OrbiterSoundTimeHackToPlay[3], OrbiterSoundTimeHackToPlay[4], OrbiterSoundTimeHackToPlay[5]);
 		}
 	}
 
 	if (OrbiterSoundPlayTimeHack && OrbiterSoundTimeHackPlayIndex < 6)
 	{
 		double systime = oapiGetSysTime();
-		if (OrbiterSoundTimeHackPlayIndex == 0 && systime > 3.5 + OrbiterSoundStartTime) // wait for lowG call to end
+		if (OrbiterSoundTimeHackPlayIndex == 0 && systime > 4.0 + OrbiterSoundStartTime) // wait for lowG call to end
 		{
 			OrbiterSoundPlayTimeHackWav(OrbiterSoundTimeHackToPlay[OrbiterSoundTimeHackPlayIndex]);
 			OrbiterSoundTimeHackPlayIndex++;
 			OrbiterSoundStartTime = systime;
+			//sprintf(oapiDebugString(), "Played %i: %i at %.2f", OrbiterSoundTimeHackPlayIndex - 1, OrbiterSoundTimeHackToPlay[OrbiterSoundTimeHackPlayIndex - 1], simt); // debug!
 		}
-		else if (OrbiterSoundTimeHackPlayIndex % 2 == 0 && systime > 1.5 + OrbiterSoundStartTime) // wait for last numeral to end, pair of 2 with extra spacing
+		else if (OrbiterSoundTimeHackPlayIndex != 0)
 		{
-			OrbiterSoundPlayTimeHackWav(OrbiterSoundTimeHackToPlay[OrbiterSoundTimeHackPlayIndex]);
-			OrbiterSoundTimeHackPlayIndex++;
-			OrbiterSoundStartTime = systime;
+			if (OrbiterSoundTimeHackPlayIndex % 2 == 0 && systime > 1.5 + OrbiterSoundStartTime) // wait for last numeral to end, pair of 2 with extra spacing
+			{
+				OrbiterSoundPlayTimeHackWav(OrbiterSoundTimeHackToPlay[OrbiterSoundTimeHackPlayIndex]);
+				OrbiterSoundTimeHackPlayIndex++;
+				OrbiterSoundStartTime = systime;
+				//sprintf(oapiDebugString(), "Played %i: %i at %.2f", OrbiterSoundTimeHackPlayIndex - 1, OrbiterSoundTimeHackToPlay[OrbiterSoundTimeHackPlayIndex - 1], simt); // debug!
+			}
+			else if (OrbiterSoundTimeHackPlayIndex % 2 == 1 && systime > 0.75 + OrbiterSoundStartTime) // wait for last numeral to end, pair of 2 with extra spacing. OrbiterSound will fail to play if same file plays on top of itself. So make sure that the extra spacing is longer than the longest numeral wav file. (0.74 s)
+			{
+				OrbiterSoundPlayTimeHackWav(OrbiterSoundTimeHackToPlay[OrbiterSoundTimeHackPlayIndex]);
+				OrbiterSoundTimeHackPlayIndex++;
+				OrbiterSoundStartTime = systime;
+				//sprintf(oapiDebugString(), "Played %i: %i at %.2f", OrbiterSoundTimeHackPlayIndex - 1, OrbiterSoundTimeHackToPlay[OrbiterSoundTimeHackPlayIndex - 1], simt); // debug!
+			}
 		}
-		else if (OrbiterSoundTimeHackPlayIndex % 2 == 1 && systime > 0.75 + OrbiterSoundStartTime) // wait for last numeral to end, pair of 2 with extra spacing
-		{
-			OrbiterSoundPlayTimeHackWav(OrbiterSoundTimeHackToPlay[OrbiterSoundTimeHackPlayIndex]);
-			OrbiterSoundTimeHackPlayIndex++;
-			OrbiterSoundStartTime = systime;
-		}
+	}
+
+	if (!OrbiterSoundGoForOrbitPlayed && simt > OrbiterSoundGoForOrbitTime) // OrbiterSoundGoForOrbitTime will be "infinite" if not go for orbit.
+	{
+		PlayVesselRadioExclusiveWave(OrbiterSoundID, OSGOFORSEVENORBITS);
+		OrbiterSoundGoForOrbitPlayed = true;
+	}
+
+	if (radioContact && VesselStatus == FLIGHT && !OrbiterSoundRetroCountPlayed && engageRetro && simt - retroStartTime < -5.0 && simt - retroStartTime > -6.0) // in retro, and between 5 and 6 seconds to fire
+	{
+		PlayVesselRadioExclusiveWave(OrbiterSoundID, OSRETROCOUNT);
+		OrbiterSoundRetroCountPlayed = true;
 	}
 }
 
@@ -4109,6 +4150,7 @@ void ProjectMercury::OrbiterSoundPlayTimeHackWav(int numeral)
 		PlayVesselRadioExclusiveWave(OrbiterSoundID, OS9);
 		break;
 	default:
+		sprintf(oapiDebugString(), "%.2f ERROR! Could not play sound %i", oapiGetSimTime(), numeral);
 		break;
 	}
 }

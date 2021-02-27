@@ -1203,6 +1203,7 @@ void ProjectMercury::clbkPostStep(double simt, double simdt, double mjd)
 		CapsuleAttitudeControl(simt, simdt);
 	}
 
+
 	if ((VesselStatus == LAUNCH || VesselStatus == TOWERSEP || VesselStatus == LAUNCHCORE || VesselStatus == LAUNCHCORETOWERSEP) && !autoPilot) // not autopilot
 	{
 		SetADCtrlMode(7); // enable adc
@@ -2960,6 +2961,12 @@ void ProjectMercury::AtlasAutopilot(double simt, double simdt)
 				pitchRate = -0.5 * RAD;
 			else
 				pitchRate = 0.0;
+
+			if (!OrbiterSoundStandBySecoPlayed)
+			{
+				PlayVesselRadioExclusiveWave(OrbiterSoundID, OSSTANDBYSECO);
+				OrbiterSoundStandBySecoPlayed = true;
+			}
 		}
 		else // normal PEG algorithm: use the PEG pitch rate
 		{
@@ -3902,7 +3909,7 @@ void ProjectMercury::CapsuleSeparate(void)
 			if (abs(historyCutOffAngl) < 0.9063 && historyCutOffVel < maxVel && historyCutOffVel > minVel)
 			{
 				oapiWriteLog("GO for orbit!");
-				PlayVesselRadioExclusiveWave(OrbiterSoundID, OSGOFORSEVENORBITS);
+				OrbiterSoundGoForOrbitTime = oapiGetSimTime() + (5.0 * GenerateRandomNorm() + 30.0); // play ca. 30 sec after SECO
 			}
 			else if (abs(historyCutOffAngl) < 0.9063 && historyCutOffVel < maxVel) // not larger than minVel
 			{

@@ -382,14 +382,13 @@ public:
 	// OrbiterSound
 	int OrbiterSoundID;
 	void OrbiterSoundPlayTimeHackWav(int numeral);
-	enum orbitersoundsounds {OSLOWGTIMEHACK = 1, OSATLASLAUNCHCOUNT, OSGOFORSEVENORBITS, OSRETROCOUNT, OSSTANDBYSECO, OS0, OS1, OS2, OS3, OS4, OS5, OS6, OS7, OS8, OS9 } OSID; // start from 1, due to OrbiterSound rules
-	int OrbiterSoundLoadAndPlayNumber;
+	enum orbitersoundsounds {OSLOWGTIMEHACK = 1, OSATLASLAUNCHCOUNT, OSGOFORSEVENORBITS, OSRETROCOUNT, OSSTANDBYSECO, OS0, OS1, OS2, OS3, OS4, OS5, OS6, OS7, OS8, OS9, OSATTITUDE }; // start from 1, due to OrbiterSound rules
 	double OrbiterSoundStartTime = 0.0; // system time of when last sound was played
-	int OrbiterSoundLastPlayedSound = -1;
 	bool OrbiterSoundPlayTimeHack = false;
 	int OrbiterSoundTimeHackPlayIndex = 0; // in HH MM SS = 01 23 45. If 6, then we are finished with time hack.
 	int OrbiterSoundTimeHackToPlay[6] = { 0 }; // load in the digits to play in time hack.
 	bool OrbiterSoundLowGPlayed = false;
+	double OrbiterSoundGoForOrbitTime = 1e10; // simtime to play go for orbit if in radio contact. Will be 30 seconds stdDev 5 after SECO. 1e10 is infinity, or 317 years. I expect Orbiter to crash before such a huge timejump.
 	bool OrbiterSoundGoForOrbitPlayed = false;
 	bool OrbiterSoundRetroCountPlayed = false;
 	bool OrbiterSoundStandBySecoPlayed = false;
@@ -608,6 +607,7 @@ private:
 							   1 = Only flight data
 							   2 = Nothing (only stock HUD)*/
 	char contactBase[50];
+	bool radioContact = true;
 	bool leftMFDwasOn = false;
 	bool rightMFDwasOn = false;
 	bool MercuryNetwork = true;
