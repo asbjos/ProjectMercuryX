@@ -2074,6 +2074,9 @@ inline void ProjectMercury::CapsuleGenericPostCreation(void)
 	RequestLoadVesselWave(OrbiterSoundID, OSGOFORSEVENORBITS, "AtlasGo7orbits.wav", DEFAULT);
 	RequestLoadVesselWave(OrbiterSoundID, OSRETROCOUNT, "RedstoneRetrosequence.wav", DEFAULT);
 	RequestLoadVesselWave(OrbiterSoundID, OSSTANDBYSECO, "StandByForSECO.wav", DEFAULT);
+	RequestLoadVesselWave(OrbiterSoundID, OSSTANDBYCUTOFF, "RedstoneStandByForCutoff.wav", DEFAULT);
+	RequestLoadVesselWave(OrbiterSoundID, OSTRAJGO, "RedstonePitch77TrajGo.wav", DEFAULT);
+	RequestLoadVesselWave(OrbiterSoundID, OSLOWG10S, "05GIn10Sec.wav", DEFAULT);
 	// Disable RSC, as I've mapped it such that it may give sound even though no thruster is firing
 	//SoundOptionOnOff(OrbiterSoundID, PLAYATTITUDETHRUST, false);
 	//RequestLoadVesselWave(OrbiterSoundID, OSATTITUDE, "..\\..\\Vessel\\attfire.wav", INTERNAL_ONLY); // and load the sound for manual playing
@@ -2568,7 +2571,7 @@ inline void ProjectMercury::MercuryCapsuleGenericTimestep(double simt, double si
 	//OBJHANDLE planetRef = oapiGetGbodyByName("Earth");
 	//if (planetRef == NULL) planetRef = GetSurfaceRef();
 
-	if (VesselStatus == REENTRY && !OrbiterSoundLowGPlayed && radioContact)
+	if (VesselStatus == REENTRY && (!OrbiterSoundLowGPlayed || !OrbiterSoundLowG10secPlayed) && radioContact)
 	{
 		// Entry interface at altitude 87 550 m
 		OBJHANDLE refPlanet = GetSurfaceRef();
@@ -2590,10 +2593,11 @@ inline void ProjectMercury::MercuryCapsuleGenericTimestep(double simt, double si
 		double longAtRetro, latAtRetro, radAtRetro;
 		GetEquPos(longAtRetro, latAtRetro, radAtRetro);
 
-		if (abs((el.a / entryRadius * (1.0 - el.e * el.e) - 1.0) / el.e) > 1.0)
+		if (abs((el.a / entryRadius * (1.0 - el.e * el.e) - 1.0) / el.e) > 1.0 || prm.TrA < PI)
 		{
 			//sprintf(oapiDebugString(), "%.1f No reentry! Min alt: %.2f km", simt, (prm.PeD - planetRad) / 1e3);
 			// Either PeA above or ApA below 87.5 km.
+			// Or going up (TrA < PI), which gives negative time to entry, which is bad
 		}
 		else if (radAtRetro > entryRadius)
 		{
@@ -2602,54 +2606,63 @@ inline void ProjectMercury::MercuryCapsuleGenericTimestep(double simt, double si
 			if (entryTrA < PI) // entry is on trajectory towards perigee, which is at TrA = 0.0
 				entryTrA = PI2 - entryTrA;
 			double timeToEntry = TimeFromPerigee(postBurnPer, postBurnEcc, entryTrA) - TimeFromPerigee(postBurnPer, postBurnEcc, postBurnTrA);
-			if (NonsphericalGravityEnabled()) // Take J2 effects into consideration. Perturbs LAN and APe
-			{
-				// J2 coeffs from historical accurate value in 19980227091 paper (published in 1959)
-				postBurnAPe += 3.4722e-3 * RAD / 60.0 * pow(planetRad / postBurnSMa, 3) / pow(1.0 - postBurnEcc * postBurnEcc, 2) * (5.0 * cos(postBurnInc) * cos(postBurnInc) - 1.0) * timeToEntry;
-				postBurnLAN += -6.9444e-3 * RAD / 60.0 * pow(planetRad / postBurnSMa, 3) / pow(1.0 - postBurnEcc * postBurnEcc, 2) * cos(postBurnInc) * timeToEntry;
-				// We are not sooo extreme that we consider perturbions also after entry interface.
-				// But for a typical 500 seconds from retroburn to entry interface, there is a ~0.05 deg change, which accounts for 7.5 km cross-range. So it has some use here
-			}
-			double postBurnLPe = fmod(postBurnLAN + postBurnAPe, PI2);
-			double entryLong, entryLat;
-			GetEquPosInTime(timeToEntry, postBurnSMa, postBurnEcc, postBurnInc, postBurnPer, postBurnLPe, postBurnLAN, postBurnMnA, longAtRetro, &entryLong, &entryLat);
+			//if (NonsphericalGravityEnabled()) // Take J2 effects into consideration. Perturbs LAN and APe
+			//{
+			//	// J2 coeffs from historical accurate value in 19980227091 paper (published in 1959)
+			//	postBurnAPe += 3.4722e-3 * RAD / 60.0 * pow(planetRad / postBurnSMa, 3) / pow(1.0 - postBurnEcc * postBurnEcc, 2) * (5.0 * cos(postBurnInc) * cos(postBurnInc) - 1.0) * timeToEntry;
+			//	postBurnLAN += -6.9444e-3 * RAD / 60.0 * pow(planetRad / postBurnSMa, 3) / pow(1.0 - postBurnEcc * postBurnEcc, 2) * cos(postBurnInc) * timeToEntry;
+			//	// We are not sooo extreme that we consider perturbions also after entry interface.
+			//	// But for a typical 500 seconds from retroburn to entry interface, there is a ~0.05 deg change, which accounts for 7.5 km cross-range. So it has some use here
+			//}
+			//double postBurnLPe = fmod(postBurnLAN + postBurnAPe, PI2);
+			//double entryLong, entryLat;
+			//GetEquPosInTime(timeToEntry, postBurnSMa, postBurnEcc, postBurnInc, postBurnPer, postBurnLPe, postBurnLAN, postBurnMnA, longAtRetro, &entryLong, &entryLat);
 
-			// Entry angle
-			double entryAngle = -abs(acos((1.0 + postBurnEcc * cos(entryTrA)) / sqrt(1.0 + postBurnEcc * postBurnEcc + 2.0 * postBurnEcc * cos(entryTrA))));
-			double entryAngleDeg = entryAngle * DEG;
-			double coeff1 = 1.5578, coeff2 = 9.3007, coeff3 = 22.6108;
-			double angleCoveredDuringReentry = (coeff1 * entryAngleDeg * entryAngleDeg + coeff2 * entryAngleDeg + coeff3) * RAD; // empirical formula from dataset of reentries. Second order polynomial
-			double landingLat = asin(sin(postBurnLPe - postBurnLAN + entryTrA + angleCoveredDuringReentry) * sin(postBurnInc));
-			double landingLong = entryLong + acos((cos(angleCoveredDuringReentry) - sin(entryLat) * sin(landingLat)) / cos(entryLat) / cos(landingLat));
+			//// Entry angle
+			//double entryAngle = -abs(acos((1.0 + postBurnEcc * cos(entryTrA)) / sqrt(1.0 + postBurnEcc * postBurnEcc + 2.0 * postBurnEcc * cos(entryTrA))));
+			//double entryAngleDeg = entryAngle * DEG;
+			//double coeff1 = 1.5578, coeff2 = 9.3007, coeff3 = 22.6108;
+			//double angleCoveredDuringReentry = (coeff1 * entryAngleDeg * entryAngleDeg + coeff2 * entryAngleDeg + coeff3) * RAD; // empirical formula from dataset of reentries. Second order polynomial
+			//double landingLat = asin(sin(postBurnLPe - postBurnLAN + entryTrA + angleCoveredDuringReentry) * sin(postBurnInc));
+			//double landingLong = entryLong + acos((cos(angleCoveredDuringReentry) - sin(entryLat) * sin(landingLat)) / cos(entryLat) / cos(landingLat));
 
 			//sprintf(oapiDebugString(), "%.1f Reentry in %.1f seconds. Final landing point %.2f\u00B0 long %.2f\u00B0 lat", simt, timeToEntry, landingLong * DEG, landingLat * DEG);
 
-			PlayVesselRadioExclusiveWave(OrbiterSoundID, OSLOWGTIMEHACK);
-			//OrbiterSoundLastPlayedSound = OSLOWGTIMEHACK;
-			OrbiterSoundStartTime = oapiGetSysTime();
-			OrbiterSoundLowGPlayed = true;
+			if (!OrbiterSoundLowGPlayed)
+			{
+				PlayVesselRadioExclusiveWave(OrbiterSoundID, OSLOWGTIMEHACK);
+				//OrbiterSoundLastPlayedSound = OSLOWGTIMEHACK;
+				OrbiterSoundStartTime = oapiGetSysTime();
+				OrbiterSoundLowGPlayed = true;
 
-			OrbiterSoundPlayTimeHack = true;
-			double lowGmet = simt - launchTime + timeToEntry;
-			double metFlow = lowGmet; // keep met unchanged, as it's used for retrotime
-			if (metFlow > (100.0 * 3600.0 - 1.0)) metFlow = fmod(metFlow, 100.0 * 3600.0); // overflow
-			int metH = (int)floor(metFlow / 3600.0);
-			int metM = (int)floor((metFlow - metH * 3600.0) / 60.0);
-			int metS = (int)floor((metFlow - metH * 3600.0 - metM * 60.0));
-			int digitToShow1 = int(metH / 10); // 24 -> 2
-			int digitToShow2 = metH - int(metH / 10) * 10; // 24 -> 4
-			int digitToShow3 = int(metM / 10); // 24 -> 2
-			int digitToShow4 = metM - int(metM / 10) * 10; // 24 -> 4
-			int digitToShow5 = int(metS / 10); // 24 -> 2
-			int digitToShow6 = metS - int(metS / 10) * 10; // 24 -> 4
-			OrbiterSoundTimeHackToPlay[0] = digitToShow1;
-			OrbiterSoundTimeHackToPlay[1] = digitToShow2;
-			OrbiterSoundTimeHackToPlay[2] = digitToShow3;
-			OrbiterSoundTimeHackToPlay[3] = digitToShow4;
-			OrbiterSoundTimeHackToPlay[4] = digitToShow5;
-			OrbiterSoundTimeHackToPlay[5] = digitToShow6;
-			OrbiterSoundTimeHackPlayIndex = 0;
-			sprintf(oapiDebugString(), "DEBUG! %.2f 05GTime: %i%i %i%i %i%i", simt, OrbiterSoundTimeHackToPlay[0], OrbiterSoundTimeHackToPlay[1], OrbiterSoundTimeHackToPlay[2], OrbiterSoundTimeHackToPlay[3], OrbiterSoundTimeHackToPlay[4], OrbiterSoundTimeHackToPlay[5]);
+				OrbiterSoundPlayTimeHack = true;
+				double lowGmet = simt - launchTime + timeToEntry;
+				double metFlow = lowGmet; // keep met unchanged, as it's used for retrotime
+				if (metFlow > (100.0 * 3600.0 - 1.0)) metFlow = fmod(metFlow, 100.0 * 3600.0); // overflow
+				int metH = (int)floor(metFlow / 3600.0);
+				int metM = (int)floor((metFlow - metH * 3600.0) / 60.0);
+				int metS = (int)floor((metFlow - metH * 3600.0 - metM * 60.0));
+				int digitToShow1 = int(metH / 10); // 24 -> 2
+				int digitToShow2 = metH - int(metH / 10) * 10; // 24 -> 4
+				int digitToShow3 = int(metM / 10); // 24 -> 2
+				int digitToShow4 = metM - int(metM / 10) * 10; // 24 -> 4
+				int digitToShow5 = int(metS / 10); // 24 -> 2
+				int digitToShow6 = metS - int(metS / 10) * 10; // 24 -> 4
+				OrbiterSoundTimeHackToPlay[0] = digitToShow1;
+				OrbiterSoundTimeHackToPlay[1] = digitToShow2;
+				OrbiterSoundTimeHackToPlay[2] = digitToShow3;
+				OrbiterSoundTimeHackToPlay[3] = digitToShow4;
+				OrbiterSoundTimeHackToPlay[4] = digitToShow5;
+				OrbiterSoundTimeHackToPlay[5] = digitToShow6;
+				OrbiterSoundTimeHackPlayIndex = 0;
+				//sprintf(oapiDebugString(), "DEBUG! %.2f 05GTime: %i%i %i%i %i%i", simt, OrbiterSoundTimeHackToPlay[0], OrbiterSoundTimeHackToPlay[1], OrbiterSoundTimeHackToPlay[2], OrbiterSoundTimeHackToPlay[3], OrbiterSoundTimeHackToPlay[4], OrbiterSoundTimeHackToPlay[5]);
+			}
+
+			if (!OrbiterSoundLowG10secPlayed && timeToEntry < 10.0)
+			{
+				PlayVesselRadioExclusiveWave(OrbiterSoundID, OSLOWG10S);
+				OrbiterSoundLowG10secPlayed = true;
+			}
 		}
 	}
 
@@ -4150,7 +4163,7 @@ void ProjectMercury::OrbiterSoundPlayTimeHackWav(int numeral)
 		PlayVesselRadioExclusiveWave(OrbiterSoundID, OS9);
 		break;
 	default:
-		sprintf(oapiDebugString(), "%.2f ERROR! Could not play sound %i", oapiGetSimTime(), numeral);
+		oapiWriteLogV("ERROR in OrbiterSoundPlayTimeHackWav. Could not play sound %i at simt %.2f", numeral, oapiGetSimTime());
 		break;
 	}
 }

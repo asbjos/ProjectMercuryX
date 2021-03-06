@@ -719,7 +719,11 @@ inline void ProjectMercury::AnimateDials(void)
 	idx += 1;
 
 	// Altitude
-	float altitude = float(GetAltitude() / 304.8); // ft
+	//float altitude = float(GetAltitude() / 304.8); // ft
+	// Altitude is calculated from static pressure. Mimic that, although I assume Orbiter currently doesn't model pressure difference due to weather/complex atmosphere.
+	double staticPressure = GetAtmPressure();
+	float altitude = -log(GetAtmPressure() / ATMP) * 8.314 * (273.15 + 15.0) / G / 0.028964 / 304.8f; // 0.02894 is the molar mass of Earth's atmosphere, https://en.wikipedia.org/wiki/Barometric_formula.
+	sprintf(oapiDebugString(), "%.2f, act. alt: %.0f, pres.alt %.0f", simt, GetAltitude(), altitude * 304.8);
 	RotateArmGroup(armGroups[idx], altPos[0], altPos[1], 135.0f, 10.0f, ValueToAngle(altitude, 0.0f, 100.0f, 120.0f, 450.0f), 0.85f);
 	idx += 1;
 

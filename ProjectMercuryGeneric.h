@@ -289,9 +289,12 @@ inline double ProjectMercury::MnA2TrA(double MnA, double Ecc)
 
 inline double ProjectMercury::TrA2MnA(double TrA, double Ecc)
 {
-	double MnA = TrA - 2.0 * Ecc * sin(TrA) + (3.0 / 4.0 * pow(Ecc, 2) + pow(Ecc, 4) / 8.0) * sin(2.0 * TrA) - pow(Ecc, 3) / 3.0 * sin(3.0 * TrA) + 5.0 / 32.0 * pow(Ecc, 4) * sin(4.0 * TrA);
+	//double MnA = TrA - 2.0 * Ecc * sin(TrA) + (3.0 / 4.0 * pow(Ecc, 2) + pow(Ecc, 4) / 8.0) * sin(2.0 * TrA) - pow(Ecc, 3) / 3.0 * sin(3.0 * TrA) + 5.0 / 32.0 * pow(Ecc, 4) * sin(4.0 * TrA);
+	// Old Taylor series diverges for high Ecc and is in general shit, when we can use analytical result.
 
-	return MnA;
+	double EccAnom = EccentricAnomaly(Ecc, TrA);
+	//if (Ecc > 1.0) return Ecc * sinh(EccAnom) - EccAnom; // hyperbolic
+	return EccAnom - Ecc * sin(EccAnom); // elliptic
 }
 
 // TrA in radians
@@ -310,4 +313,38 @@ void ProjectMercury::myStrncpy(char* writeTo, const char* readFrom, int len)
 		i++;
 	}
 	writeTo[i] = '\0';
+}
+
+// TrA and Eanomaly in radians
+inline double ProjectMercury::TimeFromPerigee(double period, double ecc, double TrA)
+{
+	return period / PI2 * (EccentricAnomaly(ecc, TrA) - ecc * sin(EccentricAnomaly(ecc, TrA)));
+}
+
+void ProjectMercury::GetEquPosInTime(double t, double SMa, double Ecc, double Inc, double Per, double LPe, double LAN, double M, double longAtNow, double* longitude, double* latitude)
+{
+	// This method is partly from NTRS document 20160000809
+
+	double planetRad = oapiGetSize(GetSurfaceRef());
+	double planetMu = oapiGetMass(GetSurfaceRef()) * GGRAV;
+
+	double M0 = M;
+	// TrA in x seconds
+	M = fmod(M + PI2 * t / Per, PI2);
+	double TrA = MnA2TrA(M, Ecc);
+	double TrA0 = MnA2TrA(M0, Ecc);
+
+	double u = LPe - LAN + TrA;
+	double u0 = LPe - LAN + TrA0;
+	double alpha = atan2(cos(u) * sin(LAN) + sin(u) * cos(LAN) * cos(Inc), cos(u) * cos(LAN) - sin(u) * sin(LAN) * cos(Inc));
+	double alpha0 = atan2(cos(u0) * sin(LAN) + sin(u0) * cos(LAN) * cos(Inc), cos(u0) * cos(LAN) - sin(u0) * sin(LAN) * cos(Inc));
+	alpha -= alpha0;
+
+	double longi = alpha + longAtNow - PI2 / oapiGetPlanetPeriod(GetSurfaceRef()) * t;
+	longi = normangle(longi);
+
+	double lati = asin(sin(u) * sin(Inc));
+
+	*longitude = longi;
+	*latitude = lati;
 }

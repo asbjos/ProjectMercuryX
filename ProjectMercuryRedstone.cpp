@@ -1697,6 +1697,18 @@ void ProjectMercury::RedstoneAutopilot(double simt, double simdt)
 
 		if (boilerplateMission) autoPilot = false; // at least on MR-BD, there was a dummy escape tower and no capsule sep, so simpy turn off guidance
 	}
+
+	if (!OrbiterSoundPitch77Played && 76.5 < pitch && pitch < 77.5 && radioContact)
+	{
+		PlayVesselRadioExclusiveWave(OrbiterSoundID, OSTRAJGO);
+		OrbiterSoundPitch77Played = true;
+	}
+
+	if (!OrbiterSoundStandByCutoffPlayed && integratedSpeed > integratedSpeedLimit - 250.0 && radioContact) // gives a call at approx T+2:17, which is when it was historically said.
+	{
+		PlayVesselRadioExclusiveWave(OrbiterSoundID, OSSTANDBYCUTOFF);
+		OrbiterSoundStandByCutoffPlayed = true;
+	}
 }
 
 void ProjectMercury::DefineRudderAnimations(void)

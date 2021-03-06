@@ -228,6 +228,8 @@ public:
 	void DefineRudderAnimations(void);
 	void DefineJetVaneAnimations(void);
 	void CreateAirfoilsRedstone(void);
+	double TimeFromPerigee(double period, double ecc, double TrA);
+	void GetEquPosInTime(double t, double SMa, double Ecc, double Inc, double Per, double LPe, double LAN, double M, double longAtNow, double* longitude, double* latitude);
 
 	void AuxDampingAuto(bool highThrust);
 	void RetroAttitudeAuto(double simt, double simdt, bool retroAtt);
@@ -363,6 +365,23 @@ public:
 	DWORD ScreenWidth, ScreenHeight, ScreenColour;
 	int TextX0, TextY0, LineSpacing;
 	int secondColumnHUDx = 28; // The x-pos of the second collumn on the HUD
+
+	// OrbiterSound
+	int OrbiterSoundID;
+	void OrbiterSoundPlayTimeHackWav(int numeral);
+	enum orbitersoundsounds { OSLOWGTIMEHACK = 1, OSATLASLAUNCHCOUNT, OSGOFORSEVENORBITS, OSRETROCOUNT, OSSTANDBYSECO, OSTRAJGO, OSSTANDBYCUTOFF, OSLOWG10S, OS0, OS1, OS2, OS3, OS4, OS5, OS6, OS7, OS8, OS9, OSATTITUDE }; // start from 1, due to OrbiterSound rules
+	double OrbiterSoundStartTime = 0.0; // system time of when last sound was played
+	bool OrbiterSoundPlayTimeHack = false;
+	int OrbiterSoundTimeHackPlayIndex = 0; // in HH MM SS = 01 23 45. If 6, then we are finished with time hack.
+	int OrbiterSoundTimeHackToPlay[6] = { 0 }; // load in the digits to play in time hack.
+	bool OrbiterSoundLowGPlayed = false;
+	double OrbiterSoundGoForOrbitTime = 1e10; // simtime to play go for orbit if in radio contact. Will be 30 seconds stdDev 5 after SECO. 1e10 is infinity, or 317 years. I expect Orbiter to crash before such a huge timejump.
+	bool OrbiterSoundGoForOrbitPlayed = false;
+	bool OrbiterSoundRetroCountPlayed = false;
+	bool OrbiterSoundStandBySecoPlayed = false;
+	bool OrbiterSoundPitch77Played = false;
+	bool OrbiterSoundStandByCutoffPlayed = false;
+	bool OrbiterSoundLowG10secPlayed = false;
 
 private:
 	static void vlift(VESSEL* v, double aoa, double M, double Re, void* context, double* cl, double* cm, double* cd);
@@ -522,6 +541,7 @@ private:
 							   1 = Only flight data
 							   2 = Nothing (only stock HUD)*/
 	char contactBase[50];
+	bool radioContact = true;
 	bool leftMFDwasOn = false;
 	bool rightMFDwasOn = false;
 	bool MercuryNetwork = true;

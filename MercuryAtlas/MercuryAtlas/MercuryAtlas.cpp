@@ -3423,12 +3423,6 @@ double ProjectMercury::AtlasTargetCutOffAzimuth(double simt, double ri, double l
 	return asin(sinAzimuth1) * DEG;
 }
 
-// TrA and Eanomaly in radians
-inline double ProjectMercury::TimeFromPerigee(double period, double ecc, double TrA)
-{
-	return period / PI2 * (EccentricAnomaly(ecc, TrA) - ecc * sin(EccentricAnomaly(ecc, TrA)));
-}
-
 inline VECTOR3 ProjectMercury::Ecl2Equ(VECTOR3 Ecl)
 {
 	MATRIX3 rot;
@@ -3453,34 +3447,6 @@ inline VECTOR3 ProjectMercury::Equ2Ecl(VECTOR3 Equ)
 	R = mul(R1, R2);
 	VECTOR3 Ecl = tmul(R, Equ);
 	return Ecl;
-}
-
-void ProjectMercury::GetEquPosInTime(double t, double SMa, double Ecc, double Inc, double Per, double LPe, double LAN, double M, double longAtNow, double* longitude, double* latitude)
-{
-	// This method is partly from NTRS document 20160000809
-
-	double planetRad = oapiGetSize(GetSurfaceRef());
-	double planetMu = oapiGetMass(GetSurfaceRef()) * GGRAV;
-
-	double M0 = M;
-	// TrA in x seconds
-	M = fmod(M + PI2 * t / Per, PI2);
-	double TrA = MnA2TrA(M, Ecc);
-	double TrA0 = MnA2TrA(M0, Ecc);
-
-	double u = LPe - LAN + TrA;
-	double u0 = LPe - LAN + TrA0;
-	double alpha = atan2(cos(u) * sin(LAN) + sin(u) * cos(LAN) * cos(Inc), cos(u) * cos(LAN) - sin(u) * sin(LAN) * cos(Inc));
-	double alpha0 = atan2(cos(u0) * sin(LAN) + sin(u0) * cos(LAN) * cos(Inc), cos(u0) * cos(LAN) - sin(u0) * sin(LAN) * cos(Inc));
-	alpha -= alpha0;
-
-	double longi = alpha + longAtNow - PI2 / oapiGetPlanetPeriod(GetSurfaceRef()) * t;
-	longi = normangle(longi);
-
-	double lati = asin(sin(u) * sin(Inc));
-
-	*longitude = longi;
-	*latitude = lati;
 }
 
 bool ProjectMercury::GetLandingPointIfRetroInXSeconds(double t, ELEMENTS el, ORBITPARAM prm, double longAtNow, double* longitude, double* latitude)
