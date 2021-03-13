@@ -1,4 +1,0 @@
-﻿  MercuryAtlas.cpp
-C:\Orbiter2016\Orbitersdk\samples\Experiments\ShuttlePBforReal\ShuttlePBforReal\MercuryCapsule.h(2397,33): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
-C:\Orbiter2016\Orbitersdk\samples\Experiments\ShuttlePBforReal\ShuttlePBforReal\MercuryCapsule.h(2398,34): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
-  MercuryAtlas.vcxproj -> C:\Orbiter2016\Orbitersdk\samples\Experiments\ShuttlePBforReal\ShuttlePBforReal\MercuryAtlas\MercuryAtlas\..\..\..\..\..\..\..\Modules\ProjectMercury\ProjectMercuryAtlas.dll
